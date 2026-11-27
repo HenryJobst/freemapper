@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The credit lines of the states: the text each licence prescribes, the year it carries and
 //! when it is due.
 
@@ -220,11 +222,12 @@ fn berlin(used: &UsedSources<'_>) -> Vec<String> {
     lines
 }
 
-/// The attribution lines of the city tree cadastres in `registers` ([`drawn_registers`]): one
+/// The attribution lines of the city tree cadastres in `registers` (`drawn_registers`): one
 /// for each dataset that drew trees.
 pub fn tree_attribution(registers: &[&str]) -> Vec<String> {
-    crate::states::all_tree_datasets()
-        .into_iter()
+    crate::states::adapters()
+        .iter()
+        .flat_map(|adapter| adapter.tree_datasets().to_vec())
         .filter(|d| registers.contains(&d.id.as_ref()))
         .map(|d| d.attribution.to_string())
         .collect()
@@ -232,6 +235,27 @@ pub fn tree_attribution(registers: &[&str]) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn every_city_tree_cadastre_is_credited_when_it_drew_trees() {
+        // Not only Potsdam: the licences of Leipzig, Frankfurt (Oder) or Lübeck ask for a credit.
+        let mut seen = 0;
+        for adapter in crate::states::adapters() {
+            for dataset in adapter.tree_datasets() {
+                let lines = super::tree_attribution(&[dataset.id.as_ref()]);
+                assert_eq!(
+                    lines,
+                    vec![dataset.attribution.to_string()],
+                    "{}",
+                    dataset.id
+                );
+                assert!(!dataset.attribution.is_empty(), "{}", dataset.id);
+                seen += 1;
+            }
+        }
+        assert!(seen >= 10, "{seen} tree cadastres");
+        assert!(super::tree_attribution(&["no-such-city"]).is_empty());
+    }
+
     use chrono::NaiveDate;
     use freemapper_adapter_api::adapter::RegionAdapter as _;
     use freemapper_adapter_api::credit::{AlkisUse, lines_with_licences};

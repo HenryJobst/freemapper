@@ -1,7 +1,11 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! GeoSN Saxony open data (dl-de/by-2-0, source note "GeoSN"): 2 km tiles of the terrain and
 //! surface models, their currency and download links from the ArcGIS tile index.
 
 use crate::sources::lgb::ProductTiles as _;
+use freemapper_adapter_api::fetch::get_with_retries;
+#[cfg(any(test, feature = "testing"))]
 use std::borrow::Cow;
 use std::path::Path;
 
@@ -20,6 +24,7 @@ use freemapper_sources::wms::OrthophotoSource;
 use serde_json::Value;
 
 use crate::crs::BoundingBox;
+#[cfg(any(test, feature = "testing"))]
 use crate::crs::Crs;
 use crate::fetch::{FetchError, Fetcher};
 use crate::lgb::TileProvider;
@@ -30,10 +35,14 @@ use crate::sources::wms::{self, WmsService};
 use crate::tile_fetch::{TilePaths as _, TileProducts, fetch_tiles, fetch_tiles_each, tile_inputs};
 use crate::tiles::TileId;
 
-/// The orthophoto WMS (DOP20 RGB, released flights), and its layers.
+/// The orthophoto WMS (DOP20 RGB, released flights): where the manifest of Saxony says it is
+/// (`[orthophoto]`, issue #273); the tests are held to these values.
+#[cfg(any(test, feature = "testing"))]
 pub const WMS_URL: &str = "https://geodienste.sachsen.de/wms_geosn_dop-rgb/guest";
+#[cfg(any(test, feature = "testing"))]
 const WMS_LAYER: &str = "sn_dop_020";
-/// The orthophoto WMS of GeoSN (EPSG:25833).
+/// The orthophoto WMS of GeoSN (EPSG:25833), as the manifest of Saxony declares it.
+#[cfg(any(test, feature = "testing"))]
 pub const WMS: WmsService = WmsService {
     url: Cow::Borrowed(WMS_URL),
     layer: Cow::Borrowed(WMS_LAYER),
@@ -118,18 +127,19 @@ pub fn parse_index(json: &str) -> Result<Vec<IndexRow>, String> {
 }
 
 /// The GetMap requests covering `grid`; see [`wms::pieces`].
-pub fn wms_requests(grid: &GridSpec) -> Vec<(GridSpec, String)> {
-    wms::pieces(&WMS, grid)
+pub fn wms_requests(wms: &WmsService, grid: &GridSpec) -> Vec<(GridSpec, String)> {
+    wms::pieces(wms, grid)
 }
 
 /// Downloads the orthophoto over `bbox` from the GeoSN WMS; see [`wms::fetch_orthophoto`].
 pub fn fetch_orthophoto(
     fetcher: &dyn Fetcher,
+    wms: &WmsService,
     bbox: &BoundingBox,
     root: &Path,
     out: &Path,
 ) -> Result<(), FetchError> {
-    wms::fetch_orthophoto(fetcher, &WMS, bbox, root, out)
+    wms::fetch_orthophoto(fetcher, wms, bbox, root, out)
 }
 
 /// `v` rounded to millimetres.
@@ -139,21 +149,22 @@ fn mm(v: f64) -> f64 {
 
 /// The flight date at the centre of `bbox` from the info layer; `None` when the server does not
 /// tell it.
-pub fn flight_date(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Option<String> {
+pub fn flight_date(fetcher: &dyn Fetcher, wms: &WmsService, bbox: &BoundingBox) -> Option<String> {
     let (e, n) = (
         mm((bbox.min_e + bbox.max_e) / 2.0),
         mm((bbox.min_n + bbox.max_n) / 2.0),
     );
     let url = format!(
-        "{WMS_URL}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS={WMS_INFO_LAYER}\
+        "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS={WMS_INFO_LAYER}\
          &QUERY_LAYERS={WMS_INFO_LAYER}&STYLES=&CRS=EPSG:25833&BBOX={},{},{},{}&WIDTH=101\
          &HEIGHT=101&I=50&J=50&INFO_FORMAT=text/plain",
+        wms.url,
         e - 10.1,
         n - 10.1,
         e + 10.1,
         n + 10.1
     );
-    let bytes = fetcher.get(&url).ok()?;
+    let bytes = get_with_retries(fetcher, &url, |bytes| Ok(bytes.to_vec())).ok()?;
     parse_flight_date(&String::from_utf8_lossy(&bytes))
 }
 
@@ -169,11 +180,15 @@ pub fn parse_flight_date(text: &str) -> Option<String> {
 /// and the orthophoto from the WMS for the area.
 pub struct GeosnBackend {
     info: ProviderInfo,
+    /// The orthophoto WMS, as the manifest says it.
+    wms: WmsService,
 }
 
 impl GeosnBackend {
-    pub fn new() -> Self {
+    /// The backend that asks `wms` for the orthophoto.
+    pub fn with_wms(wms: WmsService) -> Self {
         Self {
+            wms,
             info: ProviderInfo {
                 id: AdapterId::built_in(TileProvider::GeoSn.id()),
                 cache_dir: Some(TileProvider::GeoSn.id().to_string()),
@@ -186,6 +201,15 @@ impl GeosnBackend {
     }
 }
 
+#[cfg(any(test, feature = "testing"))]
+impl GeosnBackend {
+    /// The backend with the WMS the manifest of Saxony declares.
+    pub fn new() -> Self {
+        Self::with_wms(WMS)
+    }
+}
+
+#[cfg(any(test, feature = "testing"))]
 impl Default for GeosnBackend {
     fn default() -> Self {
         Self::new()
@@ -203,7 +227,7 @@ impl RasterBackend for GeosnBackend {
         project: &mut dyn RasterProject,
         bbox: &BoundingBox,
     ) -> Result<(), AdapterError> {
-        fetch_rasters(env, project, bbox)
+        fetch_rasters(env, project, bbox, &self.wms)
     }
 
     fn derive_inputs(
@@ -229,6 +253,7 @@ fn fetch_rasters(
     env: &mut AdapterEnv<'_>,
     project: &mut dyn RasterProject,
     bbox: &BoundingBox,
+    wms: &WmsService,
 ) -> Result<(), AdapterError> {
     let (fetcher, mode, skip_surface) = (env.fetcher, env.mode, env.skip_surface);
     let cache = env.cache;
@@ -306,12 +331,12 @@ fn fetch_rasters(
             error = Arg::error(e)
         )),
     }
-    let flight = || flight_date(fetcher, bbox);
+    let flight = || flight_date(fetcher, wms, bbox);
     fetch_wms_orthophoto(
         env,
         project,
         bbox,
-        (&OrthophotoSource::Wms(WMS), "GeoSN", &flight, None),
+        (&OrthophotoSource::Wms(wms.clone()), "GeoSN", &flight, None),
     )?;
     project.save()?;
     Ok(())
@@ -422,7 +447,7 @@ mod tests {
 
     #[test]
     fn wms_pieces_cover_the_grid() {
-        let pieces = wms_requests(&grid(9000, 5000));
+        let pieces = wms_requests(&WMS, &grid(9000, 5000));
         let sizes: Vec<(u32, u32)> = pieces.iter().map(|(g, _)| (g.width, g.height)).collect();
         assert_eq!(
             sizes,
@@ -494,9 +519,9 @@ mod tests {
         let fetcher = Wms {
             calls: std::cell::Cell::new(0),
         };
-        fetch_orthophoto(&fetcher, &bbox, out.parent().unwrap(), &out).unwrap();
+        fetch_orthophoto(&fetcher, &WMS, &bbox, out.parent().unwrap(), &out).unwrap();
         assert_eq!(
-            flight_date(&fetcher, &bbox).as_deref(),
+            flight_date(&fetcher, &WMS, &bbox).as_deref(),
             Some("19.03. + 07.04.2024")
         );
         let image = image::open(&out).unwrap().to_rgb8();
@@ -526,8 +551,8 @@ mod tests {
             max_e: 415_100.0,
             max_n: 5_656_000.0,
         };
-        let err =
-            fetch_orthophoto(&fetcher, &bbox, dir.path(), &dir.path().join("o.jpg")).unwrap_err();
+        let err = fetch_orthophoto(&fetcher, &WMS, &bbox, dir.path(), &dir.path().join("o.jpg"))
+            .unwrap_err();
         assert!(
             err.to_string().contains("the WMS answered with an error"),
             "{err}"

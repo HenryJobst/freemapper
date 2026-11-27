@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The date of a raster, asked of a standard service: a WFS that answers GeoJSON, a STAC API,
 //! or the feature info of a WMS. Each asks at the centre of the map area. The states that have
 //! such a service call these readers with their addresses; a manifest names them as the `date`

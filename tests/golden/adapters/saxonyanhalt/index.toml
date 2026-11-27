@@ -102,6 +102,6 @@ bytes = 3203
 
 [[response]]
 method = "GET"
-url = "https://download.geofabrik.de/europe/germany/sachsen-anhalt-updates/state.txt"
+url = "https://download.geofabrik.de/europe/germany/sachsen-anhalt/updates/state.txt"
 body = "5e65bd14ced8aa17aeaca76a84afd2adb82dad9c03ded3842dabd2ca4638d106"
 bytes = 113

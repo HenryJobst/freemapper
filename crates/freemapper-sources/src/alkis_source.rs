@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Ready-made ALKIS sources for an adapter: a classic "ALKIS vereinfacht" WFS, and an OGC API
 //! Features service with an optional WFS of the same data behind it. Both deliver features in
 //! the LGB schema.

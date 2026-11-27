@@ -2,6 +2,11 @@
 *.omap.bak
 .DS_Store
 .worktrees/
+# Local state of assistants and editors: AiderDesk's tasks, JetBrains project files and the
+# shell history of aider. None of it belongs to the project.
+/.aider-desk/
+/.idea/
+/.aider.input.history
 # Examples: the maps, PDF and OCAD files are kept; the fetched data and the large raster
 # templates are restored by `freemapper run --ocad --pdf examples/<name>`.
 /examples/*/data/
@@ -15,3 +20,4 @@
 /examples/*/ocad/*.pgw
 # The map preview that every run writes; the hand-made `preview.webp` of an example stays.
 /examples/*/*-preview.webp
+mutants.out*/

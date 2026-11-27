@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Reading single members out of huge zip archives by HTTP byte ranges (the central directory
 //! from the archive's end, then one member's local header and data), for the statewide
 //! Hamburg archive and the Hessian municipal ones, and for the Berlin laser archives (zip64,
@@ -267,8 +269,19 @@ pub fn read_member(
     url: &str,
     member: &Member,
 ) -> Result<Vec<u8>, FetchError> {
+    read_member_up_to(fetcher, url, member, MAX_MEMBER_BYTES)
+}
+
+/// Like [`read_member`], with the limit for the packed and the unpacked size given by the caller
+/// (for text members that are large but pack well, such as the road files of a mountain powiat).
+pub fn read_member_up_to(
+    fetcher: &dyn Fetcher,
+    url: &str,
+    member: &Member,
+    max_bytes: u64,
+) -> Result<Vec<u8>, FetchError> {
     let too_large = || refused(url, format!("{}: member too large", member.name));
-    if member.compressed > MAX_MEMBER_BYTES {
+    if member.compressed > max_bytes {
         return Err(too_large());
     }
     let data_start = data_start(fetcher, url, member)?;
@@ -282,11 +295,11 @@ pub fn read_member(
     )?;
     let bytes = match member.method {
         0 => data,
-        8 => miniz_oxide::inflate::decompress_to_vec_with_limit(&data, MAX_MEMBER_BYTES as usize)
+        8 => miniz_oxide::inflate::decompress_to_vec_with_limit(&data, max_bytes as usize)
             .map_err(|e| match e.status {
-            miniz_oxide::inflate::TINFLStatus::HasMoreOutput => too_large(),
-            status => refused(url, format!("{}: {status:?}", member.name)),
-        })?,
+                miniz_oxide::inflate::TINFLStatus::HasMoreOutput => too_large(),
+                status => refused(url, format!("{}: {status:?}", member.name)),
+            })?,
         method => {
             return Err(refused(
                 url,
@@ -649,6 +662,38 @@ mod tests {
         assert!(err.to_string().contains("bytes"), "{err}");
     }
 
+    /// One central directory entry with the three variable fields, everything else zero.
+    fn entry(name: &str, extra: &[u8], comment: &[u8]) -> Vec<u8> {
+        let mut bytes = vec![0; 46];
+        bytes[..4].copy_from_slice(&[0x50, 0x4b, 0x01, 0x02]);
+        bytes[28..30].copy_from_slice(&(name.len() as u16).to_le_bytes());
+        bytes[30..32].copy_from_slice(&(extra.len() as u16).to_le_bytes());
+        bytes[32..34].copy_from_slice(&(comment.len() as u16).to_le_bytes());
+        bytes.extend_from_slice(name.as_bytes());
+        bytes.extend_from_slice(extra);
+        bytes.extend_from_slice(comment);
+        bytes
+    }
+
+    #[test]
+    fn an_entry_of_exactly_the_fixed_length_is_read() {
+        let members = parse_directory(&entry("", &[], &[]), 1).unwrap();
+        assert_eq!(members.len(), 1);
+        assert_eq!(members[0].name, "");
+    }
+
+    #[test]
+    fn the_next_entry_starts_after_name_extra_and_comment() {
+        let mut directory = entry("a", &[0x34, 0x12, 0, 0], b"xyz");
+        directory.extend(entry("bc", &[], b"q"));
+        let names: Vec<_> = parse_directory(&directory, 2)
+            .unwrap()
+            .into_iter()
+            .map(|m| m.name)
+            .collect();
+        assert_eq!(names, ["a", "bc"]);
+    }
+
     #[test]
     fn truncated_directory_is_an_error() {
         let zip = archive(&[
@@ -690,6 +735,44 @@ mod tests {
         let err = read_member(&fetcher, "https://example.org/dgm.zip", &member).unwrap_err();
         assert!(err.to_string().contains("too large"), "{err}");
         assert_eq!(fetcher.calls.get(), 0);
+    }
+
+    #[test]
+    fn a_larger_limit_reads_a_member_the_default_refuses() {
+        let size = (MAX_MEMBER_BYTES + 1) as usize;
+        let zip = archive(&[("zeros.xml", vec![0; size], true)]);
+        let fetcher = MapFetcher::default();
+        fetcher.insert("https://example.org/roads.zip", zip);
+        let members = read_directory(&fetcher, "https://example.org/roads.zip").unwrap();
+        let err = read_member(&fetcher, "https://example.org/roads.zip", &members[0]).unwrap_err();
+        assert!(err.to_string().contains("too large"), "{err}");
+        let bytes = read_member_up_to(
+            &fetcher,
+            "https://example.org/roads.zip",
+            &members[0],
+            2 * MAX_MEMBER_BYTES,
+        )
+        .unwrap();
+        assert_eq!(bytes.len(), size);
+    }
+
+    #[test]
+    fn a_member_exactly_as_large_as_the_limit_is_read_and_one_more_is_refused() {
+        let body = vec![7_u8; 1000];
+        let fetcher = MapFetcher::default();
+        fetcher.insert(
+            "https://example.org/roads.zip",
+            archive(&[("a.xml", body.clone(), false)]),
+        );
+        let url = "https://example.org/roads.zip";
+        let members = read_directory(&fetcher, url).unwrap();
+        assert_eq!(members[0].compressed, 1000);
+        assert_eq!(
+            read_member_up_to(&fetcher, url, &members[0], 1000).unwrap(),
+            body
+        );
+        let err = read_member_up_to(&fetcher, url, &members[0], 999).unwrap_err();
+        assert!(err.to_string().contains("too large"), "{err}");
     }
 
     #[test]
@@ -930,5 +1013,23 @@ mod tests {
             "x\\dgm1_32_448_5538_1_he.tif"
         );
         assert!(lookup("dgm1_32_449_5538_").is_none());
+    }
+
+    proptest::proptest! {
+        /// The central directory comes from a server: whatever bytes arrive, reading it ends in members or in a
+        /// message, never in a panic, and never yields more members than the end record announced. The bytes start
+        /// with the signature of an entry about half the time, so the reader gets past its first check.
+        #[test]
+        fn a_directory_of_any_bytes_is_read_or_refused(
+            signed in proptest::bool::ANY,
+            body in proptest::collection::vec(proptest::num::u8::ANY, 0..160),
+            count in 0u16..6,
+        ) {
+            let mut bytes = if signed { vec![0x50, 0x4b, 0x01, 0x02] } else { Vec::new() };
+            bytes.extend(body);
+            if let Ok(members) = parse_directory(&bytes, count) {
+                proptest::prop_assert!(members.len() <= usize::from(count));
+            }
+        }
     }
 }

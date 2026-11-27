@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The candidate layers (ADR 0156): the candidates in seven template maps by the colour families
 //! a mapper thinks in, so that OpenOrienteering Mapper switches each kind on and off on its own.
 //!

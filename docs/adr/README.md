@@ -195,7 +195,7 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0147](0147-rhineland-palatinate-basis-dlm-in-the-shape-schema.md) | Rhineland-Palatinate: the landscape model in the AdV Shape schema | Accepted | 2026-11-15 |
 | [0148](0148-permit-sources-from-arcgis-rest-services.md) | Permit sources from ArcGIS REST services | Accepted | 2026-11-15 |
 | [0149](0149-hamburg-feinkartierung-a-set-that-brings-its-rules.md) | Hamburg's Feinkartierung, the first set of extra layers that brings its rules | Accepted | 2026-11-15 |
-| [0150](0150-the-training-map-second-half.md) | The training map, second half | Accepted, amends ADR 0140 | 2026-11-15 |
+| [0150](0150-the-training-map-second-half.md) | The training map, second half | Accepted, amends ADR 0140; addendum 2026-11-16 (free line ends) | 2026-11-15 |
 | [0151](0151-ticks-of-closed-and-enclosing-fences.md) | Ticks of closed and enclosing fences | Accepted, amends ADR 0140 | 2026-11-15 |
 | [0152](0152-agpl-3.0-or-later.md) | AGPL-3.0-or-later | Accepted, supersedes ADR 0006 | 2026-11-15 |
 | [0153](0153-narrow-openings-in-walls-and-fences-on-the-training-map.md) | Narrow openings in walls and fences on the training map | Accepted | 2026-11-15 |
@@ -203,3 +203,47 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0155](0155-saarland-forest-roads-and-the-wire-class.md) | Saarland: the forest road network as candidates, and class 14 of the point cloud left out | Accepted | 2026-11-16 |
 | [0156](0156-candidate-layers.md) | The candidates in seven layers | Accepted, amends ADR 0003, 0010 and 0140 | 2026-11-16 |
 | [0157](0157-the-light-level-of-the-base-map.md) | The light level of the base map | Accepted, amends ADR 0126 and 0140 | 2026-11-16 |
+| [0158](0158-fences-along-paved-areas-and-trees-in-forest.md) | Fences along paved areas, and single trees in the forest | Accepted | 2026-11-16 |
+| [0159](0159-housekeeping-gates.md) | The repository checks its own housekeeping | Accepted | 2026-11-19 |
+| [0160](0160-training-views.md) | Training views | Accepted | 2026-11-20 |
+| [0161](0161-mutation-properties-sbom-complexity-nextest.md) | Mutation tests on the diff, property tests, nextest, SBOM and a complexity limit | Accepted | 2026-11-20 |
+| [0162](0162-crate-layers-as-a-gate.md) | The crate layers are a gate | Accepted | 2026-11-20 |
+| [0163](0163-test-count-and-budget.md) | The test count and the test budget are data | Accepted | 2026-11-20 |
+| [0164](0164-poland-national-adapter-osm-first.md) | Poland: one national adapter, OSM first | Accepted, amends ADR 0082 | 2026-11-20 |
+| [0165](0165-mutation-tests-on-a-random-part.md) | Mutation tests run on a random part of the diff | Accepted, amends ADR 0161 | 2026-11-20 |
+| [0166](0166-findings-on-running-tests-and-mutation-tests.md) | Findings on running tests and mutation tests | Accepted, supplements ADR 0161 | 2026-11-20 |
+| [0167](0167-poland-height-and-orthophoto-readers.md) | Poland: readers and warp for the national height model and orthophoto | Accepted, supplements ADR 0164 | 2026-11-20 |
+| [0168](0168-polish-program-language.md) | Polish as a program language | Accepted, supplements ADR 0092 and ADR 0164 | 2026-11-21 |
+| [0169](0169-more-program-languages.md) | More program languages | Accepted, supplements ADR 0168 | 2026-11-21 |
+| [0170](0170-poland-rasters-from-gugik.md) | Poland gets its rasters from GUGiK, without a cadastre | Accepted, supplements ADR 0164 and 0167 | 2026-11-21 |
+| [0171](0171-poland-cadastre-egib.md) | Poland takes buildings and land use from the cadastre EGiB | Accepted, supplements ADR 0164 and 0170 | 2026-11-21 |
+| [0172](0172-readme-and-manual-in-german-and-english-only.md) | README and manual in German and English only | Accepted, supersedes a paragraph of ADR 0168 | 2026-11-21 |
+| [0173](0173-faster-mutation-runs.md) | Faster mutation runs | Accepted, amends ADR 0165 | 2026-11-21 |
+| [0174](0174-mutation-tests-do-not-block-merges.md) | Mutation tests do not block merges; a nightly run reports | Accepted, amends ADR 0161 and 0165 | 2026-11-21 |
+| [0175](0175-poland-permit-notes.md) | Permit notes in Poland | Accepted, amends a paragraph of ADR 0171 | 2026-11-22 |
+| [0176](0176-rounded-counts-in-the-badges.md) | Rounded counts in the badges | Accepted, amends ADR 0070 and 0163 | 2026-11-22 |
+| [0177](0177-download-badge-counts-program-archives.md) | The download badge counts the program archives | Accepted, amends ADR 0070, 0163 and 0176 | 2026-11-22 |
+| [0178](0178-poland-bdot10k-fallback.md) | BDOT10k fills where the Polish cadastre gives nothing | Accepted, completes ADR 0171 | 2026-11-22 |
+| [0179](0179-page-pdf-embeds-arimo.md) | The page PDF embeds Arimo | Accepted, amends a paragraph of ADR 0164 | 2026-11-22 |
+| [0180](0180-temporary-service-failures-are-asked-again.md) | A service that is down for a moment is asked again; if it stays down, the message says so | Accepted | 2026-11-22 |
+| [0181](0181-poland-administrative-units-in-the-permit-notes.md) | Administrative units in the Polish permit notes | Accepted, completes ADR 0175 | 2026-11-22 |
+| [0182](0182-issues-of-users-are-labelled.md) | Issues of users are labelled | Accepted | 2026-11-22 |
+| [0183](0183-poland-gmina-as-a-contact-in-the-permit-notes.md) | The gmina as a contact in the Polish permit notes | Accepted, completes ADR 0175 and 0181 | 2026-11-22 |
+| [0184](0184-poland-monument-register-in-the-permit-notes.md) | The register of monuments of the NID in the Polish permit notes | Accepted, completes ADR 0183 | 2026-11-22 |
+| [0185](0185-adapters-probe-asks-each-service-once.md) | `adapters probe` asks each service once | Accepted | 2026-11-22 |
+| [0186](0186-nightly-service-status-on-the-branch-status.md) | The nightly service status lives on the branch `status` | Accepted | 2026-11-22 |
+| [0187](0187-poland-bdot10k-roads-and-paths-on-forest-maps.md) | BDOT10k roads and paths on forest maps | Accepted, extends ADR 0178 | 2026-11-22 |
+| [0188](0188-a-folder-adapter-replaces-a-built-in-one.md) | A folder adapter replaces a built-in one | Accepted | 2026-11-22 |
+| [0189](0189-permit-sources-as-manifest-data.md) | Permit sources as manifest data | Accepted | 2026-11-23 |
+| [0190](0190-poland-archaeological-register-in-the-permit-notes.md) | The register of archaeological monuments of the NID in the Polish permit notes | Accepted, extends ADR 0184 | 2026-11-23 |
+| [0191](0191-poland-monuments-of-history-in-the-permit-notes.md) | The Pomniki historii in the Polish permit notes | Accepted, extends ADR 0190 | 2026-11-23 |
+| [0201](0201-czechia-permit-notes.md) | Permit notes in Czechia | Accepted, extends ADR 0175 and ADR 0197 | 2026-11-27 |
+| [0200](0200-rock-faces-in-plan-shape.md) | Steep patches are rock faces in plan shape | Accepted, extends ADR 0198 and ADR 0199 | 2026-11-27 |
+| [0199](0199-knolls-on-bare-rock-are-boulders.md) | A knoll on bare rock is a boulder | Accepted, extends ADR 0104 and ADR 0198 | 2026-11-26 |
+| [0198](0198-steepness-threshold-of-banks-and-cliffs.md) | The steepness threshold of banks and cliffs is a setting | Accepted, extends ADR 0134 | 2026-11-26 |
+| [0197](0197-czechia-one-national-adapter.md) | Czechia: one national adapter with the rasters and the cadastre of ČÚZK | Accepted, follows ADR 0164 | 2026-11-26 |
+| [0196](0196-export-of-a-built-in-adapter.md) | Export of a built-in adapter and the guide to replacing it | Accepted, extends ADR 0188 and ADR 0189 | 2026-11-25 |
+| [0195](0195-poland-building-kinds-in-words.md) | Building kinds that the Polish register sends in words | Accepted, extends ADR 0171 | 2026-11-24 |
+| [0194](0194-poland-cemeteries-on-bi-parcels-from-bdot10k.md) | Cemeteries on `Bi` parcels from BDOT10k | Accepted, extends ADR 0192 | 2026-11-24 |
+| [0193](0193-poland-every-gmina-in-the-permit-hints.md) | Every gmina of the map area in the Polish permit hints | Accepted, extends ADR 0183 | 2026-11-24 |
+| [0192](0192-poland-recreation-land-bz-and-other-built-up-bi.md) | Recreation land (`Bz`) and other built-up land (`Bi`) in the Polish land use | Accepted, extends ADR 0171 | 2026-11-24 |

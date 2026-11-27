@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The clock behind every date the project stores and every age the fetch compares.
 //!
 //! The project file records when each part was fetched, the credit line takes its year from
@@ -5,7 +7,7 @@
 //! compares output byte for byte needs all of that to stand still, so the library asks this
 //! module and never the system clock (the test `no_direct_clock_calls` holds it to that).
 //!
-//! By default the three functions read the system clock. [`with_fixed`] replaces it for the
+//! By default the three functions read the system clock. `with_fixed` replaces it for the
 //! calling thread; it exists only in tests and with the feature `testing`. The library starts no
 //! thread of its own, so the calling thread is the whole fetch. Code that moves work to another
 //! thread must take the clock with it.
@@ -17,7 +19,7 @@ use chrono::NaiveDate;
 
 #[cfg(any(test, feature = "testing"))]
 thread_local! {
-    /// The instant [`with_fixed`] set for this thread, as UTC.
+    /// The instant `with_fixed` set for this thread, as UTC.
     static FIXED: std::cell::Cell<Option<chrono::NaiveDateTime>> =
         const { std::cell::Cell::new(None) };
 }

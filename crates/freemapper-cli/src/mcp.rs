@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! `freemapper mcp`: the MCP server on stdio, so an AI agent can make a map for a non-technical
 //! user. The tools are thin wrappers over the library; the pipeline runs as a job the agent polls.
 
@@ -12,7 +14,8 @@ use freemapper::fetch::{Cache, HttpFetcher};
 use freemapper::layers::{LayerRole, estimate_download, list_layers, preview_png};
 use freemapper::places::{find_places, place_area};
 use freemapper::project::{
-    MapKind, ProjectFile, check_contour_interval, init_project, set_content, set_contour_interval,
+    MapKind, ProjectFile, check_contour_interval, check_face_slope, check_steep_slope,
+    init_project, set_content, set_contour_interval, set_face_slope, set_steep_slope,
 };
 use rmcp::handler::server::tool::ToolCallContext;
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
@@ -52,6 +55,26 @@ fn save_contour_interval(dir: &std::path::Path, asked: Option<f64>) -> Result<()
     };
     let interval = (asked != 0.0).then_some(asked);
     set_contour_interval(dir, interval).map_err(|e| describe(&e))?;
+    Ok(())
+}
+
+/// Saves the steep slope a call asks for (`0`: the default); nothing without one.
+fn save_steep_slope(dir: &std::path::Path, asked: Option<f64>) -> Result<(), String> {
+    let Some(asked) = asked else {
+        return Ok(());
+    };
+    let slope = (asked != 0.0).then_some(asked);
+    set_steep_slope(dir, slope).map_err(|e| describe(&e))?;
+    Ok(())
+}
+
+/// Saves the face slope a call asks for (`0`: the default); nothing without one.
+fn save_face_slope(dir: &std::path::Path, asked: Option<f64>) -> Result<(), String> {
+    let Some(asked) = asked else {
+        return Ok(());
+    };
+    let slope = (asked != 0.0).then_some(asked);
+    set_face_slope(dir, slope).map_err(|e| describe(&e))?;
     Ok(())
 }
 
@@ -102,6 +125,16 @@ struct CreateProject {
     /// kind's; a forest map gets 2.5 m in flat land and 10 m in steep land). Saved in the
     /// project; the next derive traces the contours at it.
     contour_interval: Option<f64>,
+    /// Slope angle in degrees from which the terrain counts as steep when earth banks and cliffs
+    /// are looked for, e.g. 55; 0 goes back to the default of 27°. Raise it (55 to 65) in rock
+    /// towns and gorges, where almost every slope is steep and banks and cliffs run together
+    /// into one patch. Saved in the project; the next derive looks for banks and cliffs with it.
+    steep_slope: Option<f64>,
+    /// Slope angle in degrees from which the ground is a rock face (black area, symbol 206),
+    /// e.g. 75; 0 goes back to the default of 70°. 65 gives more and larger faces, also on
+    /// steep slopes; 75 keeps only true walls. Saved in the project; the next derive looks for
+    /// rock faces with it.
+    face_slope: Option<f64>,
 }
 
 #[derive(Deserialize, rmcp::schemars::JsonSchema)]
@@ -110,6 +143,9 @@ struct ProjectDir {
     dir: String,
 }
 
+// The parameter descriptions carry `<name>` as a placeholder, which the MCP schema shows as
+// written and the catalog keeps; rustdoc would read it as an HTML tag.
+#[allow(rustdoc::invalid_html_tags)]
 #[derive(Deserialize, rmcp::schemars::JsonSchema)]
 struct StartPipeline {
     /// Project folder (absolute path or starting with ~).
@@ -132,6 +168,10 @@ struct StartPipeline {
     /// ocad/<name>-training.ocd. An existing training map is kept unless force is true. Default
     /// false.
     training: Option<bool>,
+    /// With training: also write the training map without what a view leaves out, one file set per entry:
+    /// "no-paths", "brown-only", "no-north-lines", or a list such as "no:505,506" or "only:101,102",
+    /// combined with +. The files are <name>-training-<view>.omap and its PDF.
+    training_views: Option<Vec<String>>,
     /// Draw the scale bar on the PDFs. Default false (German maps usually have none; the scale
     /// number stays in the title block).
     pdf_scale_bar: Option<bool>,
@@ -150,6 +190,16 @@ struct StartPipeline {
     /// kind's; a forest map gets 2.5 m in flat land and 10 m in steep land). Saved in the
     /// project; the next derive traces the contours at it.
     contour_interval: Option<f64>,
+    /// Slope angle in degrees from which the terrain counts as steep when earth banks and cliffs
+    /// are looked for, e.g. 55; 0 goes back to the default of 27°. Raise it (55 to 65) in rock
+    /// towns and gorges, where almost every slope is steep and banks and cliffs run together
+    /// into one patch. Saved in the project; the next derive looks for banks and cliffs with it.
+    steep_slope: Option<f64>,
+    /// Slope angle in degrees from which the ground is a rock face (black area, symbol 206),
+    /// e.g. 75; 0 goes back to the default of 70°. 65 gives more and larger faces, also on
+    /// steep slopes; 75 keeps only true walls. Saved in the project; the next derive looks for
+    /// rock faces with it.
+    face_slope: Option<f64>,
     /// Also write the permit notes (permits.md and permits.json) after the map: administrative
     /// units, protected areas and who runs the land. A failure there is a warning, not a failed
     /// job. Default false.
@@ -527,6 +577,16 @@ impl FreemapperServer {
         {
             return failure(describe(&e));
         }
+        if let Some(slope) = req.steep_slope.filter(|s| *s != 0.0)
+            && let Err(e) = check_steep_slope(slope)
+        {
+            return failure(describe(&e));
+        }
+        if let Some(slope) = req.face_slope.filter(|s| *s != 0.0)
+            && let Err(e) = check_face_slope(slope)
+        {
+            return failure(describe(&e));
+        }
         let today = chrono::Local::now().date_naive();
         match init_project(&dir, &area, kind, req.scale, today, req.title) {
             Ok(project) => {
@@ -536,6 +596,8 @@ impl FreemapperServer {
                     req.content_set.as_deref().unwrap_or_default(),
                 )
                 .and_then(|()| save_contour_interval(&dir, req.contour_interval))
+                .and_then(|()| save_steep_slope(&dir, req.steep_slope))
+                .and_then(|()| save_face_slope(&dir, req.face_slope))
                 {
                     return failure(e);
                 }
@@ -617,6 +679,8 @@ impl FreemapperServer {
             req.content_set.as_deref().unwrap_or_default(),
         )
         .and_then(|()| save_contour_interval(&dir, req.contour_interval))
+        .and_then(|()| save_steep_slope(&dir, req.steep_slope))
+        .and_then(|()| save_face_slope(&dir, req.face_slope))
         {
             return failure(e);
         }
@@ -628,6 +692,7 @@ impl FreemapperServer {
                 pdf: req.pdf,
                 pdf_candidates: req.pdf_candidates,
                 training: req.training,
+                training_views: req.training_views,
                 pdf_scale_bar: req.pdf_scale_bar,
                 pdf_sources: req.pdf_sources,
                 permits: req.permits,
@@ -805,6 +870,7 @@ impl FreemapperServer {
                 pdf: req.pdf,
                 pdf_candidates: req.pdf_candidates,
                 training: req.training,
+                training_views: None,
                 pdf_scale_bar: req.pdf_scale_bar,
                 pdf_sources: req.pdf_sources,
                 permits: req.permits,

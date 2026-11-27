@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Georeferencing of a map: reference point, scale, declination, grivation and the transform
 //! between projected coordinates and map coordinates.
 
@@ -115,7 +117,7 @@ impl Georeferencing {
     }
 
     /// Metres in the projected CRS per millimetre on the map.
-    fn metres_per_map_mm(&self) -> f64 {
+    pub(crate) fn metres_per_map_mm(&self) -> f64 {
         self.grid_scale_factor * f64::from(self.scale_denominator) / 1000.0
     }
 

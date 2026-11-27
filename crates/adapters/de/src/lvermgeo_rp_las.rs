@@ -1,11 +1,13 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The laser points of LVermGeo Rheinland-Pfalz (dl-de/by-2-0): one LAZ file per km tile in
 //! EPSG:25832 (ADR 0105). The metadata of a tile gives the day of its scan; the Metalink of the
 //! state lists every file with its size and SHA-256, and a download is kept only when both
 //! match. The classes follow the AdV scheme: ground (2) and everything above it (20).
 
+use freemapper_adapter_api::fetch::get_with_retries;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::LazyLock;
 
 use chrono::NaiveDate;
 use freemapper_adapter_api::cache::{CacheDir, STALE_PART_AGE};
@@ -16,6 +18,7 @@ use freemapper_adapter_api::pointcloud::{
     PointCloudBackend, PointCloudInfo, PointCloudRecord, PointCloudTile,
 };
 use freemapper_adapter_api::records::{AdapterId, EstimateItem, Part, Store};
+use freemapper_manifest::PointCloud;
 
 use crate::crs::BoundingBox;
 use crate::fetch::{FetchError, FetchMode};
@@ -26,8 +29,12 @@ use crate::las_files::{
 use crate::note::{Arg, note};
 use crate::tiles::{TileId, tiles_covering_grid};
 
-const BASE: &str = "https://geobasis-rlp.de/data/las/current";
+/// The folder of the files; the manifest of the state holds it (issue #273), here it is what the
+/// manifest is held to in tests.
+#[cfg(any(test, feature = "testing"))]
+pub const BASE: &str = "https://geobasis-rlp.de/data/las/current";
 /// Every file of the state with its size and SHA-256 (about 6 MB for 21 000 tiles, 2026).
+#[cfg(any(test, feature = "testing"))]
 pub const META4_URL: &str = "https://geobasis-rlp.de/data/las/current/meta4/las_las_07.meta4";
 /// The folder of the point clouds below the folder of LVermGeo RP in the cache.
 const DIR: &str = "las";
@@ -40,30 +47,28 @@ fn stem(tile: TileId) -> String {
     format!("lpolpg_32_{}_{}_1_rp", tile.east_km, tile.north_km)
 }
 
-/// URL of the point cloud of `tile`.
-pub fn tile_url(tile: TileId) -> String {
-    format!("{BASE}/las/{}.laz", stem(tile))
-}
-
-/// URL of the metadata of `tile`.
-pub fn metadata_url(tile: TileId) -> String {
-    format!("{BASE}/metadata/{}_meta.xml", stem(tile))
-}
-
-/// The point-cloud backend of Rhineland-Palatinate.
-pub fn backend() -> &'static dyn PointCloudBackend {
-    static RP: LazyLock<RpLasBackend> = LazyLock::new(RpLasBackend::new);
-    &*RP
-}
-
 /// The laser points of LVermGeo RP, kept in the cache as LAZ.
 pub struct RpLasBackend {
     info: PointCloudInfo,
+    /// The folder of the files, from `[point_cloud] url`.
+    base: String,
+    /// The Metalink, from `[point_cloud] index_url`.
+    meta4_url: String,
 }
 
 impl RpLasBackend {
-    pub fn new() -> Self {
+    /// The backend that reads the addresses of `cloud`, the `[point_cloud]` of the manifest.
+    ///
+    /// # Panics
+    ///
+    /// When `cloud` has no index address; the validator refuses such a table for this kind.
+    pub fn new(cloud: &PointCloud) -> Self {
         Self {
+            base: cloud.url.clone(),
+            meta4_url: cloud
+                .index_url
+                .clone()
+                .expect("a meta4 table has an index_url"),
             info: PointCloudInfo {
                 id: AdapterId::built_in("lvermgeorp"),
                 cache_dir: "lvermgeo_rp".to_string(),
@@ -78,11 +83,15 @@ impl RpLasBackend {
     fn dir(&self, cache: &CacheDir) -> PathBuf {
         cache.provider_dir(&self.info.cache_dir).join(DIR)
     }
-}
 
-impl Default for RpLasBackend {
-    fn default() -> Self {
-        Self::new()
+    /// URL of the point cloud of `tile`.
+    fn tile_url(&self, tile: TileId) -> String {
+        format!("{}/las/{}.laz", self.base, stem(tile))
+    }
+
+    /// URL of the metadata of `tile`.
+    fn metadata_url(&self, tile: TileId) -> String {
+        format!("{}/metadata/{}_meta.xml", self.base, stem(tile))
     }
 }
 
@@ -102,11 +111,14 @@ fn element<'a>(text: &'a str, tag: &str) -> Option<&'a str> {
 }
 
 /// The files of the Metalink by tile. The tile comes from the URL, which has to be a tile file
-/// of [`BASE`]; the `name` of a file differs from it in the Metalink of the state. Entries with
+/// of the folder; the `name` of a file differs from it in the Metalink of the state. Entries with
 /// another URL, no size or a hash that is no SHA-256 are left out.
-fn parse_meta4(bytes: &[u8]) -> Result<HashMap<TileId, Meta4File>, FetchError> {
+fn parse_meta4(
+    bytes: &[u8],
+    backend: &RpLasBackend,
+) -> Result<HashMap<TileId, Meta4File>, FetchError> {
     let corrupt = |message: &str| FetchError::CorruptArchive {
-        url: META4_URL.to_string(),
+        url: backend.meta4_url.clone(),
         message: message.to_string(),
     };
     let text = std::str::from_utf8(bytes).map_err(|_| corrupt("not UTF-8"))?;
@@ -120,9 +132,9 @@ fn parse_meta4(bytes: &[u8]) -> Result<HashMap<TileId, Meta4File>, FetchError> {
         };
         let entry = &entry[start..];
         let tile = element(entry, "url").and_then(|url| {
-            let name = url.strip_prefix(&format!("{BASE}/las/"))?;
+            let name = url.strip_prefix(&format!("{}/las/", backend.base))?;
             let tile = tile_of_file(name)?;
-            (tile_url(tile) == url).then_some(tile)
+            (backend.tile_url(tile) == url).then_some(tile)
         });
         let bytes = element(entry, "size").and_then(|s| s.parse::<u64>().ok());
         let sha256 = entry
@@ -195,7 +207,7 @@ impl PointCloudBackend for RpLasBackend {
         let mut fetched = Vec::new();
         for tile in tiles_covering_grid(bbox, self.info.grid_km) {
             let name = tile_name(tile);
-            let url = tile_url(tile);
+            let url = self.tile_url(tile);
             let cached = cached_las(&dir, &name);
             let found = |(published, path): (NaiveDate, PathBuf)| PointCloudTile {
                 record: PointCloudRecord {
@@ -212,9 +224,9 @@ impl PointCloudBackend for RpLasBackend {
                 }
                 continue;
             }
-            let published = match env.fetcher.get(&metadata_url(tile)).and_then(|bytes| {
-                creation_date(&bytes).ok_or_else(|| FetchError::CorruptArchive {
-                    url: metadata_url(tile),
+            let published = match get_with_retries(env.fetcher, &self.metadata_url(tile), |bytes| {
+                creation_date(bytes).ok_or_else(|| FetchError::CorruptArchive {
+                    url: self.metadata_url(tile),
                     message: "no creation date".to_string(),
                 })
             }) {
@@ -236,11 +248,11 @@ impl PointCloudBackend for RpLasBackend {
                 continue;
             }
             if let Index::NotAsked = index {
-                (env.progress)(note!("progress-downloading", url = META4_URL));
+                (env.progress)(note!("progress-downloading", url = &self.meta4_url));
                 index = match env
                     .fetcher
-                    .get(META4_URL)
-                    .and_then(|bytes| parse_meta4(&bytes))
+                    .get(&self.meta4_url)
+                    .and_then(|bytes| parse_meta4(&bytes, self))
                 {
                     Ok(files) => Index::Loaded(files),
                     Err(FetchError::Cancelled) => return Err(FetchError::Cancelled.into()),
@@ -324,6 +336,39 @@ mod tests {
         max_e: 448_400.0,
         max_n: 5_538_400.0,
     };
+
+    /// The backend of the manifest of Rhineland-Palatinate.
+    fn backend() -> RpLasBackend {
+        RpLasBackend::new(
+            &crate::states::point_cloud_of(crate::states::State::RheinlandPfalz)
+                .expect("the manifest has a [point_cloud]"),
+        )
+    }
+
+    fn tile_url(tile: TileId) -> String {
+        backend().tile_url(tile)
+    }
+
+    fn metadata_url(tile: TileId) -> String {
+        backend().metadata_url(tile)
+    }
+
+    /// The manifest holds the addresses the backend used to carry.
+    #[test]
+    fn the_manifest_holds_the_addresses() {
+        let cloud = crate::states::point_cloud_of(crate::states::State::RheinlandPfalz).unwrap();
+        assert_eq!(cloud.kind, freemapper_manifest::PointCloudKind::Meta4);
+        assert_eq!(cloud.url, BASE);
+        assert_eq!(cloud.index_url.as_deref(), Some(META4_URL));
+        assert_eq!(
+            backend().tile_url(TILE),
+            format!("{BASE}/las/lpolpg_32_448_5538_1_rp.laz")
+        );
+        assert_eq!(
+            backend().metadata_url(TILE),
+            format!("{BASE}/metadata/lpolpg_32_448_5538_1_rp_meta.xml")
+        );
+    }
 
     fn registry() -> Registry {
         let mut registry = Registry::new();
@@ -425,7 +470,7 @@ mod tests {
             skip_surface: false,
             progress: &mut |n| notes.push(n.to_string()),
         };
-        let tiles = RpLasBackend::new().fetch(&mut env, &BBOX).unwrap();
+        let tiles = backend().fetch(&mut env, &BBOX).unwrap();
         (tiles, notes)
     }
 
@@ -476,7 +521,7 @@ mod tests {
             "</metalink>",
             "<file name=\"x.laz\"><size>5</size><hash type=\"md5\">00</hash><url>https://example.org/lpolpg_32_450_5538_1_rp.laz</url></file></metalink>",
         );
-        let files = parse_meta4(text.as_bytes()).unwrap();
+        let files = parse_meta4(text.as_bytes(), &backend()).unwrap();
         assert_eq!(
             files,
             HashMap::from([(
@@ -487,7 +532,7 @@ mod tests {
                 }
             )])
         );
-        assert!(parse_meta4(b"<html>").is_err());
+        assert!(parse_meta4(b"<html>", &backend()).is_err());
     }
 
     #[test]
@@ -520,7 +565,7 @@ mod tests {
         );
         assert_eq!(folder(&cache), ["32448-5538_2025-03-22.laz"]);
         assert_eq!(
-            RpLasBackend::new().cached(&cache, &tiles[0].record),
+            backend().cached(&cache, &tiles[0].record),
             Some(tiles[0].path.clone())
         );
         // The second fetch asks only the metadata: no Metalink, no tile.
@@ -644,7 +689,7 @@ mod tests {
             skip_surface: false,
             progress: &mut |_| {},
         };
-        assert!(RpLasBackend::new().fetch(&mut env, &BBOX).is_err());
+        assert!(backend().fetch(&mut env, &BBOX).is_err());
     }
 
     #[test]
@@ -659,7 +704,7 @@ mod tests {
             },
             today: "2026-11-12".parse().unwrap(),
         };
-        let items = RpLasBackend::new().estimate(&area, &EstimateEnv { cache: &cache });
+        let items = backend().estimate(&area, &EstimateEnv { cache: &cache });
         let what: Vec<(&str, f64)> = items
             .iter()
             .map(|i| (i.what.as_str(), i.megabytes))
@@ -678,7 +723,7 @@ mod tests {
     fn live_metalink_and_metadata_name_the_mainz_tile() {
         use crate::fetch::{Fetcher as _, HttpFetcher};
         let fetcher = HttpFetcher::new();
-        let files = parse_meta4(&fetcher.get(META4_URL).unwrap()).unwrap();
+        let files = parse_meta4(&fetcher.get(META4_URL).unwrap(), &backend()).unwrap();
         assert!(files.len() > 20_000, "{}", files.len());
         assert!(files.contains_key(&TILE));
         let created = creation_date(&fetcher.get(&metadata_url(TILE)).unwrap());

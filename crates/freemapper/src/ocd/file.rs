@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! OCAD 12 binary file builder (layout: `docs/ocad/ocd12-reference.md`).
 //!
 //! Everything is little-endian and packed; records are written field by field at their offsets.
@@ -9,6 +11,8 @@ pub(crate) const OBJECT_BLOCK_SIZE: usize = 4 + 256 * 40;
 /// Size of a string index block: next + 256 entries of 16 bytes.
 pub(crate) const STRING_BLOCK_SIZE: usize = 4 + 256 * 16;
 const HEADER_SIZE: usize = 60;
+use super::symbols::{Double, Hatch, Ring};
+
 const BASE_SYMBOL_SIZE: usize = 796;
 const OBJECT_HEADER_SIZE: usize = 56;
 /// Icon palette index of white (5 × 5 × 5 colour cube).
@@ -49,19 +53,25 @@ pub enum TextAlign {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum OcdSymbolKind {
-    /// A filled disc of `diameter` (0.01 mm).
+    /// A filled disc of `diameter` (0.01 mm; 0 for none) and an optional ring around it.
     Point {
         color: i16,
         diameter: i16,
+        ring: Option<Ring>,
     },
     /// A line of `width` (0.01 mm), optionally dashed (dash, gap).
     Line {
         color: i16,
         width: i16,
         dash: Option<(i16, i16)>,
+        double: Option<Double>,
     },
+    /// A filled and/or hatched area. `border` is the number of a line symbol; the symbol table sets it.
     Area {
         color: i16,
+        fill: bool,
+        hatch: Option<Hatch>,
+        border: Option<i32>,
     },
     /// Arial at `size` (pt × 10).
     Text {
@@ -95,8 +105,15 @@ impl OcdSymbol {
     /// Reach of the rendering beyond the coordinates (0.01 mm).
     fn extent(&self) -> i32 {
         match self.kind {
-            OcdSymbolKind::Point { diameter, .. } => (i32::from(diameter) + 1) / 2,
-            OcdSymbolKind::Line { width, .. } => i32::from(width) / 2,
+            OcdSymbolKind::Point { diameter, ring, .. } => {
+                let dot = i32::from(diameter);
+                let ring = ring.map_or(0, |r| i32::from(r.diameter) + i32::from(r.width));
+                (dot.max(ring) + 1) / 2
+            }
+            OcdSymbolKind::Line { width, double, .. } => {
+                let edges = double.map_or(0, |d| i32::from(d.distance) + i32::from(d.edge_width));
+                i32::from(width).max(edges) / 2
+            }
             OcdSymbolKind::Area { .. } | OcdSymbolKind::Text { .. } => 0,
         }
     }
@@ -105,7 +122,7 @@ impl OcdSymbol {
         match self.kind {
             OcdSymbolKind::Point { color, .. }
             | OcdSymbolKind::Line { color, .. }
-            | OcdSymbolKind::Area { color }
+            | OcdSymbolKind::Area { color, .. }
             | OcdSymbolKind::Text { color, .. } => color,
         }
     }
@@ -329,7 +346,10 @@ fn icon(symbol: &OcdSymbol) -> [u8; 484] {
 
 fn symbol_record(symbol: &OcdSymbol) -> Vec<u8> {
     let size = match symbol.kind {
-        OcdSymbolKind::Point { .. } => 824,
+        // 800 bytes and 3 units of 8 bytes for each element: a dot, a ring or both.
+        OcdSymbolKind::Point { diameter, ring, .. } => {
+            800 + 24 * (usize::from(diameter > 0) + usize::from(ring.is_some()))
+        }
         OcdSymbolKind::Line { .. } => 872,
         OcdSymbolKind::Area { .. } => 832,
         OcdSymbolKind::Text { .. } => 1036,
@@ -352,15 +372,36 @@ fn symbol_record(symbol: &OcdSymbol) -> Vec<u8> {
     r[184..668].copy_from_slice(&icon(symbol));
     let b = BASE_SYMBOL_SIZE;
     match symbol.kind {
-        OcdSymbolKind::Point { color, diameter } => {
-            // One dot element of 3 units: 16-byte header and the centre point.
-            put_u16(&mut r, b, 3);
-            put_i16(&mut r, b + 4, 4);
-            put_i16(&mut r, b + 8, color);
-            put_i16(&mut r, b + 12, diameter);
-            put_i16(&mut r, b + 14, 1);
+        OcdSymbolKind::Point {
+            color,
+            diameter,
+            ring,
+        } => {
+            // Each element has 3 units: a 16-byte header and the centre point.
+            let mut at = b + 4;
+            if let Some(ring) = ring {
+                put_i16(&mut r, at, 3);
+                put_i16(&mut r, at + 4, ring.color);
+                put_i16(&mut r, at + 6, ring.width);
+                put_i16(&mut r, at + 8, ring.diameter);
+                put_i16(&mut r, at + 10, 1);
+                at += 24;
+            }
+            if diameter > 0 {
+                put_i16(&mut r, at, 4);
+                put_i16(&mut r, at + 4, color);
+                put_i16(&mut r, at + 8, diameter);
+                put_i16(&mut r, at + 10, 1);
+                at += 24;
+            }
+            put_u16(&mut r, b, ((at - b - 4) / 8) as u16);
         }
-        OcdSymbolKind::Line { color, width, dash } => {
+        OcdSymbolKind::Line {
+            color,
+            width,
+            dash,
+            double,
+        } => {
             put_i16(&mut r, b, color);
             put_i16(&mut r, b + 2, width);
             // Round joins and caps.
@@ -370,10 +411,41 @@ fn symbol_record(symbol: &OcdSymbol) -> Vec<u8> {
                 put_i16(&mut r, b + 12, dash);
                 put_i16(&mut r, b + 14, gap);
             }
+            if let Some(d) = double {
+                // 1: both edge lines solid, 3: both dashed.
+                put_u16(&mut r, b + 26, if d.dash.is_some() { 3 } else { 1 });
+                put_i16(&mut r, b + 32, d.color);
+                put_i16(&mut r, b + 34, d.color);
+                put_i16(&mut r, b + 36, d.distance);
+                put_i16(&mut r, b + 38, d.edge_width);
+                put_i16(&mut r, b + 40, d.edge_width);
+                if let Some((dash, gap)) = d.dash {
+                    put_i16(&mut r, b + 42, dash);
+                    put_i16(&mut r, b + 44, gap);
+                }
+            }
         }
-        OcdSymbolKind::Area { color } => {
-            put_i16(&mut r, b + 4, color);
-            r[b + 18] = 1;
+        OcdSymbolKind::Area {
+            color,
+            fill,
+            hatch,
+            border,
+        } => {
+            put_i16(&mut r, b + 4, if fill { color } else { 0 });
+            if let Some(h) = hatch {
+                // Mode 1 draws one set of lines, 2 a second one across.
+                put_i16(&mut r, b + 6, if h.cross_angle.is_some() { 2 } else { 1 });
+                put_i16(&mut r, b + 8, h.color);
+                put_i16(&mut r, b + 10, h.width);
+                put_i16(&mut r, b + 12, h.distance);
+                put_i16(&mut r, b + 14, h.angle);
+                put_i16(&mut r, b + 16, h.cross_angle.unwrap_or(0));
+            }
+            if let Some(number) = border {
+                put_i32(&mut r, b, number);
+                r[b + 19] = 1;
+            }
+            r[b + 18] = u8::from(fill);
         }
         OcdSymbolKind::Text {
             color,
@@ -482,6 +554,7 @@ mod tests {
             kind: OcdSymbolKind::Point {
                 color: 3,
                 diameter: 50,
+                ring: None,
             },
             icon_color: 10,
         }
@@ -495,6 +568,7 @@ mod tests {
                 color: 14,
                 width: 35,
                 dash: Some((200, 25)),
+                double: None,
             },
             icon_color: 0,
         }
@@ -504,7 +578,12 @@ mod tests {
         OcdSymbol {
             number: 521000,
             name: "Building".into(),
-            kind: OcdSymbolKind::Area { color: 2 },
+            kind: OcdSymbolKind::Area {
+                color: 2,
+                fill: true,
+                hatch: None,
+                border: None,
+            },
             icon_color: 0,
         }
     }
@@ -570,6 +649,128 @@ mod tests {
         assert_eq!(file.strings.len(), 300);
         assert_eq!(file.objects[299].coords[0].0, 2990);
         assert_eq!(file.strings[299].text, "Colour 299\tn299");
+    }
+
+    #[test]
+    fn line_symbol_with_edge_lines_record() {
+        let line = |dash| {
+            let mut b = OcdBuilder::new();
+            b.add_symbol(OcdSymbol {
+                number: 501_006,
+                name: "Path".into(),
+                kind: OcdSymbolKind::Line {
+                    color: 14,
+                    width: 35,
+                    dash: None,
+                    double: Some(Double {
+                        color: 15,
+                        edge_width: 10,
+                        distance: 41,
+                        dash,
+                    }),
+                },
+                icon_color: 0,
+            })
+            .unwrap();
+            read(&b.finish()).symbols.remove(0)
+        };
+        let solid = line(None);
+        let at = |s: &super::super::read::ReadSymbol, off: usize| {
+            i16::from_le_bytes([s.bytes[off], s.bytes[off + 1]])
+        };
+        // Mode, left and right colour, distance, left and right width, dash and gap.
+        assert_eq!(
+            [822, 828, 830, 832, 834, 836, 838, 840].map(|o| at(&solid, o)),
+            [1, 15, 15, 41, 10, 10, 0, 0]
+        );
+        assert_eq!(solid.extent, 25, "(41 + 10) / 2, more than the line itself");
+        let dashed = line(Some((200, 25)));
+        assert_eq!(
+            [822, 838, 840].map(|o| at(&dashed, o)),
+            [3, 200, 25],
+            "both edges dashed"
+        );
+    }
+
+    #[test]
+    fn point_symbol_with_ring_and_dot() {
+        let point = |diameter, ring| {
+            let mut b = OcdBuilder::new();
+            b.add_symbol(OcdSymbol {
+                number: 311_000,
+                name: "Well".into(),
+                kind: OcdSymbolKind::Point {
+                    color: 3,
+                    diameter,
+                    ring,
+                },
+                icon_color: 0,
+            })
+            .unwrap();
+            read(&b.finish()).symbols.remove(0)
+        };
+        let ring = Ring {
+            color: 9,
+            width: 20,
+            diameter: 101,
+        };
+        let both = point(40, Some(ring));
+        assert_eq!((both.size, both.extent), (848, 61));
+        let at = |off: usize| i16::from_le_bytes([both.bytes[off], both.bytes[off + 1]]);
+        assert_eq!(at(796), 6, "units");
+        // The ring comes first: type 3, colour, line width, centre-line diameter, one point.
+        assert_eq!(
+            [at(800), at(804), at(806), at(808), at(810)],
+            [3, 9, 20, 101, 1]
+        );
+        // Then the dot: type 4, colour, diameter, one point.
+        assert_eq!([at(824), at(828), at(832), at(834)], [4, 3, 40, 1]);
+        let only_ring = point(0, Some(ring));
+        assert_eq!((only_ring.size, only_ring.extent), (824, 61));
+        assert_eq!(
+            i16::from_le_bytes([only_ring.bytes[796], only_ring.bytes[797]]),
+            3
+        );
+        let only_dot = point(41, None);
+        assert_eq!((only_dot.size, only_dot.extent), (824, 21));
+        assert_eq!(
+            i16::from_le_bytes([only_dot.bytes[800], only_dot.bytes[801]]),
+            4
+        );
+    }
+
+    #[test]
+    fn hatched_area_with_border_record() {
+        let mut b = OcdBuilder::new();
+        b.add_symbol(OcdSymbol {
+            number: 408_100,
+            name: "Hatched".into(),
+            kind: OcdSymbolKind::Area {
+                color: 7,
+                fill: false,
+                hatch: Some(Hatch {
+                    color: 21,
+                    width: 40,
+                    distance: 150,
+                    angle: 900,
+                    cross_angle: Some(1800),
+                }),
+                border: Some(521_001),
+            },
+            icon_color: 0,
+        })
+        .unwrap();
+        let file = read(&b.finish());
+        let a = &file.symbols[0].bytes;
+        let at = |off: usize| i16::from_le_bytes([a[off], a[off + 1]]);
+        assert_eq!(i32::from_le_bytes(a[796..800].try_into().unwrap()), 521_001);
+        assert_eq!(at(800), 0, "no fill colour");
+        assert_eq!(at(802), 2, "cross hatch");
+        assert_eq!(
+            [at(804), at(806), at(808), at(810), at(812)],
+            [21, 40, 150, 900, 1800]
+        );
+        assert_eq!((a[814], a[815]), (0, 1), "fill off, border on");
     }
 
     #[test]

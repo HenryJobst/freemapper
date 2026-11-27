@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The map image routes of the selection page: the preview the last export wrote, and live
 //! previews with the content settings the page shows, computed from a build of the project kept
 //! in memory (`build_project` once, `place` for every change).

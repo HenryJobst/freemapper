@@ -1,267 +1,41 @@
-//! North Rhine-Westphalia's sources of the permit notes (ADR 0124): the Forstbetriebsbezirke of
-//! the Landesbetrieb Wald und Holz NRW, each with its Regionalforstamt, and the Staatswald, both
-//! as shapefiles on the open data portal of NRW (dl-de/by-2-0).
-//!
-//! Each source downloads one zip for the whole state (about 11 and 6 MB), reads its `.shp` and
-//! `.dbf`, keeps the records whose box meets the map box (EPSG:25832) and turns them into GeoJSON
-//! features as longitude, latitude. Every row of the Forstbetriebsbezirke also names the
-//! forester with first and last name, e-mail, phone and mobile number: a feature keeps only the
-//! fields of [`Layer::kept`], so none of that is stored or reaches the notes.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::path::Path;
+//! The fixtures of North Rhine-Westphalia's permit sources (ADR 0124), read through the tables its
+//! manifest declares (issue #273). The Forstbetriebsbezirke and the Staatswald of the Landesbetrieb
+//! Wald und Holz NRW, the water protection areas and LINFOS had their tables in this file until
+//! they moved into the manifest; these tests, which ran against the code, now run against the
+//! declared ones. Each shapefile is one zip for the whole state (about 11 and 6 MB), cut to the
+//! map box (EPSG:25832); every row of the Forstbetriebsbezirke also names the forester with first
+//! and last name, e-mail and phone numbers, and a feature keeps only the fields its reading
+//! names, so none of that is stored or reaches the notes.
 
-use freemapper_adapter_api::permits::{
-    FindingKind, PermitFinding, PermitSection, PermitSource, PermitSourceInfo, Wording,
-};
-use geo_types::Rect;
-use serde_json::Value;
+mod tests {
+    use std::path::Path;
 
-use crate::berlin_permits::geometry;
-use crate::crs::Crs;
-use crate::fetch::{FetchError, Fetcher};
-use crate::shape_permits::{cached_shape_records, record_feature, shape_records};
+    use crate::crs::{Crs, ProjectedPoint};
+    use crate::fetch::{FetchError, test_support::MapFetcher};
+    use crate::wfs_permits::declared_source;
+    use freemapper_adapter_api::permits::{FindingKind, PermitSource};
+    use geo_types::Rect;
+    use serde_json::Value;
 
-/// The credit the licence asks for: the publisher as GovData names it, and its licence.
-pub const CREDIT: &str = "Landesbetrieb Wald und Holz Nordrhein-Westfalen, Datenlizenz \
-    Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)";
+    const BASE: &str = "https://www.opengeodata.nrw.de/produkte/umwelt_klima/wald_forst/wald/";
 
-/// The administration the notes name.
-const WALD_UND_HOLZ: &str = "Landesbetrieb Wald und Holz NRW";
-
-/// The owner of the Staatswald.
-const STATE: &str = "Bundesland Nordrhein-Westfalen";
-
-const BASE: &str = "https://www.opengeodata.nrw.de/produkte/umwelt_klima/wald_forst/wald/";
-
-/// How the records of a shapefile become findings.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Layer {
-    /// A Forstbetriebsbezirk (`fbb`) of a Regionalforstamt (`rfa`).
-    Districts,
-    /// A parcel of Staatswald with the forest office (`forstamt`) that looks after it.
-    StateForest,
-}
-
-impl Layer {
-    /// The fields a feature keeps.
-    fn kept(self) -> &'static [&'static str] {
-        match self {
-            Layer::Districts => &["rfa", "fbb"],
-            Layer::StateForest => &["forstamt"],
-        }
-    }
-}
-
-/// One shapefile of Wald und Holz NRW.
-pub struct WuhPermitSource {
-    info: PermitSourceInfo,
-    zip: &'static str,
-    layer: Layer,
-}
-
-const LABEL: Wording = Wording {
-    en: "Wald und Holz NRW",
-    de: "Wald und Holz NRW",
-};
-
-/// The two sources, the forest offices first.
-pub fn sources() -> Vec<Box<dyn PermitSource>> {
-    vec![
-        Box::new(WuhPermitSource {
-            info: PermitSourceInfo {
-                key: "forstbetriebsbezirke",
-                label: LABEL,
-                what: Wording {
-                    en: "forest districts (Forstbetriebsbezirke) with their Regionalforstamt",
-                    de: "Forstbetriebsbezirke mit ihrem Regionalforstamt",
-                },
-                credit: CREDIT,
-                note: None,
-                sampled: false,
-                gaps: None,
-                layers: &["forstbetriebsbezirke"],
-                sections: &[PermitSection::ForestUnits],
-                offices: None,
-            },
-            zip: "forstbetriebsbezirke_nrw_EPSG25832_Shape.zip",
-            layer: Layer::Districts,
-        }),
-        Box::new(WuhPermitSource {
-            info: PermitSourceInfo {
-                key: "staatswald",
-                label: LABEL,
-                what: Wording {
-                    en: "state forest (Landeseigener Forstbetrieb)",
-                    de: "Staatswald (Landeseigener Forstbetrieb)",
-                },
-                credit: CREDIT,
-                note: None,
-                sampled: false,
-                gaps: None,
-                layers: &["staatswald"],
-                sections: &[PermitSection::StateForest],
-                offices: None,
-            },
-            zip: "landeseigener_forstbetrieb_staatswald_EPSG25832_Shape.zip",
-            layer: Layer::StateForest,
-        }),
-        linfos(),
-        crate::shape_permits::source(
-            "wasserschutzgebiete",
-            Wording {
-                en: "Land NRW",
-                de: "Land NRW",
-            },
-            Wording {
-                en: "water protection areas (set and planned)",
-                de: "Wasserschutzgebiete (festgesetzt und geplant)",
-            },
-            WSG_CREDIT,
-            &["wasserschutzgebiete"],
-            &[PermitSection::WaterProtection],
-            "https://www.opengeodata.nrw.de/produkte/umwelt_klima/wasser/trinkwasser/wasserschutzgebiete/Wasserschutzgebiete-NRW_EPSG25832_Shape.zip",
-            Crs::Utm32,
-            crate::wfs_permits::Reading::Water {
-                name: "name",
-                zone: "wsg_zone",
-                citation: None,
-                planned: Some(("areastatus", "P")),
-            },
-        ),
-    ]
-}
-
-/// The credit of the water protection areas: GovData's licence of the dataset (dl-de/zero-2-0)
-/// with the source the open data of NRW name.
-const WSG_CREDIT: &str = "Land NRW, Datenlizenz Deutschland – Zero – Version 2.0 \
-    (https://www.govdata.de/dl-de/zero-2-0)";
-
-/// The credit of LINFOS, verbatim from the capabilities (`AccessConstraints`) of its WMS; the
-/// WFS gives none.
-pub(crate) const LINFOS_CREDIT: &str = "Open Data - Dieses Angebot vom Landesamt für Natur, Umwelt und \
-    Verbraucherschutz Nordrhein-Westfalen ist lizensiert unter der Datenlizenz Deutschland \
-    Namensnennung 2.0 (https://www.govdata.de/dl-de/by-2-0). Datensätze unter dieser Lizenz \
-    müssen bei Weiterverwendung mit dem Quellenverweis „Land NRW“ versehen werden.";
-
-/// The Naturwaldzellen and Wildnisentwicklungsgebiete of LINFOS (ADR 0130), a WFS that
-/// answers GeoJSON.
-fn linfos() -> Box<dyn PermitSource> {
-    use crate::wfs_permits::Reading;
-    use freemapper_adapter_api::permits::ForestFunctionKind;
-    const NATURAL: Reading = Reading::Function {
-        kind: ForestFunctionKind::Natural,
-        name: Some("objektbezeichnung"),
-    };
-    crate::wfs_permits::source(
-        "linfos",
-        Wording {
-            en: "LINFOS (Land NRW)",
-            de: "LINFOS (Land NRW)",
-        },
-        Wording {
-            en: "Naturwaldzellen and wilderness development areas",
-            de: "Naturwaldzellen und Wildnisentwicklungsgebiete",
-        },
-        LINFOS_CREDIT,
-        &["naturwaldzellen", "wildnis"],
-        &[PermitSection::ForestFunctions],
-        "https://www.wfs.nrw.de/umwelt/linfos",
-        "GEOJSON",
-        &[
-            ("naturwaldzellen", "wfs_linfos:nwz_polygon", NATURAL),
-            ("wildnis", "wfs_linfos:weg_polygon", NATURAL),
-        ],
-    )
-}
-
-impl PermitSource for WuhPermitSource {
-    fn info(&self) -> &PermitSourceInfo {
-        &self.info
-    }
-
-    fn fetch(
-        &self,
-        fetcher: &dyn Fetcher,
-        bbox: &Rect<f64>,
-        part: &Path,
-    ) -> Result<Vec<Vec<Value>>, FetchError> {
-        let url = format!("{BASE}{}", self.zip);
-        let records = shape_records(fetcher, &url, Crs::Utm32, bbox, part)?;
-        Ok(vec![
-            records
-                .iter()
-                .filter_map(|r| record_feature(r, self.layer.kept(), Crs::Utm32))
-                .collect(),
-        ])
-    }
-
-    fn fetch_cached(
-        &self,
-        fetcher: &dyn Fetcher,
-        bbox: &Rect<f64>,
-        part: &Path,
-        cache: &crate::fetch::CacheDir,
-    ) -> Result<Vec<Vec<Value>>, FetchError> {
-        let url = format!("{BASE}{}", self.zip);
-        let records = cached_shape_records(fetcher, &url, Crs::Utm32, bbox, part, cache)?;
-        Ok(vec![
-            records
-                .iter()
-                .filter_map(|r| record_feature(r, self.layer.kept(), Crs::Utm32))
-                .collect(),
-        ])
-    }
-
-    fn findings(&self, layer: &str, features: &[Value]) -> Vec<PermitFinding> {
-        if layer != self.info.layers[0] {
-            return Vec::new();
-        }
-        features
+    /// The sources the manifest of North Rhine-Westphalia declares, in its order: the services
+    /// first, then the shapefiles.
+    fn sources() -> Vec<Box<dyn PermitSource>> {
+        let text = include_str!("../manifests/nordrheinwestfalen/manifest.toml");
+        freemapper_manifest::parse(text, Path::new("nordrheinwestfalen"))
+            .unwrap()
+            .permits
             .iter()
-            .filter_map(|f| finding(self.layer, f))
+            .map(declared_source)
             .collect()
     }
-}
 
-/// The office as the notes name it: the Regionalforstamt of `name`, unless the name is an
-/// office of its own ("Nationalparkforstamt Eifel"); "Arnsberger Wald" is the Lehr- und
-/// Versuchsforstamt.
-fn office(name: &str) -> String {
-    if name.to_lowercase().contains("forstamt") {
-        name.to_string()
-    } else if name == "Arnsberger Wald" {
-        format!("Lehr- und Versuchsforstamt {name}")
-    } else {
-        format!("Regionalforstamt {name}")
+    fn source(key: &str) -> Box<dyn PermitSource> {
+        sources().into_iter().find(|s| s.info().key == key).unwrap()
     }
-}
-
-fn finding(layer: Layer, feature: &Value) -> Option<PermitFinding> {
-    let geometry =
-        geometry(feature).filter(|g| matches!(g, geo_types::Geometry::MultiPolygon(_)))?;
-    let text = |key: &str| {
-        let text = feature.get("properties")?.get(key)?.as_str()?.trim();
-        (!text.is_empty()).then(|| text.to_string())
-    };
-    let kind = match layer {
-        Layer::Districts => FindingKind::ForestUnit {
-            administration: WALD_UND_HOLZ.to_string(),
-            office: office(&text("rfa")?),
-            unit: text("fbb").map(|name| format!("Forstbetriebsbezirk {name}")),
-        },
-        Layer::StateForest => FindingKind::StateForest {
-            owner: STATE.to_string(),
-            office: text("forstamt").map(|name| office(&name)),
-        },
-    };
-    Some(PermitFinding { kind, geometry })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::crs::ProjectedPoint;
-    use crate::fetch::test_support::MapFetcher;
     use freemapper_sources::shapefile::test_support::{Entry, shape_files};
     use geo_types::Coord;
     use std::io::Write as _;
@@ -367,7 +141,7 @@ mod tests {
                 (&far, &[square(400_000.0, 5_750_000.0)]),
             ],
         );
-        let source = &sources()[0];
+        let source = source("forstbetriebsbezirke");
         let features = fetch(source.as_ref(), zip);
         assert_eq!(features.len(), 1, "{features:?}");
         let text = features[0].to_string();
@@ -416,7 +190,7 @@ mod tests {
             "landeseigener_forstbetrieb_staatswald",
             &[(&parcel, &[square(365_000.0, 5_617_000.0)])],
         );
-        let source = &sources()[1];
+        let source = source("staatswald");
         let features = fetch(source.as_ref(), zip);
         let keys: Vec<&String> = features[0]["properties"]
             .as_object()
@@ -434,12 +208,31 @@ mod tests {
         );
     }
 
+    /// An office is a Regionalforstamt, unless its name says it is a Forstamt, and "Arnsberger
+    /// Wald" is the Lehr- und Versuchsforstamt.
     #[test]
     fn offices_are_named_as_wald_und_holz_names_them() {
+        let feature = |name: &str| {
+            serde_json::json!({"type": "Feature", "properties": {"forstamt": name},
+                "geometry": {"type": "Polygon", "coordinates": [[
+                    [7.0, 50.7], [7.0, 50.71], [7.01, 50.71], [7.0, 50.7]]]}})
+        };
+        let office = |name: &str| match source("staatswald")
+            .findings("staatswald", &[feature(name)])
+            .remove(0)
+            .kind
+        {
+            FindingKind::StateForest { office, .. } => office.unwrap(),
+            other => panic!("{other:?}"),
+        };
         assert_eq!(office("Hochstift"), "Regionalforstamt Hochstift");
         assert_eq!(
             office("Nationalparkforstamt Eifel"),
             "Nationalparkforstamt Eifel"
+        );
+        assert_eq!(
+            office("NATIONALPARKFORSTAMT EIFEL"),
+            "NATIONALPARKFORSTAMT EIFEL"
         );
         assert_eq!(
             office("Arnsberger Wald"),
@@ -454,7 +247,7 @@ mod tests {
         let url = format!("{BASE}forstbetriebsbezirke_nrw_EPSG25832_Shape.zip");
         fetcher.insert(&url, b"<html>moved</html>".to_vec());
         let part = tempfile::tempdir().unwrap();
-        let err = sources()[0]
+        let err = source("forstbetriebsbezirke")
             .fetch(&fetcher, &kottenforst(), &part.path().join("x.part"))
             .unwrap_err();
         assert!(

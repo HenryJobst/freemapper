@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The errors of a fetch, and the errors of the readers they carry.
 
 use std::io;
@@ -9,7 +11,7 @@ use crate::records::Product;
 
 #[derive(Debug, thiserror::Error)]
 pub enum FetchError {
-    #[error("download of {url} failed: {message}")]
+    #[error("{}", http_text(.url, .message))]
     Http { url: String, message: String },
     #[error("{}", io_error_text(.0, .1))]
     Io(PathBuf, std::io::Error),
@@ -166,7 +168,44 @@ pub enum AdapterError {
     Engine(Box<dyn std::error::Error + Send + Sync>),
 }
 
+/// The text of [`FetchError::Http`]; for a failure that tends to pass (a busy or restarting server) it says
+/// that the person can ask again later.
+fn http_text(url: &str, message: &str) -> String {
+    let base = format!("download of {url} failed: {message}");
+    if is_temporary_message(message) {
+        format!(
+            "{base}. The service is probably overloaded or under maintenance; freemapper asked up to {} times. Run it again in a few minutes; what is already downloaded is kept.",
+            crate::fetch::ATTEMPTS
+        )
+    } else {
+        base
+    }
+}
+
+/// Whether the message of a [`FetchError::Http`] describes a failure of the service that tends to pass: a server error
+/// (5xx), too many requests (429), a request timeout (408) or a timeout. A refused or reset connection is asked again
+/// too, but is not named a busy service: the person may be offline.
+pub fn is_temporary_message(message: &str) -> bool {
+    if let Some(status) = message.strip_prefix("http status: ") {
+        let code: u16 = status
+            .split_whitespace()
+            .next()
+            .and_then(|code| code.parse().ok())
+            .unwrap_or(0);
+        return code >= 500 || code == 408 || code == 429;
+    }
+    let message = message.to_lowercase();
+    ["timed out", "timeout"]
+        .iter()
+        .any(|word| message.contains(word))
+}
+
 impl FetchError {
+    /// Whether the failure is one that tends to pass, so that asking again later may work.
+    pub fn is_temporary(&self) -> bool {
+        matches!(self, FetchError::Http { message, .. } if is_temporary_message(message))
+    }
+
     /// Whether writing failed because the volume is full.
     pub fn is_disk_full(&self) -> bool {
         matches!(self, FetchError::Io(_, e) if is_storage_full(e))
@@ -227,5 +266,55 @@ pub fn io_error_text(path: &Path, e: &io::Error) -> String {
         )
     } else {
         format!("{}: {e}", path.display())
+    }
+}
+
+#[cfg(test)]
+mod temporary_tests {
+    use super::*;
+
+    #[test]
+    fn server_errors_limits_and_timeouts_pass_again() {
+        for message in [
+            "http status: 500",
+            "http status: 503",
+            "http status: 408",
+            "http status: 429",
+            "http status: 503 (retry after 30 s)",
+            "operation timed out",
+            "Timeout while reading",
+        ] {
+            assert!(is_temporary_message(message), "{message}");
+        }
+    }
+
+    #[test]
+    fn refusals_and_a_lost_connection_are_not_temporary() {
+        for message in [
+            "http status: 404",
+            "http status: 400",
+            "http status: 407",
+            "http status: 409",
+            "http status: 428",
+            "http status: 430",
+            "http status: 499",
+            "http status: ",
+            "connection refused",
+            "connection reset",
+        ] {
+            assert!(!is_temporary_message(message), "{message}");
+        }
+    }
+
+    #[test]
+    fn only_a_temporary_http_failure_is_temporary() {
+        let http = |message: &str| FetchError::Http {
+            url: "https://geo.example.org/x".to_string(),
+            message: message.to_string(),
+        };
+        assert!(http("http status: 502").is_temporary());
+        assert!(!http("connection refused").is_temporary());
+        assert!(!FetchError::NotFound("https://geo.example.org/x".to_string()).is_temporary());
+        assert!(!FetchError::Cancelled.is_temporary());
     }
 }

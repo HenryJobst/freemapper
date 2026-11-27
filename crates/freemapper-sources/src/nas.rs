@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The full ALKIS from the states' NAS WFS (NAS-konform, GML 3.2 only, AdV namespace `adv:`):
 //! surveyed walls, fences, hedges, embankment edges, bridges and monuments for candidates.
 //!
@@ -6,13 +8,16 @@
 //! adds a service row only. The services do not page: one GetFeature per type with
 //! `COUNT=max_count`, and an answer cut at the cap is asked again in four quadrants.
 
+#[cfg(any(test, feature = "testing"))]
 use std::borrow::Cow;
 use std::collections::HashSet;
 use std::path::PathBuf;
 
 use serde_json::{Map, Value};
 
-use crate::crs::{BoundingBox, Crs};
+use crate::crs::BoundingBox;
+#[cfg(any(test, feature = "testing"))]
+use crate::crs::Crs;
 use crate::fetch::{
     FetchError, Fetcher, get_limited_with_retries, is_ogc_report, ogc_exception, one_line,
 };
@@ -23,8 +28,10 @@ use freemapper_adapter_api::records::AdapterId;
 use freemapper_contract::MapKind;
 
 /// 256 MB: 100 000 features of about 1.1 KB (Sanssouci) and room to spare.
+#[cfg(any(test, feature = "testing"))]
 const MAX_ANSWER_BYTES: u64 = 256 << 20;
 
+#[cfg(any(test, feature = "testing"))]
 /// LGB, Brandenburg: "WFS BB ALKIS NAS-konform" (GID 7.1, EPSG:25833; `CountDefault` 100 000,
 /// `ImplementsResultPaging` FALSE).
 pub const LGB_NAS: NasService = NasService {
@@ -281,7 +288,7 @@ const FOREST_ROAD_CLASSES: [ForestRoadClass; 5] = [
 
 /// The features of a GeoJSON answer of the forest road network (ADR 0155) as
 /// [`parse_nas_gml`] gives them: `nas_type` and the codes from the road class
-/// ([`FOREST_ROAD_CLASSES`]), `oid` and `id` from `GmlID`. A road of another class is left out
+/// (`FOREST_ROAD_CLASSES`), `oid` and `id` from `GmlID`. A road of another class is left out
 /// and still counts as returned, because the cap of the service is on the answer.
 pub fn parse_forest_roads(text: &str) -> Result<NasAnswer, AlkisError> {
     let answer: Value = serde_json::from_str(text).map_err(|e| {

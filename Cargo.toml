@@ -4,7 +4,7 @@ resolver = "3"
 members = ["crates/freemapper*", "crates/adapters/*"]
 
 [workspace.package]
-version = "0.24.0"
+version = "0.28.0"
 edition = "2024"
 license = "AGPL-3.0-or-later"
 repository = "https://github.com/HenryJobst/freemapper"
@@ -14,23 +14,27 @@ rust-version = "1.88"
 freemapper = { path = "crates/freemapper" }
 freemapper-adapter-api = { path = "crates/freemapper-adapter-api" }
 freemapper-adapters-de = { path = "crates/adapters/de" }
+freemapper-adapters-cz = { path = "crates/adapters/cz" }
+freemapper-adapters-pl = { path = "crates/adapters/pl" }
 freemapper-manifest = { path = "crates/freemapper-manifest" }
 freemapper-sources = { path = "crates/freemapper-sources" }
 # Shared crates of the suite, all pinned to one release tag of freemapper-core (ADR 0067), so the
 # lock file holds a single copy of the core workspace.
-freemapper-fs = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.29.0" }
-freemapper-georef = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.29.0" }
-freemapper-web = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.29.0" }
+# The views of a finished map (core ADR 0039): which symbols a training view keeps.
+freemapper-omap = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.32.0" }
+freemapper-fs = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.32.0" }
+freemapper-georef = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.32.0" }
+freemapper-web = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.32.0" }
 # Program texts with Fluent and the language detection of the suite (ADR 0092).
-freemapper-text = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.29.0" }
+freemapper-text = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.32.0" }
 # The suite contract (ADR 0095): the program links the shared types only (map kinds, reserved words); the
 # tests add the fixtures, the vocabulary and the rules.
-freemapper-contract = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.29.0", default-features = false }
+freemapper-contract = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.32.0", default-features = false }
 # The self-update: manifest, signature check, version order and the swap; no network (ADR 0067).
-freemapper-update = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.29.0" }
+freemapper-update = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.32.0" }
 # The compact path writer of the PDF backend (core ADR 0033): freemapper's own PDF writer writes its paths
 # with it; nothing else of the renderer is used.
-freemapper-render = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.29.0" }
+freemapper-render = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.32.0" }
 anyhow = "1.0.104"
 axum = "0.8.9"
 base64 = "0.23.1"
@@ -66,6 +70,8 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1.0.154", features = ["float_roundtrip", "raw_value"] }
 sha2 = "0.11.1"
 tempfile = "3.27.0"
+# Tests only: property tests for the readers of untrusted bytes (ADR 0161).
+proptest = { version = "1.7.0", default-features = false, features = ["std"] }
 thiserror = "2.0.21"
 tiff = "0.11.3"
 # The raster backend of the map preview (pure Rust, BSD-3-Clause); no PNG support needed.

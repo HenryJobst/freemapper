@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! HVBG Hesse open data (dl-de/zero-2-0, "Hessische Verwaltung für Bodenmanagement und
 //! Geoinformation"), all in EPSG:25832: the DGM1 and DOM1 1 km tiles read by byte ranges out of
 //! the Downloadcenter's municipal zips, found through the DGM/DOM metadata list.
@@ -13,6 +15,7 @@ use freemapper_sources::raster_fetch::{
 use freemapper_sources::wms::OrthophotoSource;
 
 use crate::note::{Note, note};
+#[cfg(any(test, feature = "testing"))]
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -20,7 +23,9 @@ use std::rc::Rc;
 
 use serde_json::Value;
 
-use crate::crs::{BoundingBox, Crs};
+use crate::crs::BoundingBox;
+#[cfg(any(test, feature = "testing"))]
+use crate::crs::Crs;
 use crate::fetch::{CacheDir, FetchError, FetchMode, Fetcher, get_with_retries, write_cache_file};
 use crate::raster::{GridSpec, Raster};
 use crate::sources::float_tiff::{decode_float_tiff, write_float_raster};
@@ -38,6 +43,7 @@ pub const REST_URL: &str =
     "https://gds.hessen.de/INTERSHOP/rest/WFS/HLBG-Geodaten-Site/-/downloadcenter";
 /// The orthophoto WMS. `he_dop20_rgb` is only served below scale 1:9000, which is where the
 /// 0.2 m requests are; MaxWidth/MaxHeight is 3000 (an oversize request is an XML exception).
+#[cfg(any(test, feature = "testing"))]
 pub const WMS: WmsService = WmsService {
     url: Cow::Borrowed("https://www.gds-srv.hessen.de/cgi-bin/lika-services/ogc-free-images.ows"),
     layer: Cow::Borrowed("he_dop20_rgb"),
@@ -933,7 +939,7 @@ impl<'a> Session<'a> {
 
 /// The flight date (`DD.MM.YYYY`) of the orthophoto at the centre of `bbox` (EPSG:25832), by a
 /// GetFeatureInfo on the info layer; `None` outside the coverage or when the answer has none.
-pub fn flight_date(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Option<String> {
+pub fn flight_date(fetcher: &dyn Fetcher, wms: &WmsService, bbox: &BoundingBox) -> Option<String> {
     let (e, n) = (
         (bbox.min_e + bbox.max_e) / 2.0,
         (bbox.min_n + bbox.max_n) / 2.0,
@@ -942,8 +948,8 @@ pub fn flight_date(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Option<String> 
         "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS={WMS_INFO_LAYER}\
          &QUERY_LAYERS={WMS_INFO_LAYER}&STYLES=&CRS=EPSG:{}&BBOX={},{},{},{}\
          &WIDTH=100&HEIGHT=100&I=50&J=50&INFO_FORMAT=text/plain",
-        WMS.url,
-        WMS.crs.epsg(),
+        wms.url,
+        wms.crs.epsg(),
         crate::sources::wms::mm(e - 100.0),
         crate::sources::wms::mm(n - 100.0),
         crate::sources::wms::mm(e + 100.0),
@@ -1069,11 +1075,15 @@ const PROVIDER: &str = "hvbg";
 /// The rasters of HVBG (Hesse): requested for the area and stored in the project folder.
 pub struct HvbgBackend {
     info: ProviderInfo,
+    /// The orthophoto WMS, as the manifest says it.
+    wms: WmsService,
 }
 
 impl HvbgBackend {
-    pub fn new() -> Self {
+    /// The backend that asks `wms` for the orthophoto.
+    pub fn with_wms(wms: WmsService) -> Self {
         Self {
+            wms,
             info: ProviderInfo {
                 id: AdapterId::built_in(PROVIDER),
                 cache_dir: Some("hvbg".to_string()),
@@ -1084,6 +1094,15 @@ impl HvbgBackend {
     }
 }
 
+#[cfg(any(test, feature = "testing"))]
+impl HvbgBackend {
+    /// The backend with the WMS the manifest of the state declares.
+    pub fn new() -> Self {
+        Self::with_wms(WMS)
+    }
+}
+
+#[cfg(any(test, feature = "testing"))]
 impl Default for HvbgBackend {
     fn default() -> Self {
         Self::new()
@@ -1101,7 +1120,7 @@ impl RasterBackend for HvbgBackend {
         project: &mut dyn RasterProject,
         bbox: &BoundingBox,
     ) -> Result<(), AdapterError> {
-        fetch_rasters(env, project, bbox)
+        fetch_rasters(env, project, bbox, &self.wms)
     }
 }
 
@@ -1112,6 +1131,7 @@ fn fetch_rasters(
     env: &mut AdapterEnv<'_>,
     project: &mut dyn RasterProject,
     bbox: &BoundingBox,
+    wms: &WmsService,
 ) -> Result<(), AdapterError> {
     let (fetcher, mode) = (env.fetcher, env.mode);
     let cache = env.cache;
@@ -1119,12 +1139,12 @@ fn fetch_rasters(
     project.records().tiles.clear();
     project.records().ndsm_tiles.clear();
     warn_beyond_state(env, project, PROVIDER, "HVBG");
-    let flight = || flight_date(fetcher, bbox);
+    let flight = || flight_date(fetcher, wms, bbox);
     fetch_wms_orthophoto(
         env,
         project,
         bbox,
-        (&OrthophotoSource::Wms(WMS), "HVBG", &flight, None),
+        (&OrthophotoSource::Wms(wms.clone()), "HVBG", &flight, None),
     )?;
     // What both models report alike is said once, after both: the places without a
     // Downloadcenter file (with the tiles that stayed empty for want of another file) and
@@ -1873,7 +1893,7 @@ mod tests {
                 .to_vec(),
         );
         assert_eq!(
-            flight_date(&fetcher, &SCHOOL).as_deref(),
+            flight_date(&fetcher, &WMS, &SCHOOL).as_deref(),
             Some("19.08.2025")
         );
         let url = fetcher.log.borrow()[0].clone();
@@ -1897,11 +1917,11 @@ mod tests {
 
         let none = MapFetcher::default();
         none.insert_prefix(&WMS.url, b"Search returned no results.\n".to_vec());
-        assert_eq!(flight_date(&none, &SCHOOL), None);
+        assert_eq!(flight_date(&none, &WMS, &SCHOOL), None);
         let xml = MapFetcher::default();
         xml.insert_prefix(&WMS.url, b"<ServiceExceptionReport/>".to_vec());
-        assert_eq!(flight_date(&xml, &SCHOOL), None);
-        assert_eq!(flight_date(&MapFetcher::default(), &SCHOOL), None);
+        assert_eq!(flight_date(&xml, &WMS, &SCHOOL), None);
+        assert_eq!(flight_date(&MapFetcher::default(), &WMS, &SCHOOL), None);
     }
 
     #[test]

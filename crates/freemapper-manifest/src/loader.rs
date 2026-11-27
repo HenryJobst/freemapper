@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Adapters from folders: the user's own (`<config>/freemapper/adapters/<id>/`) and, when the
 //! person asks for them, those of a project (`<project>/adapters/<id>/`).
 //!
@@ -52,6 +54,8 @@ pub struct Loaded {
     /// The adapters loaded before it on whose ground it lies: a map there gets the objects of
     /// both.
     pub overlaps: Vec<String>,
+    /// Whether it took the place of the built-in adapter with its id (ADR 0188).
+    pub replaces_built_in: bool,
 }
 
 /// What is wrong with the folder of an adapter.
@@ -115,8 +119,9 @@ fn finding(code: &'static str, path: &Path, message: impl Into<String>) -> Manif
 ///
 /// Findings beside those of the manifest and its boundary files: `adapter.folder` (a link, a
 /// name that is no id, too many files), `adapter.needs-newer`, `adapter.duplicate` (the id is
-/// taken; a folder cannot replace an adapter), `adapter.provider-shared`, and, for an adapter
-/// that loads, `adapter.rules-not-read`.
+/// taken by an adapter that is not built in, or a built-in one a folder replaced already),
+/// `adapter.provider-shared`, and, for an adapter that loads, `adapter.rules-not-read` and
+/// `adapter.replaces-built-in`.
 pub fn load_dirs(
     registry: &mut Registry,
     dirs: &[AdapterDir],
@@ -240,7 +245,7 @@ pub fn load_folder(
         return Err(vec![needs_newer(&path, &id, needed, running)]);
     }
     let manifest = crate::parse(&text, folder)?;
-    check_fit(registry, &manifest, &path, running)?;
+    check_fit(registry, &manifest, &path, running, origin)?;
     let mut entry = Loaded {
         id: manifest.adapter.id.clone(),
         origin,
@@ -249,6 +254,7 @@ pub fn load_folder(
         hosts: manifest.hosts.clone(),
         last_verified: manifest.adapter.last_verified,
         overlaps: Vec::new(),
+        replaces_built_in: origin == Origin::User && registry.is_builtin(&manifest.adapter.id),
     };
     let adapter = ManifestAdapter::new(manifest, &FolderFiles::new(folder), Parse::Now, registry)
         .map_err(|findings| {
@@ -266,10 +272,41 @@ pub fn load_folder(
         .asking_declared_hosts_only();
     let adapter: Arc<dyn RegionAdapter> = Arc::new(adapter);
     entry.overlaps = sharing_ground(registry, adapter.as_ref());
-    registry
-        .add(adapter)
-        .map_err(|taken| one("adapter.duplicate", taken.to_string()))?;
     let mut notes = Vec::new();
+    if entry.replaces_built_in {
+        let replaced = registry
+            .replace(adapter)
+            .map_err(|taken| one("adapter.duplicate", taken.to_string()))?;
+        notes.push(finding(
+            "adapter.replaces-built-in",
+            &folder.join(MANIFEST_FILE),
+            format!(
+                "this adapter replaces the adapter {} that is built into freemapper; only what its \
+                 manifest declares changes (addresses that sit in the program's code stay as they \
+                 are), the credit and the licence in the manifest are now yours to keep right, and \
+                 a newer freemapper that changes the built-in one does not reach this region until \
+                 the folder is removed",
+                entry.id
+            ),
+        ));
+        let built_in = replaced.declared().map_or(0, |declared| declared.revision);
+        if built_in > entry.revision {
+            notes.push(finding(
+                "adapter.replacement-outdated",
+                &folder.join(MANIFEST_FILE),
+                format!(
+                    "the built-in adapter {} is at revision {built_in}, this replacement at {}; \
+                     export the built-in one again (`freemapper adapters export {}`) and carry \
+                     your changes over",
+                    entry.id, entry.revision, entry.id
+                ),
+            ));
+        }
+    } else {
+        registry
+            .add(adapter)
+            .map_err(|taken| one("adapter.duplicate", taken.to_string()))?;
+    }
     if files
         .iter()
         .any(|file| file.file_name().is_some_and(|name| name == "rules.toml"))
@@ -290,13 +327,15 @@ pub fn load_folder(
 const SHARED_GROUND: f64 = 0.01;
 
 /// The adapters of `registry` on whose ground `adapter` lies, or which lie on its ground: the
-/// two have more than [`SHARED_GROUND`] of the smaller one in common. Two neighbours whose
+/// two have more than `SHARED_GROUND` of the smaller one in common. Two neighbours whose
 /// simplified borders cross are not among them.
 pub fn sharing_ground(registry: &Registry, adapter: &dyn RegionAdapter) -> Vec<String> {
     use geo::{Area, BooleanOps};
     let bounds = adapter.bounds();
     registry
         .adapters()
+        // An adapter that replaces a built-in one does not share ground with its predecessor.
+        .filter(|other| other.info().id != adapter.info().id)
         .filter(|other| {
             // The box first: the boundary of an adapter far away is not even parsed.
             let theirs = other.bounds();
@@ -337,6 +376,7 @@ fn check_fit(
     manifest: &Manifest,
     path: &Path,
     running: Version,
+    origin: Origin,
 ) -> Result<(), Vec<ManifestError>> {
     let id = &manifest.adapter.id;
     if manifest.adapter.min_freemapper > running {
@@ -347,12 +387,18 @@ fn check_fit(
             running,
         )]);
     }
-    if registry.get(id).is_some() {
+    // The adapter folder of the person may take the place of a built-in adapter (ADR 0188),
+    // once. The folder of a project may not: it can come from someone else, and the person
+    // passed only the flag for more adapters, not for other sources of a state. Any other id
+    // that is taken stays taken.
+    let replaceable = origin == Origin::User && registry.is_builtin(id);
+    if registry.get(id).is_some() && !replaceable {
         return Err(vec![finding(
             "adapter.duplicate",
             path,
             format!(
-                "an adapter with the id {id} exists already; an adapter from a folder cannot replace it"
+                "an adapter with the id {id} exists already; the adapter folder of a person \
+                 replaces a built-in one, once, and nothing else replaces an adapter"
             ),
         )]);
     }

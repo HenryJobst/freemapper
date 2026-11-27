@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The region adapters of the German states (ADR 0082): what freemapper needs to map each of
 //! them. The crate knows the api crate and the generic readers of `freemapper-sources`, and
 //! nothing of the engine.
@@ -10,9 +12,9 @@ pub mod berlin_als;
 pub mod berlin_permits;
 pub mod bfg_permits;
 pub mod boundaries;
-pub mod denkmal_permits;
 pub mod geobasis_nrw;
 pub mod geobremen;
+pub mod geojson_permits;
 pub mod geosn;
 pub mod gfi_permits;
 pub mod hvbg;
@@ -22,31 +24,39 @@ pub mod ldbv;
 pub mod ldbv_alkis;
 pub mod ldbv_files;
 pub mod ldbv_las;
-pub mod ldsh_permits;
-pub mod lfb_permits;
+#[cfg(test)]
+mod ldsh_permits;
+#[cfg(test)]
+mod lfb_permits;
 pub mod lgb;
 pub mod lgb_als;
 pub mod lgl_bw;
 pub mod lgln;
 pub mod lgv;
 pub mod lgv_fk;
-pub mod lgv_permits;
-pub mod lubw_permits;
+#[cfg(test)]
+mod lgv_permits;
+#[cfg(test)]
+mod lubw_permits;
 pub mod lvermgeo;
 pub mod lvermgeo_rp;
 pub mod lvermgeo_rp_las;
 pub mod lvermgeo_sh;
 pub mod lvgl;
 pub mod lvgl_las;
-pub mod natur_permits;
+#[cfg(test)]
+mod natur_permits;
 pub mod nrw_3dm;
-pub mod sbs_permits;
+#[cfg(test)]
+mod sbs_permits;
 pub mod shape_permits;
-pub mod state_permits;
+#[cfg(test)]
+mod state_permits;
 pub mod states;
 pub mod tile_fetch;
 pub mod wfs_permits;
-pub mod wuh_permits;
+#[cfg(test)]
+mod wuh_permits;
 mod xyz_archive;
 
 // The state modules were written inside `freemapper`. These private modules give them the paths

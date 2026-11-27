@@ -63,8 +63,10 @@ Orienteering Maps 2019 (IOF).
 | Zählkurve | index contour | Hervorgehobene Höhenlinie, jede fünfte (ISSprOM 102). | `IndexContour` |
 | Formlinie | form line | Zwischenhöhenlinie für Geländeformen (ISSprOM 103). | `FormLine` |
 | Äquidistanz | contour interval | Höhenabstand benachbarter Höhenlinien in Metern (Sprint: 2 m). | `contour_interval_m` |
+| Steilheitsschwelle | steepness threshold | Hangneigung in Grad, ab der ein Stück Gelände beim Suchen von Böschungen und Felswänden als steil gilt (Standard etwa 27°, einstellbar 15° bis 80°). | `steep_slope_deg` |
 | Kleine Kuppe | small knoll | Kleiner, deutlicher Hügel, den die Höhenlinien nicht zeigen (ISSprOM 109); längliche Kuppe 110. Kandidat aus dem DGM: ein kleiner geschlossener Ring feiner Höhenlinien um einen Gipfel. | `LandformKind::Knoll`, `LandformKind::ElongatedKnoll` |
 | Kleine Senke | small depression | Kleine, flache Vertiefung (ISSprOM 111). Kandidat aus dem DGM wie die Kuppe, auf dem umgekehrten Gelände. | `LandformKind::Depression` |
+| Wandschwelle | face threshold | Hangneigung in Grad, ab der ein Stück Gelände eine Felswandfläche (206) ist (Standard 70°, einstellbar 55° bis 85°, ADR 0200). | `face_slope_deg` |
 | Erdböschung | earth bank | Steiler Geländeabsatz (ISSprOM 104); ab 3 m Höhe aus dem DGM als nicht begehbare Felswand (201) vorgeschlagen. | `LandformKind::Bank`, `LandformKind::Cliff` |
 | Geländeform-Kandidat | landform candidate | Kuppe, Senke, Böschung oder Felswand, die `derive` aus dem DGM findet; nur im Kandidaten-Layer Gelände. | `Landform`, `data/landforms.geojson` |
 | Höhensprung | height jump | Schmaler, langer, steiler Streifen im DGM, der den größten Teil seines Höhenunterschieds auf wenigen Metern abbaut; Grundlage der Böschungs- und Felswand-Kandidaten. | `height_jumps` |
@@ -141,6 +143,9 @@ Orienteering Maps 2019 (IOF).
 | Datenquelle | data source | Anbieter + Produkt, z. B. LGB DGM1, OSM. | `DataSource` |
 | Quelladapter | source adapter | Code, der eine Datenquelle findet, lädt und normiert; für ein Bundesland oder Land siehe Regionsadapter. | `SourceAdapter` |
 | Regionsadapter | region adapter | Alles, was ein Bundesland oder Land liefert: Grenze, Koordinatensystem, OSM-Auszüge, Quellenangabe, Schätzposten und wahlweise ALKIS, Raster und Zusatzebenen. Die Engine fragt die Adapter der Registry und nennt selbst kein Bundesland; die Projektdatei speichert Regionen und Anbieter als Kennung. | `RegionAdapter`, `Registry`, `AdapterId` |
+| Woiwodschaft | voivodeship | Gebietseinheit Polens (16); ihr OSM-Auszug bei Geofabrik ist ein OSM-Auszug des Adapters `polska`. | `OsmExtractInfo` (`europe/poland/<id>`) |
+| nur OSM | OSM only | Abdeckung einer Region, die nur OSM-Auszüge liefert, ohne Raster und ALKIS: die Karte entsteht allein aus OSM, ohne Vorlagen und Höhenlinien (Polen, Stufe 1). | `Coverage::OsmOnly` |
+| GUGiK | GUGiK | Główny Urząd Geodezji i Kartografii, die polnische Landesvermessung; ihre Daten (NMT, NMPT, Orthofoto, EGiB, BDOT10k) sind frei. | `polska` |
 | Adaptermanifest | adapter manifest | TOML-Datei (Format 1), die die Standarddienste eines Regionsadapters (WMS, WCS, WFS, OGC API Features, Geofabrik-Pfad) deklariert und bei Bedarf ein Rasterbackend nennt. Wird zur Laufzeit aus einem Ordner gelesen und gilt als nicht vertrauenswürdig. | `ManifestAdapter` |
 | Rasterbackend | raster backend | Die Rasterquellen eines Anbieters: Es holt Luftbild, Gelände- und Oberflächenmodell eines Kartengebiets und sagt `derive`, wo sie liegen (Kacheln im Zwischenspeicher oder Dateien im Projektordner). Jeder Anbieter hat eines; ein Manifest nennt später eines beim Namen, wenn die Quelle kein Standarddienst ist (Kachelliste, Zip-Bereiche, Metalink, festes Zertifikat). | `RasterBackend`, `ProviderInfo`, `DeriveInputs` |
 | Vertrauensanker | trust anchors | Zertifikate, gegen die genau ein Host geprüft wird, weil er eine unvollständige Kette sendet (Downloadportal von LVermGeo SH). Das Rasterbackend des Anbieters nennt Host und Zertifikate; der HTTP-Client folgt für diesen Host keiner Weiterleitung. | `TrustAnchors`, `RasterBackend::trust` |
@@ -279,7 +284,7 @@ Orienteering Maps 2019 (IOF).
 | Bereinigungsstufe | clean-up level | Wie stark freemapper die Objekte einer Karte bereinigt. Die Stufe *Training* (Trainingskarte) verbindet, lässt im Olivgrün Details weg, fasst Gleichartiges zusammen, verschiebt Linien und Bäume, schneidet Konflikte aus und entfernt zu Kleines. Die Stufe *leicht* (Grundkarte) verschiebt nichts: Sie verbindet Linien eines Symbols und einer Quelle, die Ende an Ende liegen, legt eine Linie, die auf einem Symbol liegt, von dem sie Abstand halten muss, ganz oder abschnittsweise zu den Kandidaten und ebenso, was unter der Mindestgröße der Norm liegt (ADR 0157). | `train`, `light_level`, `Level` |
 | Zusammenfassen | merge | Trainingskarte: Zwei Linien einer Klasse (Straße, Bahn, Weg), die über mindestens die Mindestlänge des schmaleren Symbols innerhalb des Normabstands nebeneinander laufen, werden dort eine Linie auf ihrer Mitte, etwa zwei Fahrbahnen oder zwei Gleise. Das breitere Symbol bleibt, die andere Linie steht in `freemapper:also`. Auf der Waldkarte entfällt dabei auch ein Weg oder eine Straßenbahn im Abstandsbereich einer Straße (Gehweg, Radweg). Nicht Verbinden (Ende an Ende)! (ADR 0150) | `merge`, `TrainingReport::merged` |
 | Verschieben (Trainingskarte) | shift (training map) | Eine Linie, die zu einem anderen Objekt den Normabstand nicht hält, rückt dort um das Fehlende ab, höchstens 0,5 mm auf dem Papier, mit einer Rampe vom Vierfachen an beiden Enden. Das geschieht nur, wenn dabei kein neuer Konflikt entsteht, sonst wird die Linie wie bisher geschnitten. Zäune und Mauern behalten ihre Strichseite (ADR 0150). | `shift_lines`, `MAX_SHIFT_MM` |
-| Einmündung | junction | Ein Linienende, das eine andere Linie berührt (0,1 m). Die Trainingskarte merkt sich jede Einmündung vor dem Zusammenfassen und dem Verschieben und legt das Ende danach wieder an die Linie oder an die, die sie ersetzt hat. Ein Ende, das keine Linie mehr erreicht, zählt als frei (ADR 0150). | `Junctions`, `junctions_repaired`, `junctions_free` |
+| Einmündung | junction | Ein Linienende, das eine andere Linie berührt (0,1 m). Die Trainingskarte merkt sich jede Einmündung vor dem Zusammenfassen und dem Verschieben und legt das Ende danach wieder an die Linie oder an die, die sie ersetzt hat. Ein Ende, das keine Linie mehr erreicht, zählt als frei; der Bericht nennt jedes und zählt die Enden von Wegen, die auf einen Weg trafen, für sich (ADR 0150). | `Junctions`, `junctions_repaired`, `free_ends`, `FreeEnd` |
 | Fahrbahn | carriageway | Die vermessene Fahrbahn der Berliner Straßenbefahrung (`cm_fahrbahn`) in einer Straßenfläche, auf Sprintkarten. Grundkarte und Prüfausdruck zeichnen sie nicht (verborgener Kandidat mit `freemapper:hidden=carriageway`); die Trainingskarte zeichnet sie als 501.11 (befestigte Fläche mit starkem Verkehr, 50 % Braun, ohne Rand) und lässt die Bordsteine darin weg (ADR 0150). | `draw_carriageways`, `HIDDEN_CARRIAGEWAY`, `CARRIAGEWAY_CODE` |
 | Maßstabsleiste | scale bar | Grafischer Maßstab im Titelblock; im PDF nur mit `--pdf-scale-bar`, die Maßstabszahl steht immer da. | `SCALE_BAR_SOURCE` |
 | Quellenblock | source block | Die Quellenzeilen unter dem Titelblock des PDFs; `--pdf-sources auto` kürzt sie bei Bedarf, `credit-only` lässt nur die freemapper-Zeile (ADR 0081). | `PdfSources`, `source_block` |
@@ -306,3 +311,46 @@ Orienteering Maps 2019 (IOF).
 | Aktualisierungsmanifest | update manifest | `freemapper-update.json` in jedem Release: Version, Datum, Versionshinweise, kleinste Version, die sich selbst aktualisieren kann, und je System Adresse, Größe und SHA-256 der Programmdatei; mit minisign signiert (`.minisig`). | `Manifest`, `parse_manifest` |
 | Aktualisierungsmodus | update mode | Was die tägliche Prüfung bei einer neueren Version tut: `notify` (Hinweis, Standard), `install` (installiert nach einem gelungenen Befehl) oder `off`; in `settings.toml`, überschreibbar mit `FREEMAPPER_UPDATE`. | `Mode`, `update --mode` |
 | Tägliche Prüfung | daily check | Prüfung auf eine neuere Version, höchstens einmal in 24 Stunden, nach `init`, `select`, `fetch` und `run` und im MCP-Server; der letzte Versuch steht in `update-check.json` im Zwischenspeicher. | `start_background_check`, `CheckRecord` |
+
+## Polski / Polish
+
+Die polnischen Texte (`pl` in den Katalogen) nutzen diese Begriffe. Ein Begriff,
+der hier fehlt, wird zuerst hier ergänzt. Die Symbolnamen folgen den polnischen Ausgaben der IOF-Normen, wo es sie
+gibt; sonst gilt die hier genannte Wendung. / The Polish texts use these terms; a missing term is added here first.
+
+| Deutsch | English | Polski |
+|---|---|---|
+| Orientierungslauf (OL) | orienteering | bieg na orientację (BnO) |
+| OL-Karte | orienteering map | mapa do biegu na orientację |
+| Sprintkarte | sprint map | mapa sprintowa |
+| Waldkarte | forest map | mapa leśna |
+| Schulhofkarte | schoolyard map | mapa dziedzińca szkolnego |
+| Trainingskarte | training map | mapa treningowa |
+| Kartengebiet | map area | obszar mapy |
+| Kartierer | mapper | kartograf (osoba rysująca mapę) |
+| Maßstab | scale | skala |
+| Symbol | symbol | znak (znak mapy) |
+| Höhenlinie | contour | warstwica |
+| Orthofoto | orthophoto | ortofotomapa |
+| Geländemodell (DGM) | terrain model (DTM) | numeryczny model terenu (NMT) |
+| Oberflächenmodell (DOM) | surface model (DSM) | numeryczny model pokrycia terenu (NMPT) |
+| Bundesland | state | (Deutschland) kraj związkowy; (Polen) województwo |
+| Kreis | district | powiat |
+| Gemeinde | municipality | gmina |
+| Regionsadapter | region adapter | adapter regionu |
+| Kandidatenebene | candidate layer | warstwa kandydatów |
+| Kandidat | candidate | kandydat (obiekt do sprawdzenia w terenie) |
+| Genehmigungshinweise | permit notes | wskazówki dotyczące zgód |
+| Quellenangabe | credit line | informacja o źródle danych |
+| Zwischenspeicher | cache | pamięć podręczna |
+| Projektordner | project folder | folder projektu |
+| Lauf (der Pipeline) | run | uruchomienie |
+| Warnung | warning | ostrzeżenie |
+| Fehler | error | błąd |
+| Offline | offline | tryb offline |
+| Selbstaktualisierung | self-update | samoaktualizacja |
+| Katasterdaten (Polen: EGiB) | cadastre (Poland: EGiB) | ewidencja gruntów i budynków (EGiB) |
+| Landesamt (Polen: GUGiK) | national survey (Poland: GUGiK) | Główny Urząd Geodezji i Kartografii (GUGiK) |
+
+Die Begriffe der übrigen Programmsprachen (cs, nl, da, fr, sv, nb, fi, sk, et, it, sl, hu, lt, lv, es, pt, ru, uk) stehen in
+[`glossary-languages.md`](glossary-languages.md). / The terms of the other program languages are in `glossary-languages.md`.

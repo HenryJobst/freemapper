@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Consistency tests of the embedded page (`web/`): its texts in the catalog, ids and labels, the
 //! suite's page rules. No JavaScript runner is needed; the files are read as text.
 #![cfg(test)]
@@ -68,7 +70,7 @@ fn has_text(ids: &BTreeSet<String>, id: &str) -> bool {
 
 /// The kinds of the files a run reports (`pipeline.rs`); the run panel names each with
 /// `page-file-kind-<kind>`.
-const FILE_KINDS: [&str; 11] = [
+const FILE_KINDS: [&str; 14] = [
     "map",
     "preview",
     "template",
@@ -79,6 +81,9 @@ const FILE_KINDS: [&str; 11] = [
     "training-map",
     "training-pdf",
     "training-ocad",
+    "training-view-map",
+    "training-view-pdf",
+    "training-view-ocad",
     "permits",
 ];
 
@@ -104,6 +109,25 @@ fn step_ids() -> Vec<String> {
 fn page_texts_have_the_same_ids_in_both_languages() {
     let english = page_ids("en");
     assert_eq!(english, page_ids("de"));
+    assert_eq!(english, page_ids("pl"));
+    assert_eq!(english, page_ids("cs"));
+    assert_eq!(english, page_ids("nl"));
+    assert_eq!(english, page_ids("da"));
+    assert_eq!(english, page_ids("fr"));
+    assert_eq!(english, page_ids("sv"));
+    assert_eq!(english, page_ids("nb"));
+    assert_eq!(english, page_ids("fi"));
+    assert_eq!(english, page_ids("sk"));
+    assert_eq!(english, page_ids("et"));
+    assert_eq!(english, page_ids("it"));
+    assert_eq!(english, page_ids("sl"));
+    assert_eq!(english, page_ids("hu"));
+    assert_eq!(english, page_ids("lt"));
+    assert_eq!(english, page_ids("lv"));
+    assert_eq!(english, page_ids("es"));
+    assert_eq!(english, page_ids("pt"));
+    assert_eq!(english, page_ids("ru"));
+    assert_eq!(english, page_ids("uk"));
     assert!(english.len() > 130, "{}", english.len());
     assert!(english.contains("suite-banner-dismiss"));
 }
@@ -115,6 +139,25 @@ fn page_messages_have_no_selectors_and_no_functions() {
     for source in [
         include_str!("../i18n/en/freemapper.ftl"),
         include_str!("../i18n/de/freemapper.ftl"),
+        include_str!("../i18n/pl/freemapper.ftl"),
+        include_str!("../i18n/cs/freemapper.ftl"),
+        include_str!("../i18n/nl/freemapper.ftl"),
+        include_str!("../i18n/da/freemapper.ftl"),
+        include_str!("../i18n/fr/freemapper.ftl"),
+        include_str!("../i18n/sv/freemapper.ftl"),
+        include_str!("../i18n/nb/freemapper.ftl"),
+        include_str!("../i18n/fi/freemapper.ftl"),
+        include_str!("../i18n/sk/freemapper.ftl"),
+        include_str!("../i18n/et/freemapper.ftl"),
+        include_str!("../i18n/it/freemapper.ftl"),
+        include_str!("../i18n/sl/freemapper.ftl"),
+        include_str!("../i18n/hu/freemapper.ftl"),
+        include_str!("../i18n/lt/freemapper.ftl"),
+        include_str!("../i18n/lv/freemapper.ftl"),
+        include_str!("../i18n/es/freemapper.ftl"),
+        include_str!("../i18n/pt/freemapper.ftl"),
+        include_str!("../i18n/ru/freemapper.ftl"),
+        include_str!("../i18n/uk/freemapper.ftl"),
     ] {
         let mut current = "";
         for line in source.lines() {
@@ -247,6 +290,10 @@ fn index_has_labels_for_every_option() {
         "run-pdf",
         "run-pdf-candidates",
         "run-training",
+        "run-view-no-paths",
+        "run-view-brown-only",
+        "run-view-no-north-lines",
+        "run-view-custom",
         "run-pdf-scale-bar",
         "run-pdf-sources",
         "run-offline",
@@ -277,6 +324,7 @@ fn run_js_names_no_path_field() {
         "pdf",
         "pdf_candidates",
         "training",
+        "training_views",
         "pdf_scale_bar",
         "pdf_sources",
         "permits",

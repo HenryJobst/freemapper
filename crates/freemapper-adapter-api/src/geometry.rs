@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Where a map area lies among the regions: which adapters it touches, whose rasters it uses,
 //! which tiles of a grid a provider publishes. All boxes and points are in EPSG:25833, where
 //! the boundaries are. The functions go through the adapters in the order of the registry, so
@@ -164,6 +166,22 @@ pub fn raster_region_in<'a>(
         })
 }
 
+/// The CRS of a map of `bbox` (EPSG:25833): that its raster region asks for at the centre of the
+/// area ([`RegionAdapter::crs_for`]), zone 33 for an area no region holds.
+pub fn map_crs_in(registry: &Registry, bbox: &BoundingBox) -> crs::Crs {
+    let centre = crs::ProjectedPoint {
+        easting: (bbox.min_e + bbox.max_e) / 2.0,
+        northing: (bbox.min_n + bbox.max_n) / 2.0,
+    };
+    let (Some(adapter), Some(position)) = (
+        raster_region_in(registry, bbox),
+        crs::Crs::Utm33.inverse(centre),
+    ) else {
+        return crs::Crs::Utm33;
+    };
+    adapter.crs_for(position)
+}
+
 /// The tiles of a `km` grid over `bbox` that touch a region of `registry` whose provider is
 /// `provider`; providers publish only those.
 pub fn provider_tiles_in(
@@ -201,11 +219,11 @@ pub fn tiles_touching<O: Outline + ?Sized>(
 /// boundaries are simplified separately (up to 25 m each), so a shared border can leave a gap of
 /// up to about 50 m between two states.
 const UNCOVERED_M: f64 = 50.0;
-/// The spacing of the points [`reaches_beyond_coverage`] tests, half of [`UNCOVERED_M`].
+/// The spacing of the points [`reaches_beyond_coverage`] tests, half of `UNCOVERED_M`.
 const COVERAGE_STEP_M: f64 = 25.0;
 
 /// Whether part of `bbox` (EPSG:25833) lies outside every region of `registry`: a point of it
-/// more than [`UNCOVERED_M`] from all their boundaries, e.g. in Thuringia or another state that
+/// more than `UNCOVERED_M` from all their boundaries, e.g. in Thuringia or another state that
 /// is no region yet, abroad or at sea.
 pub fn reaches_beyond_coverage_in(registry: &Registry, bbox: &BoundingBox) -> bool {
     use geo::{BooleanOps as _, Distance as _, Euclidean};
@@ -243,4 +261,77 @@ pub fn rectangle(bbox: &BoundingBox) -> Polygon<f64> {
         coord! { x: bbox.max_e, y: bbox.max_n },
     )
     .to_polygon()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // The map of a region whose maps take the zone of their centre: one zone for the whole area,
+    // also where the area straddles the zone border (18° E).
+    fn poland_like() -> Registry {
+        let mut registry = Registry::new();
+        let boundary = MultiPolygon::new(vec![rectangle(&BoundingBox {
+            min_e: 600_000.0,
+            min_n: 5_650_000.0,
+            max_e: 800_000.0,
+            max_n: 5_900_000.0,
+        })]);
+        let stub = crate::testing::StubRegion::new("stub", crs::Crs::Utm33, boundary, true);
+        registry.add(std::sync::Arc::new(stub)).unwrap();
+        registry
+    }
+
+    fn area_around(lat: f64, lon: f64, half_deg: f64) -> BoundingBox {
+        let a = crs::Crs::Utm33.forward(crs::LatLon {
+            lat: lat - 0.1,
+            lon: lon - half_deg,
+        });
+        let b = crs::Crs::Utm33.forward(crs::LatLon {
+            lat: lat + 0.1,
+            lon: lon + half_deg,
+        });
+        BoundingBox {
+            min_e: a.easting,
+            min_n: a.northing,
+            max_e: b.easting,
+            max_n: b.northing,
+        }
+    }
+
+    #[test]
+    fn map_crs_takes_the_zone_of_the_centre() {
+        let registry = poland_like();
+        assert_eq!(
+            map_crs_in(&registry, &area_around(52.0, 17.9, 0.02)),
+            crs::Crs::Utm33
+        );
+        assert_eq!(
+            map_crs_in(&registry, &area_around(52.0, 18.1, 0.02)),
+            crs::Crs::Utm34
+        );
+    }
+
+    #[test]
+    fn straddling_area_has_one_zone_of_its_centre() {
+        let registry = poland_like();
+        // Its edges lie at 17.8° and 18.3° E, its centre at 18.05° E.
+        assert_eq!(
+            map_crs_in(&registry, &area_around(52.0, 18.05, 0.25)),
+            crs::Crs::Utm34
+        );
+        assert_eq!(
+            map_crs_in(&registry, &area_around(52.0, 17.95, 0.25)),
+            crs::Crs::Utm33
+        );
+    }
+
+    #[test]
+    fn outside_every_region_map_crs_is_zone_33() {
+        let registry = poland_like();
+        assert_eq!(
+            map_crs_in(&registry, &area_around(48.0, 10.0, 0.02)),
+            crs::Crs::Utm33
+        );
+    }
 }

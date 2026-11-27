@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The extra layers of a project: sets of feature layers beside the cadastre, stored one file
 //! per layer under `data/`. Three families exist: Berlin's registers and surveys, the full ALKIS
 //! (NAS) of the states that serve it, and the tree cadastres of cities. They differ in what is

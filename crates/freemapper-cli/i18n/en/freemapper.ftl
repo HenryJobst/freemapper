@@ -39,7 +39,7 @@ cli-pdf-without-credits = PDF without source credits: ODbL and dl-de/by-2-0 ask 
 cli-wrote-pdf = Wrote { $path } (the map without candidates)
 cli-wrote-pdf-candidates = Wrote { $path } (the check print: the map with every candidate, true to position; check them in the terrain)
 cli-wrote-training = Wrote { $map } and { $pdf } (the training map: { $joined } joined, { $shifted } shifted, { $left } left out or cut)
-cli-training-free-ends = { $count } line ends left free
+cli-training-free-ends = Line ends left free: { $ways } where a way met another way, { $others } at other lines
 cli-training-apart-left = the training map still has { $length } mm (on paper) where objects keep too little gap; check it in OOM
 cli-kept-training = Kept the training map { $path }, so that a run does not overwrite one that was printed or passed on; delete it or pass --force to renew it
 
@@ -80,6 +80,10 @@ cli-adapter-from-project = warning: the adapter { $adapter } from the project fo
 cli-adapter-overlaps = warning: the adapter { $adapter } also covers ground of { $others }; its objects go onto maps there
 cli-adapter-dir-relative = warning: FREEMAPPER_ADAPTER_DIR is not an absolute path ({ $path }); it is ignored
 cli-adapters-no-project = warning: { $path } is not a folder; no adapters of a project were read
+cli-adapters-export-unknown = the adapter { $adapter } is not declared by a manifest of this program, so there is nothing to export; `freemapper adapters list` shows the ids
+cli-adapters-export-taken = { $path } exists and is not empty; export into a folder that does not exist yet
+cli-adapters-export-done = Wrote the { $count } files of the adapter { $adapter } to { $path }. Only what its manifest declares is in them; addresses that sit in the program's code are not.
+cli-adapters-export-next = Change the addresses in manifest.toml, check the folder with `freemapper adapters check`, then move it into { $path }: it replaces the built-in adapter from the next start on, with a warning. Deleting the folder takes the built-in one back.
 cli-adapters-overlaps = shares ground with: { $others }
 cli-adapters-line = { $adapter }  { $name }  { $source }  revision { $revision }  checked { $checked }  hosts: { $hosts }
 cli-adapters-source-built-in = built in
@@ -244,6 +248,12 @@ page-scale = Scale 1:
 page-map-title = Title
 page-contour-interval = Contour interval
 page-contour-auto = automatic
+page-steep-slope = Steepness threshold
+page-steep-slope-auto = automatic (27°)
+page-steep-slope-hint = From this slope angle the terrain counts as steep when earth banks and cliffs are looked for. 27° (automatic) suits hills, parks and towns. In rock towns, gorges and quarries nearly every slope is steep, so banks and cliffs run together into one patch and none is found; 55° to 65° separates them. Too high a value keeps only the steepest walls.
+page-face-slope = Face threshold
+page-face-slope-auto = automatic (70°)
+page-face-slope-hint = From this slope angle the ground is drawn as a black rock face area. 70° (automatic) suits rock towns such as Adršpach (5.2 % of the ground). 65° gives more and larger black areas, steep slopes included (8.4 %). 75° keeps only real walls, with ragged edges (2.5 %). Too high a value leaves hardly any areas.
 page-settings-fixed = The project exists already; map kind, scale and title are in freemapper.toml. The contour interval can still be changed.
 page-save = Save
 page-saving = Saving …
@@ -316,6 +326,13 @@ page-help-pdf = Map objects only, no candidates.
 page-opt-pdf-candidates = Check print with every candidate
 page-opt-training = Training map
 page-help-training = The map and every candidate, cleaned up to be printed as they are; with OCAD also as an OCAD file.
+page-views-heading = Views of the training map
+page-view-no-paths = Without paths (Ultimate map)
+page-view-brown-only = Brown only (contour orienteering)
+page-view-no-north-lines = Without north lines
+page-view-custom = Another view
+page-help-views = Each ticked view is one more file next to the training map, `<name>-training-<view>.omap` and its PDF, with OCAD also an OCAD file. Another view is `no:505,506` (leave out symbols) or `only:101,102` (keep only these); `+` combines views. Title, scale and sources always stay.
+page-help-views-forest = Without paths and brown only are for forest maps only.
 page-opt-scale-bar = Scale bar on the PDFs
 page-help-scale-bar = German maps usually have none.
 page-opt-sources = Source lines on the PDFs
@@ -360,6 +377,9 @@ page-file-kind-pdf-candidates = check print
 page-file-kind-training-map = training map
 page-file-kind-training-pdf = training map PDF
 page-file-kind-training-ocad = OCAD training map
+page-file-kind-training-view-map = training map view
+page-file-kind-training-view-pdf = training map view PDF
+page-file-kind-training-view-ocad = OCAD training map view
 page-file-kind-preview = map preview
 page-file-kind-permits = permit notes
 page-file-line = { $path } ({ $kind }, { $size })
@@ -447,6 +467,8 @@ error-project-already-exists = project already exists: { $path }
 error-project-map-exists = map already exists (it may contain your work); use --force to replace it: { $path }
 error-project-invalid-scale = invalid scale 1:{ $scale }
 error-project-invalid-contour-interval = invalid contour interval { $interval } m in freemapper.toml; it must be more than 0
+error-project-invalid-steep-slope = invalid steepness threshold { $slope }° in freemapper.toml; it must lie between 15° and 80°
+error-project-invalid-face-slope = invalid face threshold { $slope }° in freemapper.toml; it must lie between 55° and 85°
 error-project-scale-not-allowed = scale 1:{ $scale } is not allowed for { $kind } maps; use { $allowed }
 error-project-scale-not-allowed-enlarge = scale 1:{ $scale } is not allowed for { $kind } maps; use { $allowed }. Draw at 1:4000, freemapper-print enlarges to 1:3000 when printing
 word-kind-schoolyard = schoolyard
@@ -456,6 +478,7 @@ error-project-toml = invalid project file: { $message }
 error-project-unknown-adapter = the project file names the adapter "{ $adapter }", which this freemapper does not have; a newer freemapper may bring it (`freemapper update`), or it comes from your adapter folder (`freemapper adapters list` shows it) or, with --adapters-from-project on the command line, from the folder `adapters` of the project (only for a project you trust)
 error-project-not-fetched = no tiles fetched yet; run `freemapper fetch` first
 error-project-ocd = OCAD export: { $message }
+error-project-pdf = PDF: { $message }
 error-project-template-outdated = { $path }: image and world file do not match the map area; run `freemapper derive` again
 error-project-tiles-outdated = the map area needs tiles { $tiles } that were not fetched; run `freemapper fetch`
 error-project-buildings-not-fetched = no ALKIS buildings stored for this map area; run `freemapper fetch` online first
@@ -464,6 +487,8 @@ error-project-terrain-not-fetched = no terrain model stored for this map area; r
 error-project-candidates-outdated = the stored OSM candidates do not cover the map area; run `freemapper fetch`
 error-project-stored = { $path }: { $message }; run `freemapper fetch` again
 error-project-area-too-large = map area plus buffer is { $width } × { $height } m, more than { $limit } m per side; reduce the map area or buffer_m in freemapper.toml
+error-project-area-crosses-country = the map area lies on both sides of a country border; maps across a border are not supported yet, so draw the area inside one country
+error-project-permits-not-for-region = the permit notes are not available for this region yet: they ask German services and name German authorities
 error-project-outside-coverage = the map area lies outside the supported states ({ $states }); freemapper has data sources for those only so far
 
 ## Errors: disk space
@@ -483,6 +508,7 @@ word-part-point-cloud = the laser point clouds for the vegetation candidates
 ## Errors: downloads
 
 error-fetch-http = download of { $url } failed: { $message }
+error-fetch-http-temporary = download of { $url } failed: { $message }. The service is probably overloaded or under maintenance; freemapper asked up to { $attempts } times. Run it again in a few minutes; what is already downloaded is kept.
 error-fetch-corrupt-archive = download of { $url } is not a complete tile archive: { $message }
 error-fetch-corrupt-extract = download of { $url } is not a complete OSM extract: { $message }
 error-fetch-tiles-not-covered = { $count ->
@@ -565,6 +591,7 @@ cli-arg-version = Print version
 cli-help-help = Show the help of a command
 cli-arg-help-command = The command to show the help of, for example run
 cli-parse-hint = For more information, try '--help'.
+cli-double-click-start = freemapper opens the page where you choose the map area in your browser. The project folder is { $path }. Close this window to end the program.
 cli-parse-unknown-argument = unexpected argument { $arg }
 cli-parse-missing-required = missing required argument: { $args }
 cli-parse-invalid-value = invalid value { $value } for { $arg }
@@ -592,6 +619,7 @@ help-export-ocad = Also write an OCAD starting point into `ocad/` (OCAD 12 forma
 help-export-pdf = Also write `<name>.pdf`, the printable map (the map objects only, no candidates); an existing OOM map then stays unless you pass --force
 help-export-pdf-candidates = Also write `<name>-candidates.pdf`, the check print: the map with every candidate, true to position; an existing OOM map then stays unless you pass --force
 help-export-training = Also write the training map `<name>-training.omap` and its PDF `<name>-training.pdf`: the map and every candidate, cleaned up to be printed as they are; with --ocad also `ocad/<name>-training.ocd`. An existing OOM map then stays unless you pass --force, and --force also replaces an existing training map
+help-export-view = With --training: also write the training map without what a view leaves out, as `<name>-training-<view>.omap` and its PDF (with --ocad also an OCAD file). Views: `no-paths` (no roads, paths, stairs), `brown-only` (only brown symbols and the frame), `no-north-lines`, or a list `no:<codes>` / `only:<codes>`; combine with `+`. Repeat the option for several files
 help-export-pdf-scale-bar = Draw the scale bar on the PDFs (off by default, German maps usually have none; the scale number stays in the title block)
 help-export-pdf-sources = Source lines on the PDFs: `auto` prints the full list and shortens it only when it would take more than 5 lines, `full` never shortens, `credit-only` prints only the freemapper credit line (ODbL and dl-de/by-2-0 then ask you to name the sources when you pass the map on). ATTRIBUTION.txt always lists every source
 help-fetch = Download the data for the map area (orthophoto, terrain model, nDSM, ALKIS buildings, OSM)
@@ -607,6 +635,7 @@ help-run-ocad = Also write an OCAD starting point into `ocad/` (OCAD 12 format)
 help-run-pdf = Also write `<name>.pdf`, the printable map (the map objects only, no candidates)
 help-run-pdf-candidates = Also write `<name>-candidates.pdf`, the check print: the map with every candidate, true to position
 help-run-training = Also write the training map `<name>-training.omap` and its PDF `<name>-training.pdf`: the map and every candidate, cleaned up to be printed as they are; with --ocad also `ocad/<name>-training.ocd`. An existing training map stays unless you pass --force
+help-run-view = With --training: also write the training map without what a view leaves out, as `<name>-training-<view>.omap` and its PDF (with --ocad also an OCAD file). Views: `no-paths` (no roads, paths, stairs), `brown-only` (only brown symbols and the frame), `no-north-lines`, or a list `no:<codes>` / `only:<codes>`; combine with `+`. An existing view file stays unless you pass --force
 help-run-pdf-scale-bar = Draw the scale bar on the PDFs (off by default; the scale number stays in the title block)
 help-run-pdf-sources = Source lines on the PDFs: `auto` prints the full list and shortens it only when it would take more than 5 lines, `full` never shortens, `credit-only` prints only the freemapper credit line (ODbL and dl-de/by-2-0 then ask you to name the sources when you pass the map on). ATTRIBUTION.txt always lists every source
 help-select = Choose the map area in the browser by drawing it or picking a place. Saving writes freemapper.toml and creates the project folder if needed
@@ -641,18 +670,59 @@ help-adapters-check-dir = The folder of the adapter; its name is the id of the a
 help-adapters-check-live = Also ask the services of the adapter for the box --bbox names and say what each delivers. The requests stay on the hosts the manifest declares
 help-adapters-check-bbox = The box of the live check in degrees, as minLon,minLat,maxLon,maxLat. It lies inside the boundary of the adapter; 150 m by 150 m is enough
 help-adapters-check-json = Print the result as JSON
+help-adapters-probe = Ask every service the built-in adapters name once and say whether it answers: ok, slow, moved or error. Exit code 0 also when a service fails; the result is the answer
+help-adapters-probe-json = Print the result as JSON
+help-adapters-probe-status = Read the status of last night from this file (it may be missing) and print the new status as JSON: a service is down after two bad nights in a row. The changes go to standard error
 help-adapters-allow-host = Allow a built-in adapter one more host: for a state whose service moved to a server its adapter does not name yet. The message about the refused address says which host. The host is checked like a host of a manifest, and freemapper still connects to servers on the internet only
 help-adapters-allow-host-adapter = The id of the built-in adapter, as `adapters list` shows it
 help-adapters-allow-host-host = The host to allow: a DNS name, no address, no port
 help-adapters-disallow-host = Take back a host that allow-host allowed
 help-adapters-disallow-host-adapter = The id of the built-in adapter
 help-adapters-disallow-host-host = The host to take back
+help-adapters-export = Write the built-in adapter of a state as an adapter folder you can change: its manifest and the files the manifest names, in `<dir>/<id>`. The folder must not exist yet or be empty. Change the addresses in its `manifest.toml`, check it with `adapters check`, and put it into your adapter folder: it then replaces the built-in adapter, with a warning. Removing the folder takes the built-in one back
+help-adapters-export-adapter = The id of the built-in adapter, as `adapters list` shows it
+help-adapters-export-dir = The folder in which the folder `<id>` is made
+help-sources = Read and correct the addresses of the data sources without a new release. A correction goes into your own adapter folder and replaces the built-in address
+help-sources-list = List the addresses of the manifests with their paths and where each manifest comes from. With an adapter id only that adapter's
+help-sources-get = Print one address and nothing else. Exit code 1 when the adapter or the path is unknown
+help-sources-set = Correct one address in your own adapter folder, after the whole manifest passed its check. An address on a host the manifest does not declare is refused unless you pass --add-host
+help-sources-diff = Show what your adapter folder changes against the built-in manifest
+help-sources-check = Check the folder of your adapter of that id as `adapters check` does. Exit code 0: it passes; 1: it has findings; 2: the check could not run
+help-sources-schema = Print the keys of a manifest that hold an address, with --json as a JSON Schema
+help-arg-adapter = The id of the adapter, as `adapters list` shows it
+help-arg-path = The path of the address, as `sources list` shows it
+help-sources-set-url = The new address: https, no query
+help-sources-set-add-host = Also add the host of the new address to the hosts the manifest declares
+cli-sources-no-user-dir = this system has no folder for your adapters; set FREEMAPPER_ADAPTER_DIR to an absolute path
+cli-sources-bad-id = { $adapter } is no adapter id
+cli-sources-unknown-adapter = freemapper has no adapter { $adapter }; `freemapper adapters list` shows the ids
+cli-sources-no-manifest = no manifest of this program declares the adapter { $adapter }; its addresses are in the code
+cli-sources-unknown-path-of = the adapter { $adapter } has no address under { $path }; `freemapper sources list { $adapter }` shows the paths
+cli-sources-bad-value = the new address must be an https address on a named host, without quote, backslash, control character, user or port
+cli-sources-host-not-declared = the new address leads to the host { $host }, which the manifest does not declare; --add-host declares it
+cli-sources-invalid = the manifest would not pass with this change, so nothing was written: { $findings }
+cli-sources-set-created = Made the folder { $folder } for the adapter { $adapter } from its built-in manifest; it replaces the built-in adapter from the next start.
+cli-sources-set-host-added = Declared the host { $host } in [net] hosts; freemapper now asks that server for this adapter.
+cli-sources-set-next = Check it with `freemapper adapters check { $folder }`. Credit and licence stay as they were: keep them right if the service changed hands. Restart the MCP server or the area page.
+cli-sources-diff-no-folder = you have no folder of the adapter { $adapter } ({ $folder }); nothing to compare
+cli-sources-diff-none = your folder holds the same addresses as the built-in manifest
+help-sources-list-json = Print the list as JSON
+help-sources-check-live = Also ask the services of the adapter for the box --bbox names and say what each delivers. The requests stay on the hosts the manifest declares
+help-sources-check-bbox = The box of the live check in degrees, as minLon,minLat,maxLon,maxLat. It lies inside the boundary of the adapter; 150 m by 150 m is enough
+help-sources-check-json = Print the result as JSON
+help-sources-schema-json = Print the result as JSON
 help-arg-adapters-from-project = Also load the adapters in the folder `adapters` of the project folder. freemapper names each of them with the hosts it asks. Use it for a project you trust: an adapter makes freemapper ask the servers it names
 
 ## The summary of a run, for the MCP server and the area page
 
 cli-internal-error = internal error: { $message }
 cli-pdf-sources-invalid = pdf_sources must be auto, full or credit-only, not { $value }
+cli-view-unknown = a view is no-paths, brown-only, no-north-lines, no:<codes> or only:<codes>, not { $value }
+cli-view-empty = the list { $value } names no symbol code
+cli-view-bad-code = { $value } is no symbol code such as 505 or 501.6
+cli-summary-training-view = Wrote { $map } and { $pdf } (a view of the training map)
+cli-summary-kept-training-view = Kept the files of the view { $view } of the training map; pass --force to renew them
+cli-summary-training-view-failed = The view of the training map failed: { $error }
 cli-estimate-disk-unreadable = cannot read the free disk space of { $path } ({ $message })
 cli-summary-wrote-map = Wrote the map { $path }
 cli-summary-kept-map = Kept the existing map { $path } (it may contain the mapper's work)
@@ -749,11 +819,18 @@ mcp-param-start-pipeline-pdf-scale-bar = Draw the scale bar on the PDFs. Default
 mcp-param-start-pipeline-pdf-sources = Source lines on the PDFs: "auto" (default; the full list, shortened only when it takes more than 5 lines), "full" (never shortened) or "credit-only" (only the freemapper credit line; ODbL and dl-de/by-2-0 then require naming the sources when the map is passed on). ATTRIBUTION.txt always lists every source.
 mcp-param-start-pipeline-permits = Also write the permit notes (permits.md and permits.json) after the map: administrative units, protected areas and who runs the land. A failure there is a warning, not a failed job. Default false.
 mcp-param-start-pipeline-training = Also write the training map <name>-training.omap and its PDF <name>-training.pdf: the map and every candidate, cleaned up to be printed as they are; with ocad also ocad/<name>-training.ocd. An existing training map is kept unless force is true. Default false.
+mcp-param-start-pipeline-training-views = With training: also write the training map without what a view leaves out, one file set per entry: "no-paths", "brown-only", "no-north-lines", or a list such as "no:505,506" or "only:101,102", combined with +. The files are <name>-training-<view>.omap and its PDF.
 mcp-instructions = freemapper makes OpenOrienteering Mapper starter projects for orienteering maps (schoolyard 1:1000, sprint 1:4000, forest 1:15000) from official geodata of { $states }, and from OSM. Workflow: find_place (search the school or area by name; pick a result with has_area) → create_project (a new folder, absolute path, with the osm_id) → estimate_download (tell the user how much will be downloaded) → start_pipeline (returns a job id; downloading can take minutes) → project_status (poll every few seconds until the state is finished or failed) → list_layers and preview_layer (show the user the templates). The user then opens the map file in OpenOrienteering Mapper. When no place fits or the user wants to draw the area, open_area_selector opens a page in the browser where the user draws or picks the area and saves it (this creates the project); continue with estimate_download once the user says it is saved. Paths must be absolute or start with ~. One pipeline runs at a time. permits_for_area makes the permit notes of a project (administrative units, protected areas, who runs the land; a hint, not legal advice) as a job like start_pipeline. check_update tells whether a newer freemapper exists; install_update installs it, only with confirm: true after the person agreed, and the assistant then restarts the freemapper server.
 
 cli-contour-interval-saved = Contour interval saved in freemapper.toml: { $interval } m; derive traces the contours at it
 cli-contour-interval-auto = Contour interval in freemapper.toml: automatic (the map kind's; a forest map gets 2.5 m in flat land and 10 m in steep land)
+cli-steep-slope-saved = Steepness threshold saved in freemapper.toml: { $slope }°; derive looks for earth banks and cliffs with it
+cli-steep-slope-auto = Steepness threshold in freemapper.toml: default (about 27°)
+cli-face-slope-saved = Face threshold saved in freemapper.toml: { $slope }°; derive looks for rock face areas with it
+cli-face-slope-auto = Face threshold in freemapper.toml: default (70°)
 help-arg-contour-interval = Contour interval in metres, e.g. `2.5`, or `auto` for the map kind's (a forest map: 5 m, 2.5 m where it is flat, 10 m where it is steep). Saved in freemapper.toml; derive traces the contours at it
+help-arg-steep-slope = Slope angle in degrees from which the terrain counts as steep when earth banks and cliffs are looked for, e.g. `55`, or `auto` for the default of 27°. Raise it (55 to 65) in rock towns and gorges, where almost every slope is steep and banks and cliffs run together into one patch. Saved in freemapper.toml; derive looks for banks and cliffs with it
+help-arg-face-slope = Slope angle in degrees from which the ground is a rock face (black area, symbol 206), e.g. `75`, or `auto` for the default of 70°. 65 gives more and larger faces, also on steep slopes; 75 keeps only true walls. Saved in freemapper.toml; derive looks for rock faces with it
 cli-content-saved = Content setting saved in freemapper.toml: { $summary }
 cli-content-invalid = Cannot read the content setting: { $detail }
 help-arg-content = What goes straight onto the map: `safe` leaves every object where the build puts it, `balanced` (default) puts the objects of the cadastre and the registers on the map, `full` puts everything on the map. The choice is saved in freemapper.toml
@@ -761,9 +838,13 @@ help-arg-content-set = Send a group of objects to `map`, `candidates` or `off`, 
 mcp-param-create-project-content = What goes straight onto the map: "safe", "balanced" (default) or "full". Saved in the project. balanced puts the objects of the cadastre and the registers on the map, full puts everything on it.
 mcp-param-create-project-content-set = Groups sent somewhere else than the profile says, as "group=place" with place map, candidates or off, e.g. "walls=map". Groups: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets.
 mcp-param-create-project-contour-interval = Contour interval in metres, e.g. 2.5; 0 goes back to the automatic choice (the map kind's; a forest map gets 2.5 m in flat land and 10 m in steep land). Saved in the project; the next derive traces the contours at it.
+mcp-param-create-project-steep-slope = Slope angle in degrees from which the terrain counts as steep when earth banks and cliffs are looked for, e.g. 55; 0 goes back to the default of 27°. Raise it (55 to 65) in rock towns and gorges, where almost every slope is steep and banks and cliffs run together into one patch. Saved in the project; the next derive looks for banks and cliffs with it.
+mcp-param-create-project-face-slope = Slope angle in degrees from which the ground is a rock face (black area, symbol 206), e.g. 75; 0 goes back to the default of 70°. 65 gives more and larger faces, also on steep slopes; 75 keeps only true walls. Saved in the project; the next derive looks for rock faces with it.
 mcp-param-start-pipeline-content = Change what goes straight onto the map before the run: "safe", "balanced" or "full". Saved in the project. Default: the project's setting, else balanced.
 mcp-param-start-pipeline-content-set = Groups sent somewhere else than the profile says, as "group=place" with place map, candidates or off, e.g. "fences=candidates". Saved in the project.
 mcp-param-start-pipeline-contour-interval = Contour interval in metres, e.g. 2.5; 0 goes back to the automatic choice (the map kind's; a forest map gets 2.5 m in flat land and 10 m in steep land). Saved in the project; the next derive traces the contours at it.
+mcp-param-start-pipeline-steep-slope = Slope angle in degrees from which the terrain counts as steep when earth banks and cliffs are looked for, e.g. 55; 0 goes back to the default of 27°. Raise it (55 to 65) in rock towns and gorges, where almost every slope is steep and banks and cliffs run together into one patch. Saved in the project; the next derive looks for banks and cliffs with it.
+mcp-param-start-pipeline-face-slope = Slope angle in degrees from which the ground is a rock face (black area, symbol 206), e.g. 75; 0 goes back to the default of 70°. 65 gives more and larger faces, also on steep slopes; 75 keeps only true walls. Saved in the project; the next derive looks for rock faces with it.
 mcp-error-content = Cannot read the content setting: { $detail }
 
 ## Permit notes (`freemapper permits`, `run --permits`, ADR 0117). The ids `permits-hint-*`
@@ -786,6 +867,7 @@ error-permits-missing-not-read = { $source }: not read
 
 permits-title = Permit notes
 permits-disclaimer = A hint, not legal advice. The competent authorities decide. For the data date and accuracy see the table under "Sources and data date"; areas can be missing or out of date (BfN: merged once a year, "Nicht für Planungszwecke geeignet.", that is, not suitable for planning).
+permits-disclaimer-regional = A hint, not legal advice. The competent authorities decide. For the data date and accuracy see the table under "Sources and data date"; areas can be missing or out of date.
 permits-bfn-merge = The BfN merges the data of the states once a year and marks them as not suitable for planning. The authorities of the state decide.
 permits-created = Made on { $date } for the map area of a { $kind ->
         [schoolyard] schoolyard map
@@ -848,6 +930,7 @@ permits-quoted = "{ $text }"
 permits-osm-unnamed = without a name
 permits-osm-operator = Operator according to OSM: { $operator }
 permits-osm-enclosing-gap = OpenStreetMap areas that enclose the whole map area without a corner inside it can be missing here, and so can protected areas mapped in OSM as a relation with `type=boundary`. The parts from the BfN and VG250 are not affected.
+permits-osm-enclosing-gap-short = OpenStreetMap areas that enclose the whole map area without a corner inside it can be missing here.
 permits-operator-line = { $name } ({ $roles ->
         [operator] operator
         [owner] owner
@@ -870,6 +953,7 @@ permits-hint-nature-authority = { $kreisfrei ->
 permits-hint-national-park = A national park has rules of its own. Ask the national park administration early.
 permits-hint-nsg-paths = In a nature reserve you usually have to keep to the paths. For a run off the paths, ask the nature conservation authority.
 permits-hint-natura2000 = An FFH area or a bird protection area (Natura 2000) touches the map area. For an event the nature conservation authority may ask for an assessment of its effects.
+permits-hint-protected-areas-pl = Protected areas or objects of nature conservation lie in the map area. For a national park, a landscape park or a nature reserve the administration of the park or reserve is the usual contact; for the other areas and objects the Regional Directorate for Environmental Protection (RDOŚ) of the voivodeship can usually say who is in charge. Ask early when you plan an event there.
 permits-hint-order-office = { $amt ->
         [none] For streets, squares and other public land the Ordnungsamt (public order office) of the Gemeinde { $gemeinde } is usually in charge.
        *[other] For streets, squares and other public land the Ordnungsamt (public order office) is usually in charge: { $amt }, for the Gemeinde { $gemeinde }.
@@ -907,6 +991,28 @@ permits-object-kind = { $kind ->
         [natural-monument] Natural monument (Naturdenkmal)
         [protected-landscape-part] Protected landscape feature (geschützter Landschaftsbestandteil)
         [biotope] Legally protected biotope (geschütztes Biotop)
+        [national-park] National park (park narodowy)
+        [park-buffer-zone] Buffer zone of a park (otulina)
+        [landscape-park] Landscape park (park krajobrazowy)
+        [nature-reserve] Nature reserve (rezerwat przyrody)
+        [protected-landscape-area] Protected landscape area (obszar chronionego krajobrazu)
+        [natura2000-habitats] Natura 2000 site for habitats (SOO)
+        [natura2000-birds] Natura 2000 site for birds (OSO)
+        [ecological-site] Ecological site (użytek ekologiczny)
+        [landscape-complex] Nature and landscape complex (zespół przyrodniczo-krajobrazowy)
+        [documentation-site] Documentation site (stanowisko dokumentacyjne)
+        [natural-monument-pl] Natural monument (pomnik przyrody)
+        [national-park-cz] National park (národní park, NP)
+        [protected-landscape-area-cz] Protected landscape area (chráněná krajinná oblast, CHKO)
+        [national-nature-reserve] National nature reserve (národní přírodní rezervace, NPR)
+        [national-nature-monument] National natural monument (národní přírodní památka, NPP)
+        [nature-reserve-cz] Nature reserve (přírodní rezervace, PR)
+        [nature-monument-cz] Natural monument (přírodní památka, PP)
+        [protective-zone-cz] Protective zone (ochranné pásmo)
+        [nature-zone-cz] Zone of nature protection (zóna ochrany přírody)
+        [natura2000-habitats-cz] Natura 2000 site for habitats (evropsky významná lokalita, EVL)
+        [natura2000-birds-cz] Natura 2000 site for birds (ptačí oblast, PO)
+        [memorial-tree] Memorial tree (památný strom)
        *[special-rules] Area with special rules
     }
 permits-object-count = { $count } objects
@@ -955,6 +1061,23 @@ permits-hint-owners-unknown = { $rest ->
 permits-section-forest-units = Forest administration ({ $source })
 permits-section-state-forest = State forest ({ $source })
 permits-none-forest-units = According to { $source }, the map area lies in the area of no forest office.
+permits-section-admin-units = Administrative units ({ $source })
+permits-none-admin-units = According to { $source }, the map area lies in no administrative unit of the register.
+permits-section-register-monuments = Monuments of the national register ({ $source })
+permits-none-register-monuments = According to { $source }, no registered monument lies in the rectangle around the map area.
+permits-register-monuments-total = Registered monuments in the rectangle around the map area: { $count }. The register gives no position, so these notes cannot say where they lie; check that on the map.
+permits-register-monuments-left = { $count } more are only counted here, without their names.
+permits-section-register-archaeology = Archaeological monuments of the national register ({ $source })
+permits-none-register-archaeology = According to { $source }, no registered archaeological monument lies in the rectangle around the map area.
+permits-register-archaeology-total = Registered archaeological monuments in the rectangle around the map area: { $count }. The register gives no position, so these notes cannot say where they lie; check that on the map.
+permits-register-archaeology-left = { $count } more are only counted here, without their names.
+permits-section-register-history = Monuments of history ({ $source })
+permits-none-register-history = According to { $source }, no monument of history lies in the rectangle around the map area.
+permits-register-history-in-area = Monuments of history in the map area: { $count }.
+permits-register-history-nearby = Further monuments of history in the rectangle around the map area, but not in the map area: { $count }.
+permits-register-history-left = { $count } more are only counted here, without their names.
+permits-admin-unit-code = { $name } (TERYT { $code })
+permits-admin-unit-code-ruian = { $name } (RÚIAN { $code })
 permits-none-state-forest = According to { $source }, no state forest lies in the map area.
 permits-forest-units-reach = A forest office is in charge of the forest in its area. Its area can take in towns and fields as well.
 permits-state-forest-office = in charge: { $office }
@@ -966,6 +1089,38 @@ permits-hint-forest-owner = { $office ->
         [known] An event in the forest needs the consent of the forest owners. The forest office can usually say who owns the forest. In several states an organised event in the forest must also be reported to the forest authority or allowed by it.
        *[unknown] An event in the forest needs the consent of the forest owners. In several states an organised event in the forest must also be reported to the forest authority or allowed by it. These notes do not name the forest office in charge here; the forest administration of the state or the lower forest authority can tell you.
     }
+permits-hint-forest-owner-pl = { $office ->
+        [known] An event in the forest usually needs the consent of the forest owner. The forest district (Nadleśnictwo) named above can usually say who looks after the forest. Forest that does not belong to the State Forests, a private forest for example, is not in the data of these notes. Forest that does not belong to the State Treasury, private or communal forest for example, is supervised by the starost (starosta) for forest management (Act on Forests, art. 5 ust. 1 pkt 2); ask the starosta's office (starostwo powiatowe) there.
+       *[unknown] An event in the forest usually needs the consent of the forest owner. These notes name no forest district of the State Forests for this map area; the data cover the State Forests only, so the forest may belong to someone else, a private owner for example. Who the owner is has to be found out separately. Forest that does not belong to the State Treasury, private or communal forest for example, is supervised by the starost (starosta) for forest management (Act on Forests, art. 5 ust. 1 pkt 2); ask the starosta's office (starostwo powiatowe) there.
+    }
+permits-hint-monument-register-pl = Monuments of the national register lie in the rectangle around the map area. Their positions are not in the data, so check on the map where they are. Under art. 36 ust. 1 of the Act on the Protection of Monuments (ustawa o ochronie zabytków), conservation, restoration and building work at a registered monument need the permit of the voivodeship monument conservator (Wojewódzki Konserwator Zabytków). Since 3 June 2026, building work in the surroundings of a monument, a change of its use, devices or signs fixed to it and other actions that could change its substance or appearance need only a notification to the conservator (art. 36aa), who can object within 60 days and then require a permit. The Act does not name a run or a control as such; ask the conservator's office if an event touches a monument or its surroundings.
+permits-hint-archaeology-register-pl = Archaeological monuments of the national register lie in the rectangle around the map area. Their positions are not in the data, so check on the map where they are. Under art. 36 ust. 1 of the Act on the Protection of Monuments (ustawa o ochronie zabytków), archaeological research (pkt 5), searching for hidden or abandoned movable monuments with electronic or technical devices such as metal detectors (pkt 12) and conservation, restoration or building work at a registered monument (pkt 1) need the permit of the voivodeship monument conservator (Wojewódzki Konserwator Zabytków). The permit for searches falls away on 1 January 2027: art. 36b then allows an adult to search with the consent of the owner and the holder of the property after a notification in the search register through the app of the ministry of culture, and art. 36c forbids such searches on registered monuments and within 10 m of them, among other places. The Act does not name a walk, a run or a control as such; ask the conservator's office if an event or fieldwork touches a registered site.
+permits-hint-history-register-pl = A monument of history (Pomnik historii) lies in or near the map area; the section on the monuments of history says which. The President of the Republic of Poland declares an immovable monument that is entered in the register, or a cultural park, of special value a Pomnik historii by regulation (art. 15 ust. 1 of the Act on the Protection of Monuments, ustawa o ochronie zabytków). So it already stands under the protection of the register or of the cultural park. For work at a monument entered in the register, the voivodeship monument conservator (Wojewódzki Konserwator Zabytków) must grant a permit (art. 36 ust. 1); in a cultural park the resolution of the gmina council sets the bans and limits (art. 16 ust. 2, art. 17 ust. 1). The Act names no walk, run or control as such; ask the conservator's office if an event or fieldwork touches the monument.
+permits-hint-gmina-nature-pl = { $gmina ->
+        [none] The map area holds a natural monument, an ecological site, a nature and landscape complex or a documentation site. The council of the gmina establishes these by resolution, and the resolution says who supervises the object and which bans apply (art. 44 of the Nature Conservation Act). The Act itself names no permit for an event here. Ask the office of the gmina in whose area the object lies for the resolution and the supervisor.
+       *[other] The map area holds a natural monument, an ecological site, a nature and landscape complex or a documentation site. The council of the gmina establishes these by resolution, and the resolution says who supervises the object and which bans apply (art. 44 of the Nature Conservation Act). The Act itself names no permit for an event here. Ask { $count ->
+        [one] the office of the gmina ({ $gmina }) in whose area the object lies
+       *[other] the offices of the gminas ({ $gmina }), each for the objects in its area,
+    } for the resolution and the supervisor.
+    }
+permits-hint-gmina-roads-pl = An event that hinders traffic or uses a street in a special way needs a permit under art. 65 of the Road Traffic Act, applied for at least 30 days ahead. The body that manages traffic on the road issues it: the starosta for powiat and gmina roads, the mayor in a city with powiat rights, the marshal of the voivodeship or the GDDKiA for other roads (art. 10 and 65b). The manager of a gmina road is the wójt, burmistrz or prezydent miasta { $count ->
+        [one] of the gmina ({ $gmina }); the manager decides
+       *[other] of each of the gminas ({ $gmina }); each manager decides
+    } on occupying the road lane (art. 19 and 40 of the Public Roads Act). These notes do not show the category of the roads.
+permits-hint-gmina-land-pl = If land in the map area belongs to the gmina, for example a municipal park, a square, a school ground or a forest, the wójt, burmistrz or prezydent miasta manages it and represents the gmina (art. 30 and 31 of the Act on Gmina Self-Government). Ask { $count ->
+        [one] the office of the gmina ({ $gmina }) for consent
+       *[other] the offices of the gminas ({ $gmina }) for consent
+    } before you use it. These notes do not show who owns the land.
+permits-hint-protected-areas-cz = Protected areas or objects of nature conservation lie in the map area. Under the Act on Nature and Landscape Protection (Act No. 114/1992 Sb.), organised sports, tourist and other public events in a national park are banned outside the places the nature conservation authority has set aside (§ 16 odst. 1 písm. q), and in the protective zone of a national park mass events of this kind outside those places and outside built-up areas need the authority's consent (§ 37 odst. 3 písm. d). In a national nature reserve it is banned to enter or drive outside the paths marked with the authority's consent (§ 29 písm. d). The nature conservation authorities are, among others, the administration of a national park, the Nature Conservation Agency (AOPK ČR), the regional office (krajský úřad) and the office of a municipality with extended powers (§ 75 odst. 1). Other protected areas and objects have conditions of protection of their own. Ask the authority early when you plan an event there.
+permits-hint-monuments-cz = Cultural monuments or monument areas of the state list lie in the map area. Under the Act on State Heritage Care (Act No. 20/1987 Sb., § 14 odst. 1 and 2), the owner of a monument must ask in advance for a decision or a binding opinion before upkeep, repair, reconstruction or another alteration of the monument or its surroundings. The same holds for the owner of a property in a monument reservation, a monument zone or the protective zone of a monument for a building, a change of a building, terrain works, a device or a sign, the removal of a structure, the treatment of trees or maintenance work. The office of the municipality with extended powers decides{ $orp ->
+        [none] {""}
+       *[other] {" "}({ $orp})
+    }, for a national cultural monument the regional office. The Act names no walk, run or control as such; ask that office when an event touches a monument or puts devices or signs at it.
+permits-hint-forest-owner-cz = A mass sports, cultural or other social event on land meant for forest functions may be held only with the written consent of the owner of the forest in which it takes place (Act on Forests, Act No. 289/1995 Sb., § 20 odst. 5). The organiser must also notify the event in writing to the office of the municipality with extended powers{ $orp ->
+        [none] {""}
+       *[other] {" "}({ $orp})
+    }, or to the regional office if the event reaches beyond the district of such a municipality, at the latest 30 days before the event. The notice states date and place, how the event is staffed, the expected number of participants and the written consents of the owners (same paragraph). These notes do not show who owns the forest; ask the forest owners early.
+permits-hint-roads-cz = An event that uses a road in a way other than usual, for example a sports, cultural or similar event that could endanger the safety or the flow of road traffic, needs the permit of the competent road administration office. It is issued with the prior consent of the owner of the road and, where the safety or flow of traffic may be affected, of the Police of the Czech Republic (Act on Roads, Act No. 13/1997 Sb., § 25 odst. 1 and odst. 6 písm. d). The office is the municipal office for local roads, or the office of the municipality with extended powers where it decides, and the office of the municipality with extended powers for roads of the second and third class (§ 40 odst. 4 and 5). Municipalities in the map area: { $gmina }. These notes do not show the class of the roads.
 permits-section-water-protection = Water protection areas ({ $source })
 permits-section-forest-functions = Forest functions and protected forest ({ $source })
 permits-none-water-protection = According to { $source }, no water protection area lies in the map area.

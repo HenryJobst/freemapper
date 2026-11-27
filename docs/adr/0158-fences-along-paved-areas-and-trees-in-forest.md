@@ -4,7 +4,7 @@ Date: 2026-11-16
 Status: Accepted
 
 Amends [0151](0151-ticks-of-closed-and-enclosing-fences.md) (which side a fence's ticks take) and
-[0150](0150-training-map-second-half.md) (what the training map leaves out).
+[0150](0150-the-training-map-second-half.md) (what the training map leaves out).
 
 ## Context
 

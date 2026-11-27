@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Protected areas of the BfN (Bundesamt für Naturschutz): the nine kinds of its WFS
 //! `schutzgebiet`, read by a box in WGS 84.
 //!

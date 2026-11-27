@@ -218,6 +218,6 @@ bytes = 892
 
 [[response]]
 method = "GET"
-url = "https://download.geofabrik.de/europe/germany/hessen-updates/state.txt"
+url = "https://download.geofabrik.de/europe/germany/hessen/updates/state.txt"
 body = "a5c45b857271d37d58c48c5c1fa85bc9a79aef330edbf1bfc8162229c45d4e7b"
 bytes = 113

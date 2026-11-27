@@ -1,10 +1,12 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The classified laser point clouds of LGB Brandenburg (ALS, dl-de/by-2-0): one zip per km tile
 //! with the LAZ file, its currency in a CSV like that of the DGM (ADR 0105).
 
+use freemapper_adapter_api::fetch::get_with_retries;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
-use std::sync::LazyLock;
 
 use chrono::NaiveDate;
 use freemapper_adapter_api::cache::{CacheDir, STALE_PART_AGE};
@@ -15,16 +17,20 @@ use freemapper_adapter_api::pointcloud::{
     PointCloudBackend, PointCloudInfo, PointCloudRecord, PointCloudTile,
 };
 use freemapper_adapter_api::records::{AdapterId, EstimateItem, Part, Store};
+use freemapper_manifest::PointCloud;
 
 use crate::crs::BoundingBox;
 use crate::fetch::{FetchError, FetchMode, write_cache_file};
 use crate::las_files::{cached_las, check_las_file, las_path};
 use crate::lgb::{TileCurrency, TileProvider, parse_currency_csv};
 use crate::note::{Arg, note};
-use crate::states::State;
 use crate::tiles::{TileId, tiles_covering_grid};
 
-const ALS_URL: &str = "https://data.geobasis-bb.de/geobasis/daten/als/laz";
+/// The folder of the zips and the currency list; the manifest of the state holds them (issue
+/// #273), here they are what the manifest is held to in tests.
+#[cfg(any(test, feature = "testing"))]
+pub const ALS_URL: &str = "https://data.geobasis-bb.de/geobasis/daten/als/laz";
+#[cfg(any(test, feature = "testing"))]
 pub const ALS_CURRENCY_CSV: &str = "https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_laserscandaten_aktualitaet.csv";
 /// The folder of the point clouds below the LGB folder of the cache.
 const ALS_DIR: &str = "als";
@@ -37,28 +43,28 @@ const MAX_ZIP_BYTES: u64 = 2 << 30;
 /// (a broken or hostile archive).
 const MAX_LAS_BYTES: u64 = 4 << 30;
 
-/// URL of the zip of tile `t`.
-pub fn als_tile_url(t: TileId) -> String {
-    format!("{ALS_URL}/als_{}.zip", t.name())
-}
-
-/// The point-cloud backend of `state`: LGB for Brandenburg; the other states have none yet.
-pub fn point_cloud(state: State) -> Option<&'static dyn PointCloudBackend> {
-    static LGB: LazyLock<LgbAlsBackend> = LazyLock::new(LgbAlsBackend::new);
-    match state {
-        State::Brandenburg => Some(&*LGB),
-        _ => None,
-    }
-}
-
 /// The point clouds of LGB: 1 km tiles in EPSG:25833, kept in the cache as LAZ.
 pub struct LgbAlsBackend {
     info: PointCloudInfo,
+    /// The folder of the zips, from `[point_cloud] url`.
+    url: String,
+    /// The currency list, from `[point_cloud] index_url`.
+    currency_csv: String,
 }
 
 impl LgbAlsBackend {
-    pub fn new() -> Self {
+    /// The backend that reads the addresses of `cloud`, the `[point_cloud]` of the manifest.
+    ///
+    /// # Panics
+    ///
+    /// When `cloud` has no index address; the validator refuses such a table for this kind.
+    pub fn new(cloud: &PointCloud) -> Self {
         Self {
+            url: cloud.url.clone(),
+            currency_csv: cloud
+                .index_url
+                .clone()
+                .expect("a currency-csv table has an index_url"),
             info: PointCloudInfo {
                 id: AdapterId::built_in(TileProvider::Lgb.id()),
                 cache_dir: TileProvider::Lgb.id().to_string(),
@@ -73,11 +79,10 @@ impl LgbAlsBackend {
     fn dir(&self, cache: &CacheDir) -> PathBuf {
         cache.provider_dir(&self.info.cache_dir).join(ALS_DIR)
     }
-}
 
-impl Default for LgbAlsBackend {
-    fn default() -> Self {
-        Self::new()
+    /// URL of the zip of tile `t`.
+    fn als_tile_url(&self, t: TileId) -> String {
+        format!("{}/als_{}.zip", self.url, t.name())
     }
 }
 
@@ -100,8 +105,8 @@ impl PointCloudBackend for LgbAlsBackend {
         let csv = if offline {
             std::fs::read(&csv_path).unwrap_or_default()
         } else {
-            (env.progress)(note!("progress-downloading", url = ALS_CURRENCY_CSV));
-            match env.fetcher.get(ALS_CURRENCY_CSV) {
+            (env.progress)(note!("progress-downloading", url = &self.currency_csv));
+            match get_with_retries(env.fetcher, &self.currency_csv, |csv| Ok(csv.to_vec())) {
                 Ok(csv) => csv,
                 Err(FetchError::Cancelled) => return Err(FetchError::Cancelled.into()),
                 Err(e) => {
@@ -125,7 +130,7 @@ impl PointCloudBackend for LgbAlsBackend {
         let mut fetched = Vec::new();
         for tile in tiles {
             let cached = cached_las(&dir, &tile.name());
-            let url = als_tile_url(tile);
+            let url = self.als_tile_url(tile);
             let found = |(published, path): (NaiveDate, PathBuf)| PointCloudTile {
                 record: PointCloudRecord {
                     tile: tile.name(),
@@ -290,6 +295,7 @@ mod tests {
 
     use super::*;
     use crate::fetch::test_support::MapFetcher;
+    use crate::states::State;
 
     const TILE: &str = "33421-5821";
     /// A box inside the tile, near Strausberg.
@@ -299,6 +305,31 @@ mod tests {
         max_e: 421_700.0,
         max_n: 5_821_700.0,
     };
+
+    /// The backend of the manifest of Brandenburg.
+    fn backend() -> LgbAlsBackend {
+        LgbAlsBackend::new(
+            &crate::states::point_cloud_of(crate::states::State::Brandenburg)
+                .expect("the manifest has a [point_cloud]"),
+        )
+    }
+
+    fn als_tile_url(tile: TileId) -> String {
+        backend().als_tile_url(tile)
+    }
+
+    /// The manifest holds the addresses the backend used to carry.
+    #[test]
+    fn the_manifest_holds_the_addresses() {
+        let cloud = crate::states::point_cloud_of(crate::states::State::Brandenburg).unwrap();
+        assert_eq!(cloud.kind, freemapper_manifest::PointCloudKind::CurrencyCsv);
+        assert_eq!(cloud.url, ALS_URL);
+        assert_eq!(cloud.index_url.as_deref(), Some(ALS_CURRENCY_CSV));
+        assert_eq!(
+            backend().als_tile_url(TileId::parse("33421-5821").unwrap()),
+            format!("{ALS_URL}/als_33421-5821.zip")
+        );
+    }
 
     fn registry() -> Registry {
         let mut registry = Registry::new();
@@ -384,7 +415,7 @@ mod tests {
             skip_surface: false,
             progress: &mut |n| notes.push(n.to_string()),
         };
-        let tiles = LgbAlsBackend::new().fetch(&mut env, &BBOX).unwrap();
+        let tiles = backend().fetch(&mut env, &BBOX).unwrap();
         (tiles, notes)
     }
 
@@ -427,7 +458,7 @@ mod tests {
             ["33421-5821_2021-11-29.laz", "currency.csv"]
         );
         assert_eq!(
-            LgbAlsBackend::new().cached(&cache, &tile.record),
+            backend().cached(&cache, &tile.record),
             Some(tile.path.clone())
         );
         // A second fetch finds the tile in the cache.
@@ -576,7 +607,7 @@ mod tests {
             map_bbox: bbox,
             today: "2026-11-12".parse().unwrap(),
         };
-        let items = LgbAlsBackend::new().estimate(&area, &EstimateEnv { cache: &cache });
+        let items = backend().estimate(&area, &EstimateEnv { cache: &cache });
         let summary: Vec<(&str, f64, bool, Part, Store)> = items
             .iter()
             .map(|i| (i.what.as_str(), i.megabytes, i.cached, i.part, i.store))

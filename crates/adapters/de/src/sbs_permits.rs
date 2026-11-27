@@ -1,124 +1,35 @@
-//! The permit source of Saxony (ADR 0139): two WMS of the Staatsbetrieb Sachsenforst, asked at
-//! points through [`gfi_permits`](crate::gfi_permits). "Wald nach SächsWaldG" gives the Revier
-//! and the Forstbezirk at a point, "Waldfunktionen in Sachsen" the functions of the forest there:
-//! Erholungswald, Naturwaldzellen, Bodenschutzwald and the drinking water protection zones (in
-//! the forest only). Both are dl-de/by-2-0; the credit is the one the capabilities of the
-//! functions name.
-//!
-//! The Reviere cover all of Saxony. A Revier is in charge in the state forest; for other forest
-//! the lower forest authority of the Landkreis or the kreisfreie Stadt is, as the source says.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
-use freemapper_adapter_api::permits::{
-    FindingKind, ForestFunctionKind, PermitSection, PermitSource, Wording,
-};
-use serde_json::Value;
-
-use crate::gfi_permits::{Query, source};
-use crate::wfs_permits::{text, zone_name};
-
-const CREDIT: &str = "Datenlizenz Deutschland 2.0 – Namensnennung (dl-de/by-2-0) unter Angabe der Quelle: \"Geodaten Sachsenforst\"";
-
-const ADMINISTRATION: &str = "Staatsbetrieb Sachsenforst";
-
-/// The layers of "Waldfunktionen in Sachsen" the notes read, by their numbers in the WMS:
-/// Erholungswald (7), Naturwaldzelle (46), Bodenschutzwald nach SächsWaldG (101) and the zones of
-/// the drinking water protection areas of reservoirs (80 to 84), streams (86 to 88) and ground
-/// water (90 to 94).
-const FUNCTION_LAYERS: &str = "7,46,101,80,81,82,83,84,86,87,88,90,91,92,93,94";
-
-const QUERIES: &[Query] = &[
-    Query {
-        key: "reviere",
-        base: "https://www.forsten.sachsen.de/kartendienste/wald/MapServer/WMSServer",
-        layers: "Reviere",
-        kept: &["REV_NAME", "FBZ_NAME"],
-        one: true,
-        read: revier,
-    },
-    Query {
-        key: "waldfunktionen",
-        base: "https://www.forsten.sachsen.de/kartendienste/waldfunktionen/MapServer/WMSServer",
-        layers: FUNCTION_LAYERS,
-        kept: &["WFZ", "GNM", "KNM"],
-        one: false,
-        read: function,
-    },
-];
-
-/// The source of Saxony.
-pub fn sources() -> Vec<Box<dyn PermitSource>> {
-    vec![source(
-        "sachsenforst",
-        Wording {
-            en: "Staatsbetrieb Sachsenforst",
-            de: "Staatsbetrieb Sachsenforst",
-        },
-        Wording {
-            en: "Forstbezirke and Reviere (in charge in the state forest; for other forest the \
-                 lower forest authority of the Landkreis), Erholungswald, Naturwaldzellen, \
-                 Bodenschutzwald, drinking water protection zones in the forest",
-            de: "Forstbezirke und Reviere (zuständig im Staatswald; für anderen Wald die untere \
-                 Forstbehörde des Landkreises), Erholungswald, Naturwaldzellen, Bodenschutzwald, \
-                 Trinkwasserschutzzonen im Wald",
-        },
-        CREDIT,
-        &["reviere", "waldfunktionen"],
-        &[
-            PermitSection::ForestUnits,
-            PermitSection::ForestFunctions,
-            PermitSection::WaterProtection,
-        ],
-        QUERIES,
-    )]
-}
-
-/// The Forstbezirk and the Revier at a point.
-fn revier(feature: &Value) -> Option<FindingKind> {
-    Some(FindingKind::ForestUnit {
-        administration: ADMINISTRATION.to_string(),
-        office: office(&text(feature, "FBZ_NAME")?),
-        unit: text(feature, "REV_NAME").map(|r| format!("Revier {r}")),
-    })
-}
-
-/// The office of a Forstbezirk as the notes name it. The Reviere write its name in at most 40
-/// characters, which cuts the one office that is no place, the national park's.
-fn office(name: &str) -> String {
-    if name.starts_with("Nationalpark") {
-        "Nationalpark- und Forstverwaltung Sächsische Schweiz".to_string()
-    } else {
-        format!("Forstbezirk {name}")
-    }
-}
-
-/// A function of the forest at a point, by its key `WFZ`: 7110 Erholungswald, 4151
-/// Naturwaldzelle, 1110 Bodenschutzwald, 211.. a zone of a drinking water protection area,
-/// whose short name `KNM` ends in the zone ("§ TW GW Z III", "§ TW TS Z II A").
-fn function(feature: &Value) -> Option<FindingKind> {
-    let key = text(feature, "WFZ")?;
-    let name = text(feature, "GNM");
-    let forest = |kind, name| Some(FindingKind::ForestFunction { kind, name });
-    match key.as_str() {
-        "7110" => forest(ForestFunctionKind::Recreation, name),
-        "4151" => forest(ForestFunctionKind::Natural, name),
-        "1110" => forest(
-            ForestFunctionKind::Protected,
-            Some("Bodenschutzwald".into()),
-        ),
-        k if k.len() == 5 && k.starts_with("211") => Some(FindingKind::WaterProtection {
-            name,
-            zone: text(feature, "KNM")
-                .and_then(|n| n.split_once(" Z ").map(|(_, zone)| zone_name(zone.trim()))),
-            citation: None,
-            authority: None,
-        }),
-        _ => None,
-    }
-}
+//! The fixtures of the permit source of Saxony (ADR 0139): two WMS of the Staatsbetrieb
+//! Sachsenforst, asked at points. The table of the two queries was written here until it moved
+//! into the manifest of Saxony (`[[permits.getfeatureinfo]]`, issue #273); these tests, which
+//! ran against the code, now run against the declared table. "Wald nach SächsWaldG" gives the
+//! Revier and the Forstbezirk at a point, "Waldfunktionen in Sachsen" the functions of the
+//! forest there: Erholungswald, Naturwaldzellen, Bodenschutzwald and the drinking water
+//! protection zones (in the forest only).
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::path::Path;
+
+    use freemapper_adapter_api::permits::{
+        FindingKind, ForestFunctionKind, PermitSection, PermitSource,
+    };
+    use serde_json::Value;
+
+    use crate::wfs_permits::declared_source;
+
+    /// The source of Saxony as its manifest declares it.
+    fn source() -> Box<dyn PermitSource> {
+        let text = include_str!("../manifests/saxony/manifest.toml");
+        freemapper_manifest::parse(text, Path::new("saxony"))
+            .unwrap()
+            .permits
+            .iter()
+            .find(|w| w.key == "sachsenforst")
+            .map(declared_source)
+            .unwrap()
+    }
 
     fn kinds(layer: &str, collection: &str) -> Vec<FindingKind> {
         // A stored answer: the trimmed live features with a cell each, as the fetch writes them.
@@ -131,8 +42,7 @@ mod tests {
             .iter()
             .map(|f| serde_json::json!({"type": "Feature", "geometry": cell, "properties": f["properties"]}))
             .collect();
-        let sources = sources();
-        sources[0]
+        source()
             .findings(layer, &features)
             .into_iter()
             .map(|f| f.kind)
@@ -197,6 +107,136 @@ mod tests {
                     authority: None,
                 },
             ]
+        );
+    }
+
+    /// What the code table said, word for word: the source, its sections and its two queries.
+    #[test]
+    fn the_declared_table_is_the_one_the_code_had() {
+        let text = include_str!("../manifests/saxony/manifest.toml");
+        let manifest = freemapper_manifest::parse(text, Path::new("saxony")).unwrap();
+        let declared = manifest
+            .permits
+            .iter()
+            .find(|w| w.key == "sachsenforst")
+            .unwrap();
+        assert!(declared.getfeatureinfo && !declared.shapefile && declared.url.is_empty());
+        let source = declared_source(declared);
+        let info = source.info();
+        assert_eq!(info.label.de, "Staatsbetrieb Sachsenforst");
+        assert_eq!(info.label.en, "Staatsbetrieb Sachsenforst");
+        assert_eq!(
+            info.credit,
+            "Datenlizenz Deutschland 2.0 – Namensnennung (dl-de/by-2-0) unter Angabe der Quelle: \"Geodaten Sachsenforst\""
+        );
+        assert!(info.sampled && info.note.is_none() && info.gaps.is_none());
+        assert_eq!(info.layers, ["reviere", "waldfunktionen"]);
+        assert_eq!(
+            info.sections,
+            [
+                PermitSection::ForestUnits,
+                PermitSection::ForestFunctions,
+                PermitSection::WaterProtection,
+            ]
+        );
+        let queries: Vec<_> = declared
+            .layers
+            .iter()
+            .map(|l| l.query.clone().unwrap())
+            .collect();
+        assert_eq!(
+            queries
+                .iter()
+                .map(|q| (q.url.as_str(), q.layers.as_str(), q.one))
+                .collect::<Vec<_>>(),
+            [
+                (
+                    "https://www.forsten.sachsen.de/kartendienste/wald/MapServer/WMSServer",
+                    "Reviere",
+                    true
+                ),
+                (
+                    "https://www.forsten.sachsen.de/kartendienste/waldfunktionen/MapServer/WMSServer",
+                    "7,46,101,80,81,82,83,84,86,87,88,90,91,92,93,94",
+                    false
+                ),
+            ]
+        );
+    }
+
+    /// The functions are told by their code: the three of the forest, and the codes of five
+    /// characters that start with 211 for a zone; everything else is left out.
+    #[test]
+    fn a_code_that_is_none_of_them_is_left_out() {
+        let feature = |code: &str, name: Option<&str>, short: &str| {
+            let mut properties = serde_json::json!({"WFZ": code, "KNM": short});
+            if let Some(name) = name {
+                properties["GNM"] = name.into();
+            }
+            serde_json::json!({"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[
+                [13.8, 51.05], [13.81, 51.05], [13.81, 51.06], [13.8, 51.06], [13.8, 51.05]]]},
+                "properties": properties})
+        };
+        let found = |code: &str, name: Option<&str>, short: &str| {
+            source()
+                .findings("waldfunktionen", &[feature(code, name, short)])
+                .into_iter()
+                .map(|f| f.kind)
+                .collect::<Vec<_>>()
+        };
+        assert!(found("7212", None, "ERH II").is_empty());
+        assert!(found("2111", Some("x"), "§ TW GW Z I").is_empty());
+        assert!(found("211111", Some("x"), "§ TW GW Z I").is_empty());
+        assert!(found("311xx", Some("x"), "§ TW GW Z I").is_empty());
+        assert_eq!(
+            found("7110", Some("Park"), ""),
+            [FindingKind::ForestFunction {
+                kind: ForestFunctionKind::Recreation,
+                name: Some("Park".into())
+            }]
+        );
+        assert_eq!(
+            found("7110", None, ""),
+            [FindingKind::ForestFunction {
+                kind: ForestFunctionKind::Recreation,
+                name: None
+            }]
+        );
+        // A zone without the text " Z " in its short name has no zone.
+        assert_eq!(
+            found("21199", Some("Quelle"), "§ TW"),
+            [FindingKind::WaterProtection {
+                name: Some("Quelle".into()),
+                zone: None,
+                citation: None,
+                authority: None
+            }]
+        );
+    }
+
+    /// The name of the national park's office is cut by the Reviere at 40 characters; whatever
+    /// starts with "Nationalpark" gets the whole name, every other office its prefix.
+    #[test]
+    fn the_office_of_the_national_park_is_named_whole() {
+        let revier = |office: &str| {
+            let feature = serde_json::json!({"type": "Feature", "geometry": {"type": "Polygon",
+                "coordinates": [[[13.8, 51.05], [13.81, 51.05], [13.81, 51.06], [13.8, 51.06], [13.8, 51.05]]]},
+                "properties": {"FBZ_NAME": office, "REV_NAME": "R"}});
+            source().findings("reviere", &[feature])[0].kind.clone()
+        };
+        let office = |kind| match kind {
+            FindingKind::ForestUnit { office, .. } => office,
+            other => panic!("{other:?}"),
+        };
+        assert_eq!(
+            office(revier("Nationalpark")),
+            "Nationalpark- und Forstverwaltung Sächsische Schweiz"
+        );
+        assert_eq!(office(revier("Leipzig")), "Forstbezirk Leipzig");
+        assert_eq!(office(revier("Neustadt")), "Forstbezirk Neustadt");
+        assert_eq!(
+            office(revier("Mein Nationalpark")),
+            "Forstbezirk Mein Nationalpark"
         );
     }
 }

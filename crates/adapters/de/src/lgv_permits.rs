@@ -1,379 +1,20 @@
-//! Hamburg's sources of the permit notes (ADR 0129): six WFS on `geodienste.hamburg.de`
-//! (dl-de/by-2-0) for the Bezirke, the public green spaces, the monuments, the Revierförstereien
-//! and the Bannwald of the Stadtwald, the Erholungswald and the water protection areas.
-//!
-//! All are WFS 2.0.0 that answer GeoJSON as `application/geo+json` and read a box in WGS 84
-//! latitude first with its CRS at the end, the generic reader's way ([`get_features`]). Asked so,
-//! they write the positions latitude first; the parser of the Berlin sources turns them round.
-//! The fetch keeps of every feature only the properties a finding reads ([`Layer::kept`]): the
-//! monument list describes each building with its architects, which the notes never carry.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::path::Path;
+//! The fixtures of Hamburg's permit sources (ADR 0129), read through the tables its manifest
+//! declares (issue #273). The six services had their table in this file until they moved into
+//! the manifest; these tests, which ran against the code table, now run against the declared
+//! one and so show that the manifest reads the answers alike.
 
-use freemapper_adapter_api::permits::{
-    DistrictOffices, FindingKind, ForestFunctionKind, PermitFinding, PermitSection, PermitSource,
-    PermitSourceInfo, Wording,
-};
-use freemapper_sources::geojson_wfs::{GeoJsonWfs, LatLonBox, get_features};
-use geo_types::{Geometry, Rect};
-use serde_json::Value;
-
-use crate::berlin_permits::geometry;
-use crate::fetch::{FetchError, Fetcher};
-
-pub(crate) const LABEL: Wording = Wording {
-    en: "Geoportal Hamburg",
-    de: "Geoportal Hamburg",
-};
-
-/// The credit lines, verbatim from the capabilities (`Fees`) of each service.
-const LGV: &str = "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt \
-    Hamburg, Landesbetrieb Geoinformation und Vermessung";
-const BUE: &str = "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt \
-    Hamburg, Behörde für Umwelt und Energie";
-const BUKEA: &str = "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt \
-    Hamburg, Behörde für Umwelt, Klima, Energie und Agrarwirtschaft (BUKEA)";
-const DENKMAL: &str = "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und \
-    Hansestadt Hamburg, zuständige Behörde";
-
-/// The seven Bezirke by the number the green spaces carry.
-const BEZIRKE: [&str; 7] = [
-    "Hamburg-Mitte",
-    "Altona",
-    "Eimsbüttel",
-    "Hamburg-Nord",
-    "Wandsbek",
-    "Bergedorf",
-    "Harburg",
-];
-
-/// How the features of a layer become findings.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Layer {
-    District,
-    GreenSpace,
-    /// A monument of the kind given ("Gartendenkmal").
-    Monument(&'static str),
-    /// A Revierförsterei of the Stadtwald, run by its Bezirksamt.
-    Stadtwald,
-    Bannwald,
-    Erholungswald,
-    WaterProtection,
-}
-
-impl Layer {
-    /// The properties a feature keeps.
-    fn kept(self) -> &'static [&'static str] {
-        match self {
-            Layer::District => &["bezirk", "bezirk_name"],
-            Layer::GreenSpace => &["benennung", "gruen_art", "bezirk"],
-            Layer::Monument(_) => &["kdstatus", "bezeichnung", "fisid"],
-            Layer::Stadtwald => &["bezirk", "foersterei"],
-            Layer::Bannwald => &["bezirk", "name"],
-            Layer::Erholungswald => &["bezirk", "erhl_text"],
-            Layer::WaterProtection => &["gebietsname", "schutzzone", "rechtsgrundlage"],
-        }
-    }
-}
-
-/// One service of the Geoportal Hamburg: its layers with key, WFS type and reading.
-pub struct LgvPermitSource {
-    info: PermitSourceInfo,
-    service: GeoJsonWfs,
-    layers: &'static [(&'static str, &'static str, Layer)],
-}
-
-const fn wfs(base: &'static str) -> GeoJsonWfs {
-    GeoJsonWfs {
-        base,
-        // The `+` written as `%2B`, or it reads as a space.
-        output_format: "application/geo%2Bjson",
-        bbox_crs_suffix: true,
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-fn source(
-    key: &'static str,
-    what: Wording,
-    credit: &'static str,
-    layers: &'static [&'static str],
-    sections: &'static [PermitSection],
-    offices: Option<DistrictOffices>,
-    base: &'static str,
-    table: &'static [(&'static str, &'static str, Layer)],
-) -> Box<dyn PermitSource> {
-    debug_assert!(
-        layers.len() == table.len() && layers.iter().zip(table).all(|(a, (b, _, _))| a == b)
-    );
-    Box::new(LgvPermitSource {
-        info: PermitSourceInfo {
-            key,
-            label: LABEL,
-            what,
-            credit,
-            note: None,
-            sampled: false,
-            gaps: None,
-            layers,
-            sections,
-            offices,
-        },
-        service: wfs(base),
-        layers: table,
-    })
-}
-
-/// The six services, in the order the notes list their sections.
-pub fn sources() -> Vec<Box<dyn PermitSource>> {
-    vec![
-        source(
-            "bezirke",
-            Wording {
-                en: "Bezirk borders",
-                de: "Bezirksgrenzen",
-            },
-            LGV,
-            &["bezirke"],
-            &[PermitSection::Districts],
-            Some(DistrictOffices::Hamburg),
-            "https://geodienste.hamburg.de/HH_WFS_Verwaltungsgrenzen",
-            &[("bezirke", "de.hh.up:bezirke", Layer::District)],
-        ),
-        source(
-            "gruenanlagen",
-            Wording {
-                en: "list of public green spaces (Grünplan)",
-                de: "Verzeichnis der öffentlichen Grünanlagen (Grünplan)",
-            },
-            BUE,
-            &["gruenanlagen"],
-            &[PermitSection::GreenSpaces],
-            None,
-            "https://geodienste.hamburg.de/HH_WFS_Gruenplan",
-            &[(
-                "gruenanlagen",
-                "de.hh.up:verzeichnis_oeffentlicher_gruenanlagen",
-                Layer::GreenSpace,
-            )],
-        ),
-        source(
-            "denkmale",
-            Wording {
-                en: "monuments (Denkmalschutz)",
-                de: "Denkmale (Denkmalschutz)",
-            },
-            DENKMAL,
-            &["gartendenkmale", "ensembles", "gebaeude"],
-            &[PermitSection::Monuments],
-            None,
-            "https://geodienste.hamburg.de/HH_WFS_Denkmalschutz",
-            &[
-                (
-                    "gartendenkmale",
-                    "de.hh.up:flaechen_gartendenkmale",
-                    Layer::Monument("Gartendenkmal"),
-                ),
-                (
-                    "ensembles",
-                    "de.hh.up:ensembles",
-                    Layer::Monument("Ensemble"),
-                ),
-                (
-                    "gebaeude",
-                    "de.hh.up:gebaeude",
-                    Layer::Monument("Baudenkmal"),
-                ),
-            ],
-        ),
-        source(
-            "wald",
-            Wording {
-                en: "forest in Hamburg (Revierförstereien and Bannwald)",
-                de: "Wald in Hamburg (Revierförstereien und Bannwald)",
-            },
-            BUKEA,
-            &["stadtwald", "bannwald", "bannwald-heuckenlock"],
-            &[PermitSection::ForestUnits, PermitSection::ForestFunctions],
-            None,
-            "https://geodienste.hamburg.de/HH_WFS_Wald_in_Hamburg",
-            &[
-                (
-                    "stadtwald",
-                    "de.hh.up:wald_stadtwald_hamburg",
-                    Layer::Stadtwald,
-                ),
-                (
-                    "bannwald",
-                    "de.hh.up:bannwald_stadtwald_hamburg",
-                    Layer::Bannwald,
-                ),
-                (
-                    "bannwald-heuckenlock",
-                    "de.hh.up:bannwald_heuckenlock",
-                    Layer::Bannwald,
-                ),
-            ],
-        ),
-        source(
-            "waldfunktionen",
-            Wording {
-                en: "forest functions (Erholungswald)",
-                de: "Waldfunktionen (Erholungswald)",
-            },
-            BUKEA,
-            &["erholungswald"],
-            &[PermitSection::ForestFunctions],
-            None,
-            "https://geodienste.hamburg.de/HH_WFS_Waldfunktionen",
-            &[(
-                "erholungswald",
-                "de.hh.up:waldfunktionen_erholungswald",
-                Layer::Erholungswald,
-            )],
-        ),
-        source(
-            "wasserschutzgebiete",
-            Wording {
-                en: "water protection areas",
-                de: "Wasserschutzgebiete",
-            },
-            BUE,
-            &["wasserschutzgebiete"],
-            &[PermitSection::WaterProtection],
-            None,
-            "https://geodienste.hamburg.de/HH_WFS_Wasserschutzgebiete",
-            &[(
-                "wasserschutzgebiete",
-                "de.hh.up:wasserschutzgebiete",
-                Layer::WaterProtection,
-            )],
-        ),
-    ]
-}
-
-impl PermitSource for LgvPermitSource {
-    fn info(&self) -> &PermitSourceInfo {
-        &self.info
-    }
-
-    fn fetch(
-        &self,
-        fetcher: &dyn Fetcher,
-        bbox: &Rect<f64>,
-        part: &Path,
-    ) -> Result<Vec<Vec<Value>>, FetchError> {
-        let bbox = LatLonBox {
-            min_lat: bbox.min().y,
-            min_lon: bbox.min().x,
-            max_lat: bbox.max().y,
-            max_lon: bbox.max().x,
-        };
-        self.layers
-            .iter()
-            .map(|(_, type_name, layer)| {
-                let features = get_features(fetcher, &self.service, type_name, &bbox, part)?;
-                Ok(features
-                    .iter()
-                    .filter_map(|f| stored(f, layer.kept()))
-                    .collect())
-            })
-            .collect()
-    }
-
-    fn findings(&self, layer: &str, features: &[Value]) -> Vec<PermitFinding> {
-        let Some((_, _, reading)) = self.layers.iter().find(|(key, _, _)| *key == layer) else {
-            return Vec::new();
-        };
-        features
-            .iter()
-            .filter_map(|feature| finding(*reading, feature))
-            .collect()
-    }
-}
-
-/// A feature as it is stored: the properties of `kept` and the area as longitude, latitude.
-fn stored(feature: &Value, kept: &[&str]) -> Option<Value> {
-    let area = geometry(feature).filter(|g| matches!(g, Geometry::MultiPolygon(_)))?;
-    let properties: serde_json::Map<String, Value> = kept
-        .iter()
-        .filter_map(|key| {
-            Some((
-                key.to_string(),
-                feature.get("properties")?.get(*key)?.clone(),
-            ))
-        })
-        .collect();
-    Some(serde_json::json!({
-        "type": "Feature",
-        "geometry": geojson::Geometry::new(geojson::GeometryValue::from(&area)),
-        "properties": properties,
-    }))
-}
-
-/// The text of property `key`, trimmed; `None` when it is missing, not text or blank.
-fn text(feature: &Value, key: &str) -> Option<String> {
-    let value = feature.get("properties")?.get(key)?;
-    let text = match value {
-        Value::String(s) => s.trim().to_string(),
-        Value::Number(n) => n.to_string(),
-        _ => return None,
-    };
-    (!text.is_empty()).then_some(text)
-}
-
-/// The Bezirk of a green space: the green spaces carry its number.
-fn bezirk(number: &str) -> Option<String> {
-    let index: usize = number.trim().parse().ok()?;
-    BEZIRKE
-        .get(index.checked_sub(1)?)
-        .map(|name| (*name).to_string())
-}
-
-fn finding(layer: Layer, feature: &Value) -> Option<PermitFinding> {
-    let geometry = geometry(feature).filter(|g| matches!(g, Geometry::MultiPolygon(_)))?;
-    let kind = match layer {
-        Layer::District => FindingKind::District {
-            name: text(feature, "bezirk_name")?,
-        },
-        Layer::GreenSpace => FindingKind::GreenSpace {
-            name: text(feature, "benennung")
-                .or_else(|| text(feature, "gruen_art"))
-                .unwrap_or_default(),
-            district: text(feature, "bezirk").and_then(|n| bezirk(&n)),
-            dedication: None,
-        },
-        Layer::Monument(kind) => FindingKind::Monument {
-            kind: kind.to_string(),
-            link: None,
-        },
-        Layer::Stadtwald => FindingKind::ForestUnit {
-            administration: format!("Bezirksamt {}", text(feature, "bezirk")?),
-            office: format!("Revierförsterei {}", text(feature, "foersterei")?),
-            unit: None,
-        },
-        Layer::Bannwald => FindingKind::ForestFunction {
-            kind: ForestFunctionKind::Protected,
-            name: text(feature, "name"),
-        },
-        Layer::Erholungswald => FindingKind::ForestFunction {
-            kind: ForestFunctionKind::Recreation,
-            name: text(feature, "erhl_text"),
-        },
-        Layer::WaterProtection => FindingKind::WaterProtection {
-            name: text(feature, "gebietsname"),
-            zone: text(feature, "schutzzone"),
-            citation: text(feature, "rechtsgrundlage"),
-            authority: None,
-        },
-    };
-    Some(PermitFinding { kind, geometry })
-}
-
-#[cfg(test)]
 mod tests {
-    use super::*;
+    use std::path::Path;
+
     use crate::fetch::test_support::MapFetcher;
+    use crate::wfs_permits::declared_source;
+    use freemapper_adapter_api::permits::{
+        DistrictOffices, FindingKind, ForestFunctionKind, PermitSource,
+    };
+    use geo_types::Rect;
+    use serde_json::Value;
 
     macro_rules! fixture {
         ($name:literal) => {
@@ -387,6 +28,17 @@ mod tests {
     fn features(collection: &str) -> Vec<Value> {
         let value: Value = serde_json::from_str(collection).unwrap();
         value["features"].as_array().unwrap().clone()
+    }
+
+    /// The sources the manifest of Hamburg declares, in its order.
+    fn sources() -> Vec<Box<dyn PermitSource>> {
+        let text = include_str!("../manifests/hamburg/manifest.toml");
+        freemapper_manifest::parse(text, Path::new("hamburg"))
+            .unwrap()
+            .permits
+            .iter()
+            .map(declared_source)
+            .collect()
     }
 
     fn source(key: &str) -> Box<dyn PermitSource> {
@@ -412,7 +64,9 @@ mod tests {
                 "denkmale",
                 "wald",
                 "waldfunktionen",
-                "wasserschutzgebiete"
+                "wasserschutzgebiete",
+                "naturdenkmale",
+                "biotope"
             ]
         );
         for s in sources() {
@@ -427,6 +81,7 @@ mod tests {
                 info.credit
                     .starts_with("Datenlizenz Deutschland Namensnennung 2.0")
             );
+            assert_eq!(info.label.de, "Geoportal Hamburg");
             assert_eq!(
                 info.offices.is_some(),
                 info.key == "bezirke",
@@ -492,9 +147,23 @@ mod tests {
                 "Kleine Wallanlagen | Hamburg-Mitte",
             ]
         );
-        assert_eq!(bezirk("7").as_deref(), Some("Harburg"));
-        assert_eq!(bezirk("0"), None);
-        assert_eq!(bezirk("8"), None);
+        // The number is an index from 1 into the seven names.
+        let at = |number: &str| {
+            let feature = serde_json::json!({"type": "Feature", "properties": {
+                "benennung": "x", "bezirk": number}, "geometry": {"type": "MultiPolygon",
+                "coordinates": [[[[53.5, 9.9], [53.5, 9.91], [53.51, 9.91], [53.5, 9.9]]]]}});
+            match source("gruenanlagen")
+                .findings("gruenanlagen", &[feature])
+                .remove(0)
+                .kind
+            {
+                FindingKind::GreenSpace { district, .. } => district,
+                other => panic!("{other:?}"),
+            }
+        };
+        assert_eq!(at("7").as_deref(), Some("Harburg"));
+        assert_eq!(at("0"), None);
+        assert_eq!(at("8"), None);
     }
 
     #[test]
@@ -622,12 +291,8 @@ mod tests {
             !text.contains("Mustermann") && !text.contains("info"),
             "{text}"
         );
-        let keys: Vec<&String> = layers[0][0]["properties"]
-            .as_object()
-            .unwrap()
-            .keys()
-            .collect();
-        assert_eq!(keys, ["bezeichnung", "fisid", "kdstatus"]);
+        // The kind comes from the layer, so no attribute is kept.
+        assert!(layers[0][0]["properties"].as_object().unwrap().is_empty());
         // Stored as longitude, latitude.
         assert_eq!(layers[0][0]["geometry"]["coordinates"][0][0][0][0], 9.98);
     }

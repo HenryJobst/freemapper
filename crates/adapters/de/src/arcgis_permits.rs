@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Permit sources from ArcGIS REST map services (ADR 0148): a layer's `query` asked by a box in
 //! WGS 84, answered as GeoJSON in WGS 84, page by page while the service says more follow
 //! (`exceededTransferLimit`). The BfG's water protection areas (ADR 0142) are read so; a table
@@ -6,14 +8,12 @@
 
 use std::path::Path;
 
-use freemapper_adapter_api::permits::{
-    PermitFinding, PermitSection, PermitSource, PermitSourceInfo, Wording,
-};
+use freemapper_adapter_api::permits::{DeclaredWfs, PermitFinding, PermitSource, PermitSourceInfo};
 use geo_types::Rect;
 use serde_json::Value;
 
 use crate::fetch::{FetchError, Fetcher, get_limited_with_retries};
-use crate::wfs_permits::{Reading, finding, stored};
+use crate::wfs_permits::{Reading, finding, kept, kept_all, reading, stored, wording};
 
 /// Features per page; the services give at most 1000 or 2000.
 pub(crate) const PAGE: usize = 1000;
@@ -99,35 +99,37 @@ struct RestSource {
     layers: &'static [RestLayer],
 }
 
-/// A source of `layers` of the map service `base`.
-#[allow(clippy::too_many_arguments)]
-pub fn source(
-    key: &'static str,
-    label: Wording,
-    what: Wording,
-    credit: &'static str,
-    keys: &'static [&'static str],
-    sections: &'static [PermitSection],
-    base: &'static str,
-    layers: &'static [RestLayer],
-) -> Box<dyn PermitSource> {
-    debug_assert!(
-        keys.len() == layers.len() && keys.iter().zip(layers).all(|(a, (b, _, _))| a == b)
+/// The source a manifest declares as `[[permits.arcgis]]` (issue #273): the map service, and
+/// for each layer its number (the `type_name`) and the reading it names. The validator holds a
+/// layer's number to digits, so one that is not a number is a mistake of the program.
+pub(crate) fn declared_source(declared: &DeclaredWfs) -> Box<dyn PermitSource> {
+    let layers: &'static [RestLayer] = kept_all(
+        declared
+            .layers
+            .iter()
+            .map(|layer| {
+                (
+                    kept(&layer.key),
+                    layer.type_name.parse().unwrap_or(0),
+                    reading(&layer.reading),
+                )
+            })
+            .collect(),
     );
     Box::new(RestSource {
         info: PermitSourceInfo {
-            key,
-            label,
-            what,
-            credit,
-            note: None,
+            key: kept(&declared.key),
+            label: wording(&declared.label),
+            what: wording(&declared.what),
+            credit: kept(&declared.credit),
+            note: declared.note.as_deref().map(kept),
             sampled: false,
-            gaps: None,
-            layers: keys,
-            sections,
+            gaps: declared.gaps.as_ref().map(wording),
+            layers: kept_all(declared.layers.iter().map(|l| kept(&l.key)).collect()),
+            sections: kept_all(declared.sections.clone()),
             offices: None,
         },
-        base,
+        base: kept(&declared.url),
         layers,
     })
 }
@@ -177,7 +179,9 @@ impl PermitSource for RestSource {
 mod tests {
     use super::*;
     use crate::fetch::test_support::MapFetcher;
-    use freemapper_adapter_api::permits::{FindingKind, ProtectedObjectKind};
+    use freemapper_adapter_api::permits::{
+        FindingKind, PermitSection, ProtectedObjectKind, Wording,
+    };
 
     const BASE: &str = "https://example.org/arcgis/rest/services/Natur/MapServer";
     const LAYERS: &[RestLayer] = &[(
@@ -188,6 +192,7 @@ mod tests {
             name: Some("name"),
             citation: None,
             only: None,
+            point_names: &[],
         },
     )];
 
@@ -214,16 +219,22 @@ mod tests {
             &query_url(BASE, 7, "name", &bbox, PAGE),
             page("Wall", false),
         );
-        let source = source(
-            "natur",
-            Wording { en: "N", de: "N" },
-            Wording { en: "n", de: "n" },
-            "dl-de/by-2-0",
-            &["naturdenkmale"],
-            &[PermitSection::ProtectedObjects],
-            BASE,
-            LAYERS,
-        );
+        let source = RestSource {
+            info: PermitSourceInfo {
+                key: "natur",
+                label: Wording { en: "N", de: "N" },
+                what: Wording { en: "n", de: "n" },
+                credit: "dl-de/by-2-0",
+                note: None,
+                sampled: false,
+                gaps: None,
+                layers: &["naturdenkmale"],
+                sections: &[PermitSection::ProtectedObjects],
+                offices: None,
+            },
+            base: BASE,
+            layers: LAYERS,
+        };
         let part = tempfile::tempdir().unwrap();
         let answers = source
             .fetch(&fetcher, &bbox, &part.path().join("p.part"))

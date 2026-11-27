@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Sources of the permit notes a region adapter brings (ADR 0120): services of a state that say
 //! more about a map area than the national sources do, such as the Bezirk of a city state, its
 //! green spaces, the land the state owns, the monuments, the protected objects and the offices
@@ -46,6 +48,14 @@ pub trait PermitSource: Send + Sync {
         _cache: &CacheDir,
     ) -> Result<Vec<Vec<Value>>, FetchError> {
         self.fetch(fetcher, bbox, part)
+    }
+
+    /// The country whose law the hints of this source's notes quote (ADR 0201), or `None` for the
+    /// general hints of a region without the German national sources. Only a source that fills
+    /// sections the hints of a country read (protected objects, administrative units,
+    /// monuments) needs to say it.
+    fn country(&self) -> Option<crate::info::Country> {
+        None
     }
 
     /// The findings of the stored features of the layer `layer` (a key of
@@ -145,6 +155,18 @@ pub enum PermitSection {
     /// Forest with a function or a protection of forest law: Erholungswald, Bannwald,
     /// Naturwald, areas closed to the public.
     ForestFunctions,
+    /// The administrative units the area lies in (ADR 0181): where the national VG250 does not
+    /// apply, a region brings its own.
+    AdminUnits,
+    /// The register of monuments of a region that gives no position (ADR 0184): the monuments
+    /// in the rectangle around the map area, counted, with their names.
+    MonumentRegister,
+    /// The register of archaeological monuments of a region that gives no position (ADR 0190):
+    /// the sites in the rectangle around the map area, counted, with their names.
+    ArchaeologyRegister,
+    /// The monuments of history of a region, with their positions (ADR 0191): the notes count
+    /// those in the map area and those that lie only in the rectangle around it, with names.
+    HistoryRegister,
 }
 
 /// One finding of a regional source with its geometry.
@@ -182,6 +204,17 @@ pub enum FindingKind {
         /// The entry of the monument in the list of the state.
         link: Option<String>,
     },
+    /// A monument of a register that gives no position: it lies somewhere in the rectangle the
+    /// source asked, which the finding's geometry then is (ADR 0184). The name as the register
+    /// writes it; `None` when it writes none.
+    RegisterMonument { name: Option<String> },
+    /// An archaeological monument of a register that gives no position: it lies somewhere in the
+    /// rectangle the source asked, which the finding's geometry then is (ADR 0190).
+    RegisterArchaeology { name: Option<String> },
+    /// A monument of history (Polish Pomnik historii) with its true position (ADR 0191). A
+    /// monument can come in several parts (polygons, lines, points) with one `id`; the notes
+    /// count it once.
+    RegisterHistory { id: String, name: Option<String> },
     /// The unit of a forest administration the area belongs to. All three as the notes print
     /// them, proper names in German in every language.
     ForestUnit {
@@ -216,6 +249,13 @@ pub enum FindingKind {
         /// The name of the area, or what the data say about it ("von hoher Bedeutung").
         name: Option<String>,
     },
+    /// An administrative unit the area lies in, the name as the register writes it, with the
+    /// code of the register (ADR 0181).
+    AdminUnit {
+        level: AdminUnitLevel,
+        name: String,
+        code: String,
+    },
     /// A protected object of nature conservation law.
     ProtectedObject {
         kind: ProtectedObjectKind,
@@ -224,6 +264,22 @@ pub enum FindingKind {
         /// The legal act, as the data cite it.
         citation: Option<String>,
     },
+}
+
+/// The levels of administrative unit a region brings, top down (ADR 0181).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum AdminUnitLevel {
+    /// The first level below the state (Polish województwo).
+    Region,
+    /// The second level (Polish powiat, Czech okres).
+    County,
+    /// The district of a municipality with extended powers (Czech obec s rozšířenou působností,
+    /// ORP), between the county and the municipality (ADR 0201). Its office is the heritage
+    /// and forest authority of the municipalities in its district.
+    AuthorityDistrict,
+    /// The municipality (Polish gmina).
+    Municipality,
 }
 
 /// The kinds of protected object the national sources do not have.
@@ -239,6 +295,53 @@ pub enum ProtectedObjectKind {
     Biotope,
     /// An area with special rules inside a protected area.
     SpecialRules,
+    /// A Polish national park (park narodowy), without its buffer zone (ADR 0175).
+    NationalPark,
+    /// The buffer zone (otulina) of a Polish national or landscape park.
+    ParkBufferZone,
+    /// A Polish landscape park (park krajobrazowy).
+    LandscapePark,
+    /// A Polish nature reserve (rezerwat przyrody).
+    NatureReserve,
+    /// A Polish protected landscape area (obszar chronionego krajobrazu).
+    ProtectedLandscapeArea,
+    /// A Natura 2000 site for habitats (special area of conservation, `PLH` or `PLC`).
+    Natura2000Habitats,
+    /// A Natura 2000 site for birds (special protection area, `PLB`).
+    Natura2000Birds,
+    /// A Polish ecological site (użytek ekologiczny).
+    EcologicalSite,
+    /// A Polish nature and landscape complex (zespół przyrodniczo-krajobrazowy).
+    LandscapeComplex,
+    /// A Polish documentation site (stanowisko dokumentacyjne): a geological or similar
+    /// site of scientific interest.
+    DocumentationSite,
+    /// A Polish natural monument (pomnik przyrody): a tree, a boulder or a small area. Not
+    /// [`Self::NaturalMonument`], whose notes name the German term and law.
+    NaturalMonumentPl,
+    /// A Czech national park (národní park, NP; ADR 0201).
+    NationalParkCz,
+    /// A Czech protected landscape area (chráněná krajinná oblast, CHKO).
+    ProtectedLandscapeAreaCz,
+    /// A Czech national nature reserve (národní přírodní rezervace, NPR).
+    NationalNatureReserve,
+    /// A Czech national natural monument (národní přírodní památka, NPP).
+    NationalNatureMonument,
+    /// A Czech nature reserve (přírodní rezervace, PR).
+    NatureReserveCz,
+    /// A Czech natural monument (přírodní památka, PP).
+    NatureMonumentCz,
+    /// The protective zone (ochranné pásmo) of a Czech reserve or natural monument.
+    ProtectiveZoneCz,
+    /// A zone of nature protection of a Czech national park or protected landscape area
+    /// (zóna ochrany přírody); its name carries the zone.
+    NatureZoneCz,
+    /// A Czech Natura 2000 site for habitats (evropsky významná lokalita, EVL).
+    Natura2000HabitatsCz,
+    /// A Czech Natura 2000 site for birds (ptačí oblast, PO).
+    Natura2000BirdsCz,
+    /// A Czech memorial tree (památný strom), a single tree or a group.
+    MemorialTree,
 }
 
 /// The functions and protections of forest the notes know.
@@ -277,14 +380,11 @@ pub fn inner_zone(zone: &str) -> Option<bool> {
 }
 
 impl ProtectedObjectKind {
-    /// Whether the lower nature conservation authority looks after the object itself.
+    /// Whether the lower nature conservation authority looks after the object itself. Every
+    /// Polish and Czech kind counts: the notes name the park administration and the regional
+    /// directorate for them (ADR 0175).
     pub fn needs_nature_authority(self) -> bool {
-        matches!(
-            self,
-            ProtectedObjectKind::NaturalMonument
-                | ProtectedObjectKind::ProtectedLandscapePart
-                | ProtectedObjectKind::Biotope
-        )
+        !matches!(self, ProtectedObjectKind::SpecialRules)
     }
 }
 
@@ -295,6 +395,212 @@ pub fn plain_key(name: &str) -> bool {
         && name
             .chars()
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+}
+
+/// A WFS permit source as a manifest declares it (`[[permits.wfs]]`, issue #273): the same table
+/// the code of a state wrote in Rust, as owned data. A [`PermitSourceFactory`] turns it into a
+/// source.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeclaredWfs {
+    /// The key of the source, as [`PermitSourceInfo::key`].
+    pub key: String,
+    pub label: DeclaredWording,
+    pub what: DeclaredWording,
+    pub credit: String,
+    /// Where the data are not complete although they cover the state; see
+    /// [`PermitSourceInfo::gaps`].
+    pub gaps: Option<DeclaredWording>,
+    pub sections: Vec<PermitSection>,
+    /// The address of the service, or, for a shapefile, of the zip that holds it; empty for a
+    /// source asked at points, whose layers name their own services.
+    pub url: String,
+    /// The `outputFormat` for GeoJSON or GML; empty for a shapefile.
+    pub output_format: String,
+    /// The source is one shapefile in a zip (`[[permits.shapefile]]`, issue #273): `url` is the
+    /// zip, `native_crs` the CRS of its positions, and it has one layer without a feature type.
+    pub shapefile: bool,
+    /// The source is one GeoJSON file for the whole state (`[[permits.geojson]]`, issue #273):
+    /// `url` is the file, `native_crs` the CRS of its positions, and it has one layer without a
+    /// feature type.
+    pub geojson: bool,
+    /// The source is an ArcGIS REST map service (`[[permits.arcgis]]`, issue #273, ADR 0148):
+    /// `url` is the map service, every layer's `type_name` the number of the layer in it, and
+    /// the answers are GeoJSON in WGS 84.
+    pub arcgis: bool,
+    /// The source is a WMS asked at points (`[[permits.getfeatureinfo]]`, issue #273, ADR 0139):
+    /// every layer has a [`DeclaredQuery`] and no feature type.
+    pub getfeatureinfo: bool,
+    /// The service answers GML 3.2 only (ADR 0137).
+    pub gml: bool,
+    /// The EPSG number of the CRS the service is asked and answers in, where it is not WGS 84
+    /// (ADR 0144).
+    pub native_crs: Option<u32>,
+    /// The offices of the districts of a city state, for a source of its districts
+    /// ([`PermitSourceInfo::offices`]).
+    pub offices: Option<DistrictOffices>,
+    /// A note of the publisher on what the data are worth, verbatim; see
+    /// [`PermitSourceInfo::note`].
+    pub note: Option<String>,
+    pub layers: Vec<DeclaredLayer>,
+}
+
+/// [`Wording`] as owned text.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeclaredWording {
+    pub en: String,
+    pub de: String,
+}
+
+/// One layer of a declared source: its key, its WFS type and how its features are read.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeclaredLayer {
+    pub key: String,
+    pub type_name: String,
+    /// The WMS and its layers, for a source asked at points.
+    pub query: Option<DeclaredQuery>,
+    pub reading: DeclaredReading,
+}
+
+/// What a layer of a source asked at points asks: the WMS, the layers it asks at once and
+/// whether the layers do not overlap.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeclaredQuery {
+    pub url: String,
+    pub layers: String,
+    /// The layers do not overlap (the Reviere of a state): a point keeps its first feature only.
+    pub one: bool,
+}
+
+/// How the features of a declared layer become findings, with the attributes they read; the
+/// kinds are those of the table of a state (ADR 0130).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DeclaredReading {
+    /// A water protection area or zone.
+    Water {
+        name: String,
+        zone: String,
+        citation: Option<String>,
+        /// The attribute and the value that mark a planned zone.
+        planned: Option<(String, String)>,
+        /// What the zone of a planned area says in brackets; `geplant` where it is `None`.
+        planned_label: Option<String>,
+        /// The attribute of the authority in charge.
+        authority: Option<String>,
+        /// The name is one of a register: without quotes and the number at its end, in the
+        /// case of a name.
+        register_names: bool,
+    },
+    /// Forest with a function or protection.
+    Function {
+        kind: ForestFunctionKind,
+        name: Option<String>,
+    },
+    /// A unit of a forest administration; with `administration_from` the administration is
+    /// `administration` and the text of that attribute.
+    Unit {
+        administration: String,
+        administration_from: Option<String>,
+        prefix: String,
+        office: String,
+        /// The attribute and the prefix of a smaller unit within the office (a Revier).
+        unit: Option<(String, String)>,
+        /// What an office name gets as its prefix.
+        rules: DeclaredOfficeRules,
+    },
+    /// A district of a city state, named by an attribute.
+    District { name: String },
+    /// A public green space: its name (or, where that is blank, the text of `fallback`) and its
+    /// district, which the attribute gives as a number into the list of names.
+    GreenSpace {
+        name: String,
+        fallback: Option<String>,
+        /// The attribute of the district and the names its number goes into; without names the
+        /// attribute holds the name of the district.
+        district: Option<(String, Vec<String>)>,
+        /// The attribute that says whether it is dedicated for public use.
+        dedication: Option<String>,
+        /// The name is that of the park, the part before a comma ("Viktoriapark, Rosengarten").
+        park_names: bool,
+    },
+    /// A public playground; the notes count them.
+    Playground,
+    /// A parcel of a public owner: the attribute names the owner, and only the owners of the
+    /// list come with their name.
+    Owner { owner: String, named: Vec<String> },
+    /// Forest of the state.
+    StateForest {
+        owner: String,
+        prefix: String,
+        office: String,
+        /// What an office name gets as its prefix.
+        rules: DeclaredOfficeRules,
+    },
+    /// A protected object of nature conservation law (ADR 0146).
+    Object {
+        kind: ProtectedObjectKind,
+        name: Option<String>,
+        citation: Option<String>,
+        /// The attribute and the values that make a feature count.
+        only: Option<(String, Vec<String>)>,
+        /// The attributes a point takes its name from, the first that has a value; an area
+        /// takes `name`.
+        point_names: Vec<String>,
+    },
+    /// A listed monument.
+    Monument {
+        kind: String,
+        kind_from: Option<String>,
+        /// The attribute of the link and the start it must have.
+        link: Option<(String, String)>,
+    },
+    /// The function of a forest, named by a code: the codes of the table are forest functions,
+    /// and the codes of `water` are zones of a drinking water protection area.
+    FunctionCode {
+        /// The attribute of the code.
+        code: String,
+        /// The attribute of the name.
+        name: Option<String>,
+        codes: Vec<DeclaredCode>,
+        water: Option<DeclaredWaterCodes>,
+    },
+}
+
+/// A code of a forest function and what it stands for.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeclaredCode {
+    pub code: String,
+    pub kind: ForestFunctionKind,
+    /// The name the notes give the function; it replaces the one of the attribute.
+    pub label: Option<String>,
+}
+
+/// The codes that stand for a zone of a drinking water protection area: those of `length`
+/// characters that start with `prefix`. The attribute `zone` ends in the zone, after `after`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeclaredWaterCodes {
+    pub prefix: String,
+    pub length: usize,
+    pub zone: String,
+    pub after: String,
+}
+
+/// How the name of a forest office becomes the name the notes give it, where `prefix` alone is
+/// not enough: a name that already holds `unless` (in any case) stays as it is, and a name of
+/// `exceptions` gets that prefix instead of `prefix`.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct DeclaredOfficeRules {
+    /// Names that start with the first text of a pair are the second text, whole.
+    pub renames: Vec<(String, String)>,
+    pub unless: Option<String>,
+    /// Pairs of a name and the prefix it gets.
+    pub exceptions: Vec<(String, String)>,
+}
+
+/// Makes the sources a manifest declares. The adapter crate that reads the permit services
+/// registers one in the registry; an adapter whose manifest declares permit sources needs it.
+pub trait PermitSourceFactory: Send + Sync {
+    /// The source of `declared`.
+    fn wfs(&self, declared: &DeclaredWfs) -> Box<dyn PermitSource>;
 }
 
 #[cfg(test)]
@@ -345,8 +651,12 @@ mod tests {
                 names: Names {
                     en: "Bare".into(),
                     de: "Kahl".into(),
+                    pl: None,
+                    cs: None,
                 },
                 crs: Crs::Utm33,
+                country: crate::info::Country::De,
+                coverage: crate::info::Coverage::Full,
                 object_id_prefix: None,
                 osm: Vec::new(),
                 credit_short: None,
@@ -383,5 +693,87 @@ mod tests {
         assert!(ProtectedObjectKind::NaturalMonument.needs_nature_authority());
         assert!(ProtectedObjectKind::ProtectedLandscapePart.needs_nature_authority());
         assert!(!ProtectedObjectKind::SpecialRules.needs_nature_authority());
+    }
+
+    #[test]
+    fn every_polish_kind_names_the_nature_authority() {
+        for kind in [
+            ProtectedObjectKind::NationalPark,
+            ProtectedObjectKind::ParkBufferZone,
+            ProtectedObjectKind::LandscapePark,
+            ProtectedObjectKind::NatureReserve,
+            ProtectedObjectKind::ProtectedLandscapeArea,
+            ProtectedObjectKind::Natura2000Habitats,
+            ProtectedObjectKind::Natura2000Birds,
+            ProtectedObjectKind::EcologicalSite,
+            ProtectedObjectKind::LandscapeComplex,
+            ProtectedObjectKind::DocumentationSite,
+            ProtectedObjectKind::NaturalMonumentPl,
+        ] {
+            assert!(kind.needs_nature_authority(), "{kind:?}");
+        }
+    }
+
+    #[test]
+    fn every_czech_kind_names_the_nature_authority() {
+        for kind in [
+            ProtectedObjectKind::NationalParkCz,
+            ProtectedObjectKind::ProtectedLandscapeAreaCz,
+            ProtectedObjectKind::NationalNatureReserve,
+            ProtectedObjectKind::NationalNatureMonument,
+            ProtectedObjectKind::NatureReserveCz,
+            ProtectedObjectKind::NatureMonumentCz,
+            ProtectedObjectKind::ProtectiveZoneCz,
+            ProtectedObjectKind::NatureZoneCz,
+            ProtectedObjectKind::Natura2000HabitatsCz,
+            ProtectedObjectKind::Natura2000BirdsCz,
+            ProtectedObjectKind::MemorialTree,
+        ] {
+            assert!(kind.needs_nature_authority(), "{kind:?}");
+        }
+    }
+
+    #[test]
+    fn the_levels_of_administrative_unit_run_top_down() {
+        use AdminUnitLevel::*;
+        assert!(Region < County && County < AuthorityDistrict && AuthorityDistrict < Municipality);
+        let name = |level| serde_json::to_value(level).unwrap();
+        assert_eq!(name(AuthorityDistrict), "authority-district");
+    }
+
+    #[test]
+    fn the_names_of_the_czech_kinds_in_permits_json_are_kebab_case() {
+        let name = |kind| serde_json::to_value(kind).unwrap();
+        assert_eq!(
+            name(ProtectedObjectKind::NationalParkCz),
+            "national-park-cz"
+        );
+        assert_eq!(
+            name(ProtectedObjectKind::NationalNatureReserve),
+            "national-nature-reserve"
+        );
+        assert_eq!(name(ProtectedObjectKind::MemorialTree), "memorial-tree");
+        assert_eq!(
+            name(ProtectedObjectKind::Natura2000BirdsCz),
+            "natura2000-birds-cz"
+        );
+    }
+
+    #[test]
+    fn the_names_of_the_kinds_in_permits_json_are_kebab_case() {
+        let name = |kind| serde_json::to_value(kind).unwrap();
+        assert_eq!(name(ProtectedObjectKind::NationalPark), "national-park");
+        assert_eq!(
+            name(ProtectedObjectKind::Natura2000Birds),
+            "natura2000-birds"
+        );
+        assert_eq!(
+            name(ProtectedObjectKind::ProtectedLandscapeArea),
+            "protected-landscape-area"
+        );
+        assert_eq!(
+            name(ProtectedObjectKind::NaturalMonument),
+            "natural-monument"
+        );
     }
 }

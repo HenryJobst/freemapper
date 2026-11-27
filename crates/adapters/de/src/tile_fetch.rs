@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The tile download of LGB and GeoSN: where the tiles and their currency lists lie in the
 //! cache, which publication of a tile is current, and the nDSM point clouds of LGB.
 
@@ -16,7 +18,7 @@ use crate::fetch::{
     CacheDir, FetchError, FetchMode, FetchedTile, Fetcher, get_with_retries, write_cache_file,
 };
 use crate::lgb::{
-    Product, ProductTiles as _, TileCurrency, TileProvider, ndsm_tile_url, parse_currency_csv,
+    Addresses, Product, ProductTiles as _, TileCurrency, TileProvider, parse_currency_csv,
 };
 use crate::note::{Arg, Note, note};
 use crate::tiles::TileId;
@@ -97,7 +99,28 @@ pub fn fetch_tiles(
     mode: FetchMode,
     progress: &mut dyn FnMut(Note),
 ) -> Result<Vec<FetchedTile>, FetchError> {
-    let table = currency_table(fetcher, cache, product, tiles, mode, progress)?;
+    fetch_tiles_at(
+        &Addresses::builtin(),
+        fetcher,
+        cache,
+        product,
+        tiles,
+        mode,
+        progress,
+    )
+}
+
+/// [`fetch_tiles`] from the LGB folders `addresses` names (GeoSN products ignore them).
+pub fn fetch_tiles_at(
+    addresses: &Addresses,
+    fetcher: &dyn Fetcher,
+    cache: &CacheDir,
+    product: Product,
+    tiles: &[TileId],
+    mode: FetchMode,
+    progress: &mut dyn FnMut(Note),
+) -> Result<Vec<FetchedTile>, FetchError> {
+    let table = currency_table(addresses, fetcher, cache, product, tiles, mode, progress)?;
     let uncovered: Vec<TileId> = tiles
         .iter()
         .copied()
@@ -141,7 +164,28 @@ pub fn fetch_tiles_each(
     mode: FetchMode,
     progress: &mut dyn FnMut(Note),
 ) -> Result<Vec<TileOutcome>, FetchError> {
-    let table = currency_table(fetcher, cache, product, tiles, mode, progress)?;
+    fetch_tiles_each_at(
+        &Addresses::builtin(),
+        fetcher,
+        cache,
+        product,
+        tiles,
+        mode,
+        progress,
+    )
+}
+
+/// [`fetch_tiles_each`] from the LGB folders `addresses` names (GeoSN products ignore them).
+pub fn fetch_tiles_each_at(
+    addresses: &Addresses,
+    fetcher: &dyn Fetcher,
+    cache: &CacheDir,
+    product: Product,
+    tiles: &[TileId],
+    mode: FetchMode,
+    progress: &mut dyn FnMut(Note),
+) -> Result<Vec<TileOutcome>, FetchError> {
+    let table = currency_table(addresses, fetcher, cache, product, tiles, mode, progress)?;
     Ok(tiles
         .iter()
         .map(|&tile| {
@@ -176,6 +220,7 @@ type CurrencyTable = HashMap<TileId, (TileCurrency, String)>;
 /// index. Online the answer replaces (CSV) or extends (index) the cached copy once it parses;
 /// offline the cached copy is used.
 fn currency_table(
+    addresses: &Addresses,
     fetcher: &dyn Fetcher,
     cache: &CacheDir,
     product: Product,
@@ -184,12 +229,15 @@ fn currency_table(
     progress: &mut dyn FnMut(Note),
 ) -> Result<CurrencyTable, FetchError> {
     match product.provider() {
-        TileProvider::Lgb => lgb_currency_table(fetcher, cache, product, tiles, mode, progress),
+        TileProvider::Lgb => {
+            lgb_currency_table(addresses, fetcher, cache, product, tiles, mode, progress)
+        }
         TileProvider::GeoSn => geosn_currency_table(fetcher, cache, product, tiles, mode, progress),
     }
 }
 
 fn lgb_currency_table(
+    addresses: &Addresses,
     fetcher: &dyn Fetcher,
     cache: &CacheDir,
     product: Product,
@@ -200,9 +248,9 @@ fn lgb_currency_table(
     let csv_path = cache.currency_csv_path(product);
     let csv = match mode {
         FetchMode::Online => {
-            let url = product.currency_csv_url();
-            progress(note!("progress-downloading", url = url));
-            fetcher.get(url)?
+            let url = addresses.currency_url_of(product);
+            progress(note!("progress-downloading", url = &url));
+            get_with_retries(fetcher, &url, |bytes| Ok(bytes.to_vec()))?
         }
         FetchMode::Offline => match std::fs::read(&csv_path) {
             Ok(bytes) => bytes,
@@ -216,7 +264,7 @@ fn lgb_currency_table(
     }
     Ok(table
         .into_iter()
-        .map(|(tile, currency)| (tile, (currency, product.tile_url(tile))))
+        .map(|(tile, currency)| (tile, (currency, addresses.tile_url_of(product, tile))))
         .collect())
 }
 
@@ -301,7 +349,7 @@ fn fetch_tile(
         }
     } else {
         progress(note!("progress-downloading", url = &url));
-        let bytes = fetcher.get(&url)?;
+        let bytes = get_with_retries(fetcher, &url, |bytes| Ok(bytes.to_vec()))?;
         check_archive(&bytes, product, tile).map_err(|message| FetchError::CorruptArchive {
             url: url.clone(),
             message,
@@ -339,10 +387,22 @@ pub fn fetch_ndsm_tiles(
     mode: FetchMode,
     progress: &mut dyn FnMut(Note),
 ) -> Result<Vec<NdsmTile>, FetchError> {
+    fetch_ndsm_tiles_at(&Addresses::builtin(), fetcher, cache, tiles, mode, progress)
+}
+
+/// [`fetch_ndsm_tiles`] from the folder `addresses` names.
+pub fn fetch_ndsm_tiles_at(
+    addresses: &Addresses,
+    fetcher: &dyn Fetcher,
+    cache: &CacheDir,
+    tiles: &[TileId],
+    mode: FetchMode,
+    progress: &mut dyn FnMut(Note),
+) -> Result<Vec<NdsmTile>, FetchError> {
     let dir = cache.ndsm_dir();
     let mut fetched = Vec::new();
     for &tile in tiles {
-        let url = ndsm_tile_url(tile);
+        let url = addresses.ndsm_tile_url(tile);
         let cached = cached_ndsm(&dir, tile);
         if mode == FetchMode::Offline {
             match cached.into_iter().next() {
@@ -397,7 +457,7 @@ pub fn fetch_ndsm_tiles(
             progress(note!("progress-ndsm-cached", tile = tile.name()));
         } else {
             progress(note!("progress-downloading", url = &url));
-            let bytes = match fetcher.get(&url).and_then(|b| check_las(&url, b)) {
+            let bytes = match get_with_retries(fetcher, &url, |b| check_las(&url, b.to_vec())) {
                 Ok(bytes) => bytes,
                 Err(e) => {
                     if let Some((published, path)) = unavailable(Arg::error(e), progress) {
@@ -607,5 +667,276 @@ pub fn tile_inputs(
                     .map(|tile| env.cache.ndsm_path(tile, record.published)),
             })
             .collect(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::cell::RefCell;
+    use std::io::Write as _;
+
+    use super::*;
+    use crate::lgb::ndsm_tile_url;
+
+    /// Serves what was put in; every other address is not found.
+    #[derive(Default)]
+    struct MapFetcher {
+        bodies: RefCell<HashMap<String, Vec<u8>>>,
+        dates: RefCell<HashMap<String, NaiveDate>>,
+    }
+
+    impl Fetcher for MapFetcher {
+        fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
+            self.bodies
+                .borrow()
+                .get(url)
+                .cloned()
+                .ok_or_else(|| FetchError::NotFound(url.to_string()))
+        }
+
+        fn last_modified(&self, url: &str) -> Result<Option<NaiveDate>, FetchError> {
+            if self.bodies.borrow().contains_key(url) {
+                Ok(self.dates.borrow().get(url).copied())
+            } else {
+                Err(FetchError::NotFound(url.to_string()))
+            }
+        }
+    }
+
+    const TILE: TileId = TileId {
+        east_km: 421,
+        north_km: 5821,
+    };
+    const PRODUCT: Product = Product::Dtm;
+
+    fn serve_tile(fetcher: &MapFetcher, published: &str) {
+        serve_tile_at(
+            fetcher,
+            &PRODUCT.currency_csv_url(),
+            &PRODUCT.tile_url(TILE),
+            published,
+        );
+    }
+
+    fn serve_tile_at(fetcher: &MapFetcher, csv_url: &str, tile_url: &str, published: &str) {
+        let csv = format!(
+            "\u{feff}sheetnr;sheetname;creationdate;revisiondate;publicationdate;processstepdate\n{};;2018-11-27;;{published};\n",
+            TILE.name()
+        );
+        let mut zip = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+        let options = zip::write::SimpleFileOptions::default();
+        zip.start_file(PRODUCT.raster_member(TILE), options)
+            .unwrap();
+        zip.write_all(b"raster").unwrap();
+        zip.start_file(PRODUCT.world_file_member(TILE), options)
+            .unwrap();
+        zip.write_all(b"1\n0\n0\n-1\n421000.5\n5821999.5\n")
+            .unwrap();
+        let mut bodies = fetcher.bodies.borrow_mut();
+        bodies.insert(csv_url.to_string(), csv.into_bytes());
+        bodies.insert(tile_url.to_string(), zip.finish().unwrap().into_inner());
+    }
+
+    /// Folders the manifest of a folder adapter may name instead of the built-in ones.
+    fn moved() -> Addresses {
+        Addresses {
+            data: "https://tiles.example.org/data".to_string(),
+            currency: "https://tiles.example.org/lists".to_string(),
+        }
+    }
+
+    /// A tile is asked where the manifest says, never at the built-in address: the fetcher holds
+    /// nothing else.
+    #[test]
+    fn the_tiles_come_from_the_folders_the_manifest_names() {
+        let (csv, zip) = (
+            "https://tiles.example.org/lists/bb_dgm_aktualitaet.csv",
+            "https://tiles.example.org/data/dgm/tif/dgm_33421-5821.zip",
+        );
+        let dir = tempfile::tempdir().unwrap();
+        let cache = CacheDir::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        serve_tile_at(&fetcher, csv, zip, "2026-01-26");
+        let fetched = fetch_tiles_at(
+            &moved(),
+            &fetcher,
+            &cache,
+            PRODUCT,
+            &[TILE],
+            FetchMode::Online,
+            &mut |_| {},
+        )
+        .unwrap();
+        assert_eq!(fetched[0].url, zip);
+
+        let each = fetch_tiles_each_at(
+            &moved(),
+            &fetcher,
+            &cache,
+            PRODUCT,
+            &[TILE],
+            FetchMode::Online,
+            &mut |_| {},
+        )
+        .unwrap();
+        assert_eq!(each[0].1.as_ref().unwrap().url, zip);
+    }
+
+    #[test]
+    fn the_point_clouds_come_from_the_folder_the_manifest_names() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = CacheDir::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        let url = "https://tiles.example.org/data/ndom/NDOM_33421-5821_LAS12.laz";
+        fetcher
+            .bodies
+            .borrow_mut()
+            .insert(url.to_string(), laz_bytes());
+        fetcher.dates.borrow_mut().insert(
+            url.to_string(),
+            NaiveDate::from_ymd_opt(2025, 3, 4).unwrap(),
+        );
+        let fetched = fetch_ndsm_tiles_at(
+            &moved(),
+            &fetcher,
+            &cache,
+            &[TILE],
+            FetchMode::Online,
+            &mut |_| {},
+        )
+        .unwrap();
+        assert_eq!(fetched[0].url, url);
+    }
+
+    #[test]
+    fn a_tile_is_downloaded_online_and_found_in_the_cache_offline() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = CacheDir::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        serve_tile(&fetcher, "2026-01-26");
+
+        let online = fetch_tiles(
+            &fetcher,
+            &cache,
+            PRODUCT,
+            &[TILE],
+            FetchMode::Online,
+            &mut |_| {},
+        )
+        .unwrap();
+        assert_eq!(online.len(), 1);
+        assert_eq!(online[0].tile, TILE);
+        assert_eq!(online[0].url, PRODUCT.tile_url(TILE));
+        assert_eq!(online[0].currency.published.to_string(), "2026-01-26");
+        assert!(online[0].zip.exists());
+        assert!(cache.currency_csv_path(PRODUCT).exists());
+
+        let offline = fetch_tiles(
+            &MapFetcher::default(),
+            &cache,
+            PRODUCT,
+            &[TILE],
+            FetchMode::Offline,
+            &mut |_| {},
+        )
+        .unwrap();
+        assert_eq!(offline.len(), 1);
+        assert_eq!(offline[0].zip, online[0].zip);
+    }
+
+    #[test]
+    fn each_tile_succeeds_or_fails_on_its_own() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = CacheDir::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        serve_tile(&fetcher, "2026-01-26");
+        let other = TileId {
+            east_km: 422,
+            north_km: 5821,
+        };
+        let outcomes = fetch_tiles_each(
+            &fetcher,
+            &cache,
+            PRODUCT,
+            &[TILE, other],
+            FetchMode::Online,
+            &mut |_| {},
+        )
+        .unwrap();
+        assert_eq!(outcomes.len(), 2);
+        assert_eq!(outcomes[0].0, TILE);
+        assert!(outcomes[0].1.as_ref().unwrap().zip.exists());
+        assert_eq!(outcomes[1].0, other);
+        assert!(matches!(outcomes[1].1, Err(FetchError::TilesNotCovered(_))));
+    }
+
+    #[test]
+    fn offline_without_a_cached_tile_is_missing_and_not_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = CacheDir::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        serve_tile(&fetcher, "2026-01-26");
+        // Only the currency list is cached, not the tile.
+        let csv = cache.currency_csv_path(PRODUCT);
+        std::fs::create_dir_all(csv.parent().unwrap()).unwrap();
+        std::fs::write(&csv, fetcher.get(&PRODUCT.currency_csv_url()).unwrap()).unwrap();
+        let result = fetch_tiles(
+            &fetcher,
+            &cache,
+            PRODUCT,
+            &[TILE],
+            FetchMode::Offline,
+            &mut |_| {},
+        );
+        assert!(matches!(result, Err(FetchError::MissingOffline(_, tiles)) if tiles == [TILE]));
+    }
+
+    fn laz_bytes() -> Vec<u8> {
+        let mut writer = las::Writer::new(
+            std::io::Cursor::new(Vec::new()),
+            las::Builder::from((1, 2)).into_header().unwrap(),
+        )
+        .unwrap();
+        for i in 0..5 {
+            writer
+                .write_point(las::Point {
+                    x: f64::from(i),
+                    y: 1.0,
+                    z: 2.0,
+                    ..Default::default()
+                })
+                .unwrap();
+        }
+        writer.into_inner().unwrap().into_inner()
+    }
+
+    #[test]
+    fn an_ndsm_tile_is_downloaded_online_and_used_from_the_cache_offline() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = CacheDir::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        let url = ndsm_tile_url(TILE);
+        fetcher.bodies.borrow_mut().insert(url.clone(), laz_bytes());
+        let date = NaiveDate::from_ymd_opt(2025, 3, 4).unwrap();
+        fetcher.dates.borrow_mut().insert(url.clone(), date);
+
+        let online =
+            fetch_ndsm_tiles(&fetcher, &cache, &[TILE], FetchMode::Online, &mut |_| {}).unwrap();
+        assert_eq!(online.len(), 1);
+        assert_eq!(online[0].tile, TILE);
+        assert_eq!(online[0].url, url);
+        assert_eq!(online[0].published, Some(date));
+        assert!(online[0].path.exists());
+
+        let offline = fetch_ndsm_tiles(
+            &MapFetcher::default(),
+            &cache,
+            &[TILE],
+            FetchMode::Offline,
+            &mut |_| {},
+        )
+        .unwrap();
+        assert_eq!(offline.len(), 1);
+        assert_eq!(offline[0].path, online[0].path);
     }
 }

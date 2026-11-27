@@ -87,6 +87,23 @@ namespaces = "xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
 max_count = 100000
 max_bytes = 268435456
 
+# The Naturdenkmale and geschützte Landschaftsbestandteile of the LAU (issue #273). Its biotopes are
+# only given out on request, its single trees are not in the service.
+[[permits.wfs]]
+key = "naturschutz"
+label = { en = "Landesamt für Umweltschutz Sachsen-Anhalt", de = "Landesamt für Umweltschutz Sachsen-Anhalt" }
+what = { en = "Naturdenkmale and geschützte Landschaftsbestandteile", de = "Naturdenkmale und geschützte Landschaftsbestandteile" }
+credit = "Datenlizenz Deutschland Namensnennung 2.0; Quellenvermerk: Landesamt für Umweltschutz Sachsen-Anhalt"
+gaps = { en = "Naturdenkmale that are single trees and the protected biotopes are not in them", de = "Naturdenkmale, die einzelne Bäume sind, und die geschützten Biotope fehlen darin" }
+sections = ["protected-objects"]
+url = "https://geodatenportal.sachsen-anhalt.de/ows_lau_wfs_naturschutz"
+output_format = "GEOJSON"
+layers = [
+    { key = "flaechen", type_name = "ps:Flächenhafte_Naturdenkmale", reading = "object", object = "natural-monument", name = "Gebietsname" },
+    { key = "punkte", type_name = "ps:Flächennaturdenkmale", reading = "object", object = "natural-monument", name = "Gebietsname" },
+    { key = "landschaftsbestandteile", type_name = "ps:Geschützte_Landschaftsbestandteile", reading = "object", object = "protected-landscape-part", name = "Gebietsname" },
+]
+
 [preview]
 wms = "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_DOP_WMS_OpenData/guest"
 layer = "lsa_lvermgeo_dop20_2"

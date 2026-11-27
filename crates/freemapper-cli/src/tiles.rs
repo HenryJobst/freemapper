@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The OpenStreetMap base layer of the area selection page, fetched by the local server.
 //!
 //! OpenStreetMap's tile servers refuse requests without a valid `Referer` or an identifying

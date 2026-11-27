@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The German states as region adapters. Each state is its manifest
 //! (`manifests/<id>/manifest.toml` with its boundary file) plus what no manifest says: the
 //! raster code of its agency, the credit lines that depend on more than a year, the ALKIS of
@@ -21,12 +23,11 @@ use freemapper_adapter_api::info::{Declared, RegionInfo};
 use freemapper_adapter_api::permits::PermitSource;
 use freemapper_adapter_api::pointcloud::PointCloudBackend;
 use freemapper_adapter_api::policy::UrlPolicy;
-use freemapper_adapter_api::rasters::RasterBackend;
+use freemapper_adapter_api::rasters::{RasterBackend, RasterConfig};
 use freemapper_adapter_api::records::EstimateItem;
-use freemapper_adapter_api::registry::{DuplicateBackend, Registry};
+use freemapper_adapter_api::registry::{DuplicateBackend, RasterFactory, Registry};
 use freemapper_manifest::adapter::{AdapterFiles, ManifestAdapter, Parse};
 use freemapper_manifest::guard::GuardedAlkis;
-use freemapper_sources::trees::POTSDAM;
 use geo_types::MultiPolygon;
 
 use crate::boundaries::{StateOutline, boundary_text, outline};
@@ -355,6 +356,11 @@ const BY_EXTRACT_BOUNDARIES: [(&str, &str); 7] = [
     ),
 ];
 
+/// The texts of all manifests, for what reads them without a state (the reachability probe).
+pub fn manifest_texts() -> &'static [&'static str] {
+    &MANIFESTS
+}
+
 /// The text of the manifest of `state`.
 pub fn manifest_text(state: State) -> &'static str {
     let index = State::ALL
@@ -386,6 +392,58 @@ impl AdapterFiles for StateFiles {
         text.map(Cow::Borrowed)
             .ok_or_else(|| "the file is not built in".to_string())
     }
+}
+
+/// The files of the adapter folder that holds the state `id`: its manifest and every file the
+/// manifest names (the boundary, the boundaries of OSM extracts), under the names the manifest
+/// uses. `adapters export` writes them; the folder, named after the id, loads as an adapter
+/// that replaces the built-in one (ADR 0188). A manifest that declares its orthophoto as a
+/// service must have a provider of its own to load as a replacement, so its `provider` is
+/// the id of the state in the export (Saxony-Anhalt). `None` for an id that is no state of
+/// this crate.
+pub fn export_files(id: &str) -> Option<Vec<(String, Cow<'static, str>)>> {
+    let state = State::ALL.into_iter().find(|state| state.id() == id)?;
+    let files = StateFiles(state);
+    let mut names = vec!["boundary.geojson".to_string()];
+    names.extend(
+        match state {
+            State::NordrheinWestfalen => &NRW_EXTRACT_BOUNDARIES[..],
+            State::BadenWuerttemberg => &BW_EXTRACT_BOUNDARIES[..],
+            State::Bayern => &BY_EXTRACT_BOUNDARIES[..],
+            _ => &[],
+        }
+        .iter()
+        .map(|(name, _)| (*name).to_string()),
+    );
+    let text = manifest_text(state);
+    let own_provider = freemapper_manifest::parse(text, Path::new(state.id()))
+        .ok()
+        .filter(|manifest| {
+            matches!(
+                manifest.orthophoto,
+                Some(
+                    freemapper_manifest::model::Orthophoto::Wms { .. }
+                        | freemapper_manifest::model::Orthophoto::Wcs { .. }
+                )
+            )
+        })
+        .map(|manifest| manifest.adapter.provider);
+    let manifest = match own_provider {
+        Some(provider) => Cow::Owned(text.replacen(
+            &format!("provider = \"{provider}\""),
+            &format!("provider = \"{}\"", state.id()),
+            1,
+        )),
+        None => Cow::Borrowed(text),
+    };
+    let mut out = vec![("manifest.toml".to_string(), manifest)];
+    for name in names {
+        let text = files
+            .read(&name)
+            .expect("a file the export names is built in");
+        out.push((name, text));
+    }
+    Some(out)
 }
 
 /// The name a manifest calls the raster backend of `agency` by; `None` for LVermGeo, whose
@@ -430,16 +488,63 @@ const AGENCIES: [Agency; 14] = [
 /// Adds the raster backends of this crate to `registry`, each under the name the manifests
 /// call it by.
 pub fn register_backends(registry: &mut Registry) -> Result<(), DuplicateBackend> {
+    registry.set_permit_factory(Arc::new(crate::wfs_permits::TableFactory));
     for agency in AGENCIES {
-        if let (Some(name), Some(backend)) = (backend_name(agency), rasters::backend(agency)) {
-            let backend = Estimating {
-                inner: backend,
-                agency,
-            };
-            registry.add_backend(name, Arc::new(backend))?;
+        if let (Some(name), Some((state, crs))) = (backend_name(agency), rasters::addressed(agency))
+        {
+            registry.add_raster_factory(name, raster_factory(agency, state, crs))?;
         }
     }
     Ok(())
+}
+
+/// The `[orthophoto]` of the built-in manifest of `state`: the addresses a manifest of a folder
+/// that replaces the state falls back on where it states none.
+pub fn builtin_raster_config(state: State) -> RasterConfig {
+    match freemapper_manifest::parse(manifest_text(state), Path::new(state.id()))
+        .expect("the built-in manifests are valid")
+        .orthophoto
+    {
+        Some(freemapper_manifest::model::Orthophoto::Backend { config, .. }) => config,
+        _ => RasterConfig::default(),
+    }
+}
+
+/// The WMS of the orthophoto of `state` in the CRS `crs`: the addresses `config` states, and for
+/// the keys it leaves out those of the built-in manifest of the state.
+fn wms_of(
+    config: &RasterConfig,
+    state: State,
+    crs: Crs,
+) -> Result<freemapper_sources::wms::WmsService, String> {
+    let merged = config.or(&builtin_raster_config(state));
+    let (Some(url), Some(layer), Some(max_px)) = (merged.url, merged.layer, merged.max_px) else {
+        return Err(format!(
+            "the built-in manifest of {} lacks the `url`, `layer` or `max_px` of its orthophoto",
+            state.id()
+        ));
+    };
+    Ok(freemapper_sources::wms::WmsService {
+        url: Cow::Owned(url),
+        layer: Cow::Owned(layer),
+        crs,
+        extra: Cow::Borrowed(""),
+        max_px,
+    })
+}
+
+/// What makes the raster backend of `agency` from the addresses of an `[orthophoto]`.
+fn raster_factory(agency: Agency, state: State, crs: Crs) -> RasterFactory {
+    Arc::new(move |config: &RasterConfig| {
+        let merged = config.or(&builtin_raster_config(state));
+        let inner = if rasters::takes_wms(agency) {
+            rasters::backend_with_wms(agency, wms_of(config, state, crs)?, &merged)?
+        } else {
+            rasters::backend_without_wms(agency, &merged)?
+        }
+        .ok_or_else(|| format!("{agency:?} takes no addresses"))?;
+        Ok(Arc::new(Estimating { inner, agency }) as Arc<dyn RasterBackend>)
+    })
 }
 
 /// A built-in raster backend that also answers the download estimate, with the raster items
@@ -504,6 +609,34 @@ pub struct StateAdapter {
     /// The sources of the permit notes the state brings (Berlin's Geoportal, ADR 0120; the
     /// forest administrations of Brandenburg and North Rhine-Westphalia, ADR 0124).
     permits: Vec<Box<dyn PermitSource>>,
+    /// The point-cloud backend of the state, made of the addresses of its `[point_cloud]`.
+    point_cloud: Option<Box<dyn PointCloudBackend>>,
+}
+
+/// The `[point_cloud]` of the manifest of `state`, parsed again: for the tests of the backends,
+/// which are held to the addresses the manifest declares.
+#[cfg(test)]
+pub(crate) fn point_cloud_of(state: State) -> Option<freemapper_manifest::PointCloud> {
+    freemapper_manifest::parse(manifest_text(state), Path::new(state.id()))
+        .expect("the built-in manifests are valid")
+        .point_cloud
+}
+
+/// The point-cloud backend of `state` for the addresses in `cloud`: the code that reads what the
+/// state publishes, kept in the adapter, and where it reads it, taken from the manifest.
+fn point_cloud_backend(
+    state: State,
+    cloud: &freemapper_manifest::PointCloud,
+) -> Option<Box<dyn PointCloudBackend>> {
+    Some(match state {
+        State::NordrheinWestfalen => Box::new(crate::nrw_3dm::Nrw3dmBackend::new(cloud)),
+        State::RheinlandPfalz => Box::new(crate::lvermgeo_rp_las::RpLasBackend::new(cloud)),
+        State::Berlin => Box::new(crate::berlin_als::BerlinAlsBackend::new(cloud)),
+        State::Saarland => Box::new(crate::lvgl_las::LvglLasBackend::new(cloud)),
+        State::Bayern => Box::new(crate::ldbv_las::LdbvLasBackend::new(cloud)),
+        State::Brandenburg => Box::new(crate::lgb_als::LgbAlsBackend::new(cloud)),
+        _ => return None,
+    })
 }
 
 impl StateAdapter {
@@ -528,20 +661,24 @@ impl StateAdapter {
             .unwrap_or_else(|findings| broken(findings));
         // A state asks the hosts of its manifest and no other, redirects included (ADR 0106):
         // what the manifest declares, and what is code here.
-        let manifest =
+        let mut manifest =
             ManifestAdapter::new(manifest, &StateFiles(state), Parse::OnFirstUse, backends)
                 .unwrap_or_else(|findings| broken(findings))
                 .held_to_its_hosts(Remedy::AllowHost, extra);
+        // The permit sources the manifest declares (issue #273) come after those of the code.
+        let declared_permits = manifest.take_permit_sources();
         let policy = manifest
             .policy()
             .expect("the manifest was just bound to its hosts")
             .clone();
-        let alkis = manifest.alkis().is_none().then(|| {
-            Box::new(GuardedAlkis {
-                inner: alkis::source(state),
+        let alkis = match manifest.alkis() {
+            Some(_) => None,
+            None => Some(Box::new(GuardedAlkis {
+                inner: alkis::source(state)
+                    .unwrap_or_else(|| panic!("{}: no [alkis] and no code source", state.id())),
                 policy: Arc::new(policy),
-            }) as Box<dyn AlkisSource>
-        });
+            }) as Box<dyn AlkisSource>),
+        };
         let extras: Vec<Box<dyn ExtraSet>> = match state {
             State::Berlin => vec![Box::new(crate::berlin::Registers)],
             State::Hamburg => vec![Box::new(crate::lgv_fk::Feinkartierung)],
@@ -552,112 +689,48 @@ impl StateAdapter {
             _ => Vec::new(),
         };
         // The BfG's protection areas where the state's own services give none (ADR 0142), the
-        // monuments of the state offices where they are open (ADR 0144).
+        // monuments of the state offices where they are open (ADR 0144); the monuments of the
+        // seven states that have them are declared in their manifests (issue #273).
         let permits: Vec<Box<dyn PermitSource>> = match state {
-            State::Berlin => [
-                crate::berlin_permits::sources(),
-                vec![crate::natur_permits::berlin()],
-            ]
-            .into_iter()
-            .flatten()
-            .collect(),
-            State::Brandenburg => [
-                crate::lfb_permits::sources(),
-                crate::denkmal_permits::brandenburg(),
-                crate::natur_permits::brandenburg(),
-            ]
-            .into_iter()
-            .flatten()
-            .collect(),
-            State::Hamburg => [
-                crate::lgv_permits::sources(),
-                crate::natur_permits::hamburg(),
-            ]
-            .into_iter()
-            .flatten()
-            .collect(),
-            State::Saarland => [
-                crate::state_permits::saarland(),
-                crate::natur_permits::saarland(),
-            ]
-            .into_iter()
-            .flatten()
-            .collect(),
-            State::Hessen => [
-                crate::state_permits::hessen(),
-                vec![
-                    crate::denkmal_permits::hessen(),
-                    crate::natur_permits::hessen(),
-                ],
-            ]
-            .into_iter()
-            .flatten()
-            .collect(),
-            State::SchleswigHolstein => [
-                crate::state_permits::schleswig_holstein(),
-                vec![
-                    crate::ldsh_permits::source(),
-                    crate::natur_permits::schleswig_holstein(),
-                ],
-            ]
-            .into_iter()
-            .flatten()
-            .collect(),
-            State::NordrheinWestfalen => [
-                crate::wuh_permits::sources(),
-                vec![
-                    crate::denkmal_permits::nordrhein_westfalen(),
-                    crate::natur_permits::nordrhein_westfalen(),
-                ],
-            ]
-            .into_iter()
-            .flatten()
-            .collect(),
-            State::BadenWuerttemberg => [
-                vec![crate::lubw_permits::source()],
-                crate::denkmal_permits::baden_wuerttemberg(),
-                crate::natur_permits::baden_wuerttemberg(),
-            ]
-            .into_iter()
-            .flatten()
-            .collect(),
-            State::Saxony => [
-                crate::sbs_permits::sources(),
-                vec![
-                    crate::bfg_permits::source(),
-                    crate::denkmal_permits::sachsen(),
-                ],
-                crate::natur_permits::sachsen(),
-            ]
-            .into_iter()
-            .flatten()
-            .collect(),
-            State::Bremen => vec![
-                crate::bfg_permits::source(),
-                crate::denkmal_permits::bremen(),
-            ],
-            State::RheinlandPfalz => [
-                vec![
-                    crate::bfg_permits::source(),
-                    crate::denkmal_permits::rheinland_pfalz(),
-                ],
-                crate::natur_permits::rheinland_pfalz(),
-            ]
-            .into_iter()
-            .flatten()
-            .collect(),
-            State::SaxonyAnhalt => vec![
-                crate::bfg_permits::source(),
-                crate::natur_permits::sachsen_anhalt(),
-            ],
-            State::Bayern => vec![crate::bfg_permits::source(), crate::natur_permits::bayern()],
-            State::Niedersachsen => vec![
-                crate::bfg_permits::source(),
-                crate::natur_permits::niedersachsen(),
-            ],
+            // The sources of Berlin are declared in its manifest (issue #273).
+            State::Berlin => Vec::new(),
+            // The Reviere and the forest functions of Brandenburg are declared in its manifest
+            // (issue #273); its water protection areas are a shapefile.
+            State::Brandenburg => Vec::new(),
+            // The sources of Hamburg are declared in its manifest (issue #273).
+            State::Hamburg => Vec::new(),
+            // The sources of Saarland, Hesse and Schleswig-Holstein that had tables in the code are
+            // declared in their manifests (issue #273).
+            State::Saarland | State::Hessen => Vec::new(),
+            // Its monuments are a GeoJSON file, declared in its manifest too (issue #273).
+            State::SchleswigHolstein => Vec::new(),
+            // The protected biotopes of North Rhine-Westphalia are declared in its manifest (issue #273).
+            State::NordrheinWestfalen => Vec::new(),
+            // The sources of Baden-Württemberg are declared in its manifest (issue #273).
+            State::BadenWuerttemberg => Vec::new(),
+            // The Sachsenforst, the monuments, the Flächennaturdenkmale and the biotopes are
+            // declared in its manifest (issue #273).
+            State::Saxony => vec![crate::bfg_permits::source()],
+            State::Bremen => vec![crate::bfg_permits::source()],
+            // The Naturdenkmale of Rhineland-Palatinate are declared in its manifest (issue #273).
+            State::RheinlandPfalz => vec![crate::bfg_permits::source()],
+            // The Naturdenkmale of Saxony-Anhalt are declared in its manifest (issue #273).
+            State::SaxonyAnhalt => vec![crate::bfg_permits::source()],
+            // The Naturdenkmale of the LfU are declared in its manifest (issue #273).
+            State::Bayern => vec![crate::bfg_permits::source()],
+            // The Naturdenkmale of the NLWKN are declared in its manifest (issue #273).
+            State::Niedersachsen => vec![crate::bfg_permits::source()],
             State::MecklenburgVorpommern => vec![crate::bfg_permits::source()],
         };
+        let mut permits = permits;
+        permits.extend(declared_permits);
+        let point_cloud = manifest
+            .manifest()
+            .point_cloud
+            .as_ref()
+            .and_then(|cloud| point_cloud_backend(state, cloud));
         Self {
+            point_cloud,
             state,
             alkis,
             extras,
@@ -743,14 +816,7 @@ impl RegionAdapter for StateAdapter {
     }
 
     fn point_cloud(&self) -> Option<&dyn PointCloudBackend> {
-        match self.state {
-            State::NordrheinWestfalen => Some(crate::nrw_3dm::backend()),
-            State::RheinlandPfalz => Some(crate::lvermgeo_rp_las::backend()),
-            State::Berlin => Some(crate::berlin_als::backend()),
-            State::Saarland => Some(crate::lvgl_las::backend()),
-            State::Bayern => Some(crate::ldbv_las::backend()),
-            state => crate::lgb_als::point_cloud(state),
-        }
+        self.point_cloud.as_deref()
     }
 }
 
@@ -785,14 +851,410 @@ pub fn adapters() -> Vec<Arc<dyn RegionAdapter>> {
         .collect()
 }
 
-/// The tree cadastres of all states, in the order of the states.
-pub(crate) fn all_tree_datasets() -> Vec<TreeDataset> {
-    vec![POTSDAM]
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// What the manifest of each state with an addressed orthophoto says is what the code
+    /// held before the addresses moved there (issue #273): the same WMS, layer, size and CRS.
+    #[test]
+    fn the_orthophoto_wms_of_each_manifest_is_the_one_the_code_held() {
+        let held: [(Agency, &freemapper_sources::wms::WmsService); 10] = [
+            (Agency::GeoSn, &crate::geosn::WMS),
+            (Agency::Hvbg, &crate::hvbg::WMS),
+            (Agency::LvermGeoSh, &crate::lvermgeo_sh::WMS),
+            (Agency::GeobasisNrw, &crate::geobasis_nrw::WMS),
+            (Agency::Lgln, &crate::lgln::WMS),
+            (Agency::LvermGeoRp, &crate::lvermgeo_rp::WMS),
+            (Agency::Lvgl, &crate::lvgl::WMS),
+            (Agency::LglBw, &crate::lgl_bw::WMS),
+            (Agency::Ldbv, &crate::ldbv::WMS),
+            (Agency::Lgv, &crate::lgv::WMS),
+        ];
+        for (agency, code) in held {
+            let (state, crs) = rasters::addressed(agency).expect("an addressed agency");
+            let wms = wms_of(&RasterConfig::default(), state, crs).unwrap();
+            assert_eq!(wms.url, code.url, "{agency:?}");
+            assert_eq!(wms.layer, code.layer, "{agency:?}");
+            assert_eq!(wms.crs, code.crs, "{agency:?}");
+            // What the request adds is the code of the backend (the vintage of Hamburg).
+            if agency != Agency::Lgv {
+                assert_eq!(wms.extra, code.extra, "{agency:?}");
+            }
+            assert_eq!(wms.max_px, code.max_px, "{agency:?}");
+        }
+        // LVermGeo declares its rasters as services in its manifest; every other agency is
+        // made by its factory.
+        for agency in AGENCIES {
+            assert_eq!(
+                rasters::addressed(agency).is_some(),
+                agency != Agency::LvermGeo,
+                "{agency:?}"
+            );
+        }
+    }
+
+    /// What the manifests say besides the WMS is what the code held: the addresses of the files.
+    #[test]
+    fn the_endpoints_of_each_manifest_are_the_ones_the_code_held() {
+        let endpoints = |state| builtin_raster_config(state).endpoints;
+        let named = |pairs: &[(&str, &str)]| {
+            pairs
+                .iter()
+                .map(|(name, url)| (name.to_string(), url.to_string()))
+                .collect::<std::collections::BTreeMap<_, _>>()
+        };
+        assert_eq!(
+            endpoints(State::Hamburg),
+            named(&[
+                ("metadata", crate::lgv::METADATA_URL),
+                ("dgm1", crate::lgv::Model::Dgm1.archive_url()),
+                ("bdom", crate::lgv::Model::Bdom.archive_url()),
+            ])
+        );
+        assert_eq!(
+            endpoints(State::NordrheinWestfalen),
+            named(&[("hm", crate::geobasis_nrw::HM)])
+        );
+        assert_eq!(
+            endpoints(State::Bremen),
+            named(&[
+                ("wms", crate::geobremen::ORTHOPHOTOS),
+                ("files", crate::geobremen::FILES),
+            ])
+        );
+        assert_eq!(
+            endpoints(State::MecklenburgVorpommern),
+            named(&[
+                ("overview", crate::laiv_mv::OVERVIEW),
+                ("dop-wcs", &crate::laiv_mv::DOP.url),
+                ("dgm-wcs", &crate::laiv_mv::Model::Dgm1.wcs().url),
+                ("dom-wcs", &crate::laiv_mv::Model::Dom1.wcs().url),
+            ])
+        );
+        assert_eq!(
+            endpoints(State::Niedersachsen),
+            named(&[
+                ("dop-stac", crate::lgln::DOP_STAC),
+                ("dgm-stac", crate::lgln::DGM_STAC),
+                ("dom-stac", crate::lgln::DOM_STAC),
+                ("dgm-wcs", &crate::lgln::DGM1_WCS.url),
+                ("dom-wcs", &crate::lgln::DOM1_WCS.url),
+            ])
+        );
+        // The folders of LGB, which the constants of `lgb.rs` held; Berlin asks the same.
+        for state in [State::Brandenburg, State::Berlin] {
+            assert_eq!(
+                endpoints(state),
+                named(&[
+                    ("data", "https://data.geobasis-bb.de/geobasis/daten"),
+                    (
+                        "currency",
+                        "https://data.geobasis-bb.de/geobasis/information/aktualitaeten"
+                    ),
+                ]),
+                "{state:?}"
+            );
+        }
+    }
+
+    /// A folder that replaces a state states the keys it changes; the others come from the
+    /// built-in manifest, key by key.
+    #[test]
+    fn a_config_overrides_key_by_key_and_the_rest_is_the_built_in_one() {
+        let (state, crs) = (State::Saxony, Crs::Utm33);
+        let base = wms_of(&RasterConfig::default(), state, crs).unwrap();
+        let url = wms_of(
+            &RasterConfig {
+                url: Some("https://example.org/wms".to_string()),
+                ..RasterConfig::default()
+            },
+            state,
+            crs,
+        )
+        .unwrap();
+        assert_eq!(url.url, "https://example.org/wms");
+        assert_eq!((&url.layer, url.max_px), (&base.layer, base.max_px));
+        let layer = wms_of(
+            &RasterConfig {
+                layer: Some("other".to_string()),
+                ..RasterConfig::default()
+            },
+            state,
+            crs,
+        )
+        .unwrap();
+        assert_eq!(layer.layer, "other");
+        assert_eq!((&layer.url, layer.max_px), (&base.url, base.max_px));
+        let size = wms_of(
+            &RasterConfig {
+                max_px: Some(1234),
+                ..RasterConfig::default()
+            },
+            state,
+            crs,
+        )
+        .unwrap();
+        assert_eq!(size.max_px, 1234);
+        assert_eq!((&size.url, &size.layer), (&base.url, &base.layer));
+    }
+
+    /// A project folder with its raster records, for the backends to fetch into.
+    struct BareProject {
+        dir: std::path::PathBuf,
+        tiles: Vec<freemapper_adapter_api::records::TileRecord>,
+        ndsm_tiles: Vec<freemapper_adapter_api::records::NdsmRecord>,
+        orthophoto: Option<freemapper_adapter_api::records::WmsRecord>,
+        terrain: Option<freemapper_adapter_api::records::WcsRecord>,
+        surface: Option<freemapper_adapter_api::records::WcsRecord>,
+    }
+
+    impl freemapper_adapter_api::project::RasterProject for BareProject {
+        fn records(&mut self) -> freemapper_adapter_api::project::RasterRecords<'_> {
+            freemapper_adapter_api::project::RasterRecords {
+                tiles: &mut self.tiles,
+                ndsm_tiles: &mut self.ndsm_tiles,
+                orthophoto: &mut self.orthophoto,
+                terrain: &mut self.terrain,
+                surface: &mut self.surface,
+            }
+        }
+
+        fn save(&mut self) -> Result<(), freemapper_adapter_api::error::AdapterError> {
+            Ok(())
+        }
+
+        fn dir(&self) -> &Path {
+            &self.dir
+        }
+
+        fn region_bbox(&self) -> BoundingBox {
+            BoundingBox {
+                min_e: 500_000.0,
+                min_n: 5_500_000.0,
+                max_e: 500_100.0,
+                max_n: 5_500_100.0,
+            }
+        }
+
+        fn crs(&self) -> Crs {
+            Crs::Utm32
+        }
+    }
+
+    /// A backend that takes addresses asks the server when it fetches, and asks the WMS its
+    /// config names instead of the one of the built-in manifest.
+    #[test]
+    fn an_addressed_backend_fetches_from_the_wms_its_config_states() {
+        use crate::fetch::test_support::MapFetcher;
+        use freemapper_adapter_api::env::AdapterEnv;
+        use freemapper_adapter_api::fetch::FetchMode;
+        use freemapper_adapter_api::project::RasterProject as _;
+        let mut registry = Registry::new();
+        register_backends(&mut registry).unwrap();
+        for agency in AGENCIES {
+            let Some((state, _)) = rasters::addressed(agency) else {
+                continue;
+            };
+            let name = backend_name(agency).unwrap();
+            // A backend with a WMS asks the one its config names instead of the built-in one.
+            let builtin = builtin_raster_config(state).url.unwrap_or_default();
+            let config = RasterConfig {
+                url: rasters::takes_wms(agency).then(|| "https://wms.example.org/dop".to_string()),
+                ..RasterConfig::default()
+            };
+            let backend = registry
+                .build_backend(name, &config)
+                .unwrap_or_else(|| panic!("{name}"))
+                .unwrap_or_else(|e| panic!("{name}: {e}"));
+            let scratch = tempfile::tempdir().unwrap();
+            let cache = crate::fetch::Cache::new(scratch.path().join("cache"));
+            let fetcher = MapFetcher::default();
+            let mut project = BareProject {
+                dir: scratch.path().join("project"),
+                tiles: Vec::new(),
+                ndsm_tiles: Vec::new(),
+                orthophoto: None,
+                terrain: None,
+                surface: None,
+            };
+            std::fs::create_dir_all(&project.dir).unwrap();
+            let mut notes = Vec::new();
+            let mut env = AdapterEnv {
+                fetcher: &fetcher,
+                regions: &registry,
+                cache: &cache,
+                mode: FetchMode::Online,
+                today: "2026-11-13".parse().unwrap(),
+                skip_surface: false,
+                progress: &mut |n| notes.push(n.to_string()),
+            };
+            // The server serves nothing, so the fetch may fail; what it asked is the point.
+            let bbox = project.region_bbox();
+            let _ = backend.fetch(&mut env, &mut project, &bbox);
+            let log = fetcher.log.borrow();
+            assert!(!log.is_empty(), "{name} asked nothing");
+            assert!(
+                builtin.is_empty() || !log.iter().any(|url| url.starts_with(&builtin)),
+                "{name} asked the WMS of the built-in manifest: {log:?}"
+            );
+        }
+    }
+
+    /// A state whose manifest names no addressed backend has no addresses to fall back on, and
+    /// an agency that keeps its addresses in code makes no backend from a WMS.
+    #[test]
+    fn without_addresses_there_is_no_wms_and_no_backend() {
+        let none = wms_of(&RasterConfig::default(), State::Brandenburg, Crs::Utm32).unwrap_err();
+        assert!(none.contains("brandenburg"), "{none}");
+        // Brandenburg states the folders of LGB's tiles, but no WMS.
+        let brandenburg = builtin_raster_config(State::Brandenburg);
+        assert!(brandenburg.url.is_none() && !brandenburg.endpoints.is_empty());
+        assert_ne!(
+            builtin_raster_config(State::Saxony),
+            RasterConfig::default()
+        );
+        let wms = wms_of(
+            &RasterConfig {
+                url: Some("https://example.org/wms".to_string()),
+                layer: Some("l".to_string()),
+                max_px: Some(500),
+                ..RasterConfig::default()
+            },
+            State::Brandenburg,
+            Crs::Utm32,
+        )
+        .unwrap();
+        assert_eq!(
+            (wms.url.as_ref(), wms.layer.as_ref(), wms.max_px),
+            ("https://example.org/wms", "l", 500)
+        );
+        assert!(
+            rasters::backend_with_wms(Agency::LvermGeo, wms.clone(), &RasterConfig::default())
+                .unwrap()
+                .is_none()
+        );
+        let built =
+            raster_factory(Agency::LvermGeo, State::Brandenburg, Crs::Utm32)(&RasterConfig {
+                url: Some("https://example.org/wms".to_string()),
+                layer: Some("l".to_string()),
+                max_px: Some(500),
+                ..RasterConfig::default()
+            });
+        assert!(
+            built
+                .err()
+                .expect("an error")
+                .contains("takes no addresses")
+        );
+    }
+
+    /// The backends that take addresses keep their provider and cache folder, which the cache
+    /// of every person already holds.
+    #[test]
+    fn an_addressed_backend_keeps_its_provider_and_its_cache_folder() {
+        let mut registry = Registry::new();
+        register_backends(&mut registry).unwrap();
+        for (name, id, cache) in [
+            ("geosn", "geosn", Some("geosn")),
+            ("hvbg", "hvbg", Some("hvbg")),
+            ("lvermgeo-sh", "lvermgeosh", Some("lvermgeo_sh")),
+            ("geobasis-nrw", "geobasisnrw", Some("geobasis_nrw")),
+            ("lgln", "lgln", None),
+            ("lvermgeo-rp", "lvermgeorp", Some("lvermgeo_rp")),
+            ("lvgl", "lvgl", Some("lvgl")),
+            ("lgl-bw", "lglbw", Some("lglbw")),
+            ("ldbv", "ldbv", Some("ldbv")),
+            ("lgv", "lgv", Some("lgv")),
+            ("laiv-mv", "laivmv", Some("laiv_mv")),
+            ("geobremen", "geobremen", Some("geobremen")),
+            ("lgb", "lgb", Some("lgb")),
+        ] {
+            let backend = registry.backend(name).expect("a backend of that name");
+            assert_eq!(backend.provider().id.as_str(), id, "{name}");
+            assert_eq!(backend.provider().cache_dir.as_deref(), cache, "{name}");
+        }
+    }
+
+    /// Each state with point clouds reads its own backend, made of the table of its manifest;
+    /// the others have none and no table.
+    #[test]
+    fn a_state_reads_the_point_cloud_backend_of_its_table() {
+        let mut backends = Registry::new();
+        register_backends(&mut backends).unwrap();
+        for state in State::ALL {
+            let source = StateAdapter::new(state, &backends)
+                .point_cloud()
+                .map(|backend| backend.info().source.clone());
+            let expected = match state {
+                State::Brandenburg => Some("lgb-als"),
+                State::Berlin => Some("berlin-als"),
+                State::NordrheinWestfalen => Some("geobasisnrw-3dm"),
+                State::RheinlandPfalz => Some("lvermgeorp-las"),
+                State::Saarland => Some("lvgl-las"),
+                State::Bayern => Some("ldbv-las"),
+                _ => None,
+            };
+            assert_eq!(source.as_deref(), expected, "{state:?}");
+            assert_eq!(
+                point_cloud_of(state).is_some(),
+                expected.is_some(),
+                "{state:?}"
+            );
+        }
+    }
+
+    /// The export of a state is its manifest and the files the manifest names, nothing else;
+    /// only Saxony-Anhalt, which declares its orthophoto as a service, gets a provider of its
+    /// own, and every export parses and finds its files.
+    #[test]
+    fn the_export_of_a_state_is_its_manifest_and_its_files() {
+        assert!(export_files("polska").is_none());
+        assert!(export_files("").is_none());
+        for state in State::ALL {
+            let files = export_files(state.id()).unwrap();
+            let names: Vec<&str> = files.iter().map(|(name, _)| name.as_str()).collect();
+            let extracts = match state {
+                State::NordrheinWestfalen => 5,
+                State::BadenWuerttemberg => 4,
+                State::Bayern => 7,
+                _ => 0,
+            };
+            assert_eq!(files.len(), 2 + extracts, "{state:?}: {names:?}");
+            assert_eq!(names[0], "manifest.toml");
+            assert_eq!(names[1], "boundary.geojson");
+            assert!(files[1].1.contains("coordinates"), "{state:?}");
+            let manifest = freemapper_manifest::parse(&files[0].1, Path::new(state.id()))
+                .unwrap_or_else(|findings| panic!("{state:?}: {findings:?}"));
+            assert_eq!(manifest.adapter.id, state.id());
+            let built_in = manifest_text(state);
+            if state == State::SaxonyAnhalt {
+                assert_eq!(manifest.adapter.provider, "saxonyanhalt");
+                assert_eq!(
+                    files[0]
+                        .1
+                        .replace("provider = \"saxonyanhalt\"", "provider = \"lvermgeo\""),
+                    built_in
+                );
+            } else {
+                assert_eq!(files[0].1, built_in, "{state:?}");
+            }
+            // Every file the export holds is a file the state reads under that name.
+            for (name, text) in &files[1..] {
+                assert_eq!(&StateFiles(state).read(name).unwrap(), text, "{name}");
+            }
+        }
+    }
+
+    #[test]
+    fn manifest_texts_are_the_manifests_of_all_states_in_order() {
+        let texts = manifest_texts();
+        assert_eq!(texts.len(), State::ALL.len());
+        for (text, state) in texts.iter().zip(State::ALL) {
+            assert_eq!(*text, manifest_text(state));
+            assert!(text.len() > 100, "{state:?}");
+        }
+    }
 
     /// The area page draws one layer per aerial photo. Two states with the same service and
     /// layer (Brandenburg and Berlin) must name it alike in every field, or the page would
@@ -949,11 +1411,11 @@ mod tests {
                     &[
                         "reviere",
                         "waldfunktionen",
-                        "wasserschutzgebiete",
                         "baudenkmale",
                         "bodendenkmale",
                         "naturdenkmale",
                         "biotope",
+                        "wasserschutzgebiete",
                     ],
                     "https://gis-bldam-brandenburg.de/ows/baudenkmale",
                 ),
@@ -985,8 +1447,8 @@ mod tests {
                     "https://geodienste.denkx.de/geoserver/denkx/wfs",
                 ),
                 "schleswigholstein" => (
-                    &["umwelt", "denkmale", "naturschutz"],
-                    crate::ldsh_permits::URL,
+                    &["umwelt", "naturschutz", "denkmale"],
+                    "https://opendata.schleswig-holstein.de/collection/geodaten-denkmalliste-sh/aktuell.geojson",
                 ),
                 "badenwuerttemberg" => (
                     &[
@@ -996,15 +1458,15 @@ mod tests {
                         "naturdenkmale",
                         "flaechennaturdenkmale",
                     ],
-                    crate::lubw_permits::BASE,
+                    "https://rips-gdi.lubw.baden-wuerttemberg.de/arcgis/services/wms/UIS_0100007500200036_AGGR/MapServer/WFSServer",
                 ),
                 "saxony" => (
                     &[
-                        "sachsenforst",
                         "bfg",
                         "denkmale",
                         "naturdenkmale",
                         "biotope",
+                        "sachsenforst",
                     ],
                     "https://cardomap3.idu.de/lfds/public/ogc.ashx?PKGID=5",
                 ),
@@ -1025,19 +1487,22 @@ mod tests {
                     &["bfg", "naturschutz"],
                     "https://geoportal.bafg.de/arcgis1/rest/services/INSPIRE/AM/MapServer/1/query",
                 ),
-                "niedersachsen" => (&["bfg", "naturschutz"], crate::natur_permits::NIEDERSACHSEN),
+                "niedersachsen" => (
+                    &["bfg", "naturschutz"],
+                    "https://www.umweltkarten-niedersachsen.de/arcgis/rest/services/Natur_wms/MapServer",
+                ),
                 "mecklenburgvorpommern" => (
                     &["bfg"],
                     "https://geoportal.bafg.de/arcgis1/rest/services/INSPIRE/AM/MapServer/1/query",
                 ),
                 "nordrheinwestfalen" => (
                     &[
-                        "forstbetriebsbezirke",
-                        "staatswald",
                         "linfos",
-                        "wasserschutzgebiete",
                         "denkmale",
                         "biotope",
+                        "forstbetriebsbezirke",
+                        "staatswald",
+                        "wasserschutzgebiete",
                     ],
                     "https://www.opengeodata.nrw.de/produkte/umwelt_klima/wald_forst/wald/x.zip",
                 ),

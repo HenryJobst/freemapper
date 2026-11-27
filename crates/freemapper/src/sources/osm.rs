@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! OpenStreetMap data (ODbL) from the Geofabrik extracts: one per state, and one per government
 //! district (Regierungsbezirk) in North Rhine-Westphalia.
 
@@ -5,6 +7,7 @@ use crate::note::{Arg, Note, note};
 use std::path::{Path, PathBuf};
 
 use chrono::NaiveDate;
+use freemapper_adapter_api::fetch::{download_with_retries, get_patiently};
 use freemapper_adapter_api::info::OsmExtractInfo;
 use freemapper_adapter_api::records::AdapterId;
 
@@ -491,9 +494,9 @@ pub fn features_from_geojson(text: &str) -> Result<Vec<OsmFeature>, OsmError> {
 
 /// The Brandenburg extract; it holds Berlin too.
 pub const EXTRACT_URL: &str =
-    "https://download.geofabrik.de/europe/germany/brandenburg-latest.osm.pbf";
+    "https://download.geofabrik.de/europe/germany/brandenburg/brandenburg-latest.osm.pbf";
 pub const STATE_URL: &str =
-    "https://download.geofabrik.de/europe/germany/brandenburg-updates/state.txt";
+    "https://download.geofabrik.de/europe/germany/brandenburg/updates/state.txt";
 /// A cached extract this much older than Geofabrik's state is still used.
 pub(crate) const MAX_EXTRACT_AGE_DAYS: i64 = 7;
 const EXTRACT_SUFFIX: &str = ".osm.pbf";
@@ -692,7 +695,7 @@ pub(crate) fn cached_extracts(cache: &Cache, source: &ExtractRef) -> Vec<Extract
 
 /// Makes the extract of `source` available in `cache`. Online, the state is checked on every
 /// call and the extract (a few hundred MB) downloaded only when the cached one is more than
-/// [`MAX_EXTRACT_AGE_DAYS`] older; offline, the newest cached extract is used.
+/// `MAX_EXTRACT_AGE_DAYS` older; offline, the newest cached extract is used.
 pub fn fetch_extract(
     fetcher: &dyn Fetcher,
     cache: &Cache,
@@ -738,12 +741,14 @@ fn refresh_extract(
     newest: Option<Extract>,
     progress: &mut dyn FnMut(Note),
 ) -> Result<Extract, FetchError> {
-    let state = fetcher.get(&source.state_url())?;
-    let date =
-        parse_state_date(&String::from_utf8_lossy(&state)).ok_or_else(|| FetchError::Http {
+    // Geofabrik answers 503 now and then under load or while it writes new extracts; both requests
+    // go through the retrying helpers of the fetch layer (#219).
+    let date = get_patiently(fetcher, &source.state_url(), |state| {
+        parse_state_date(&String::from_utf8_lossy(state)).ok_or_else(|| FetchError::Http {
             url: source.state_url(),
             message: "no timestamp in the state file".to_string(),
-        })?;
+        })
+    })?;
     if let Some(cached) = newest.filter(|e| (date - e.date).num_days() <= MAX_EXTRACT_AGE_DAYS) {
         progress(note!(
             "progress-osm-extract-cached",
@@ -761,8 +766,7 @@ fn refresh_extract(
         .osm_dir()
         .join(format!("{}{date}{EXTRACT_SUFFIX}", source.prefix()));
     let part = path.with_extension("pbf.part");
-    let result = fetcher
-        .download_to(&source.url(), &part, MAX_EXTRACT_BYTES, progress)
+    let result = download_with_retries(fetcher, &source.url(), &part, MAX_EXTRACT_BYTES, progress)
         .and_then(|()| check_pbf(&part, &source.url()));
     let header_date = match result {
         Ok(header_date) => header_date,
@@ -891,11 +895,11 @@ mod tests {
         let saxony = extract_of("saxony", 0);
         assert_eq!(
             saxony.url(),
-            "https://download.geofabrik.de/europe/germany/sachsen-latest.osm.pbf"
+            "https://download.geofabrik.de/europe/germany/sachsen/sachsen-latest.osm.pbf"
         );
         assert_eq!(
             saxony.state_url(),
-            "https://download.geofabrik.de/europe/germany/sachsen-updates/state.txt"
+            "https://download.geofabrik.de/europe/germany/sachsen/updates/state.txt"
         );
         fetcher.insert(&saxony.state_url(), state("2026-11-06"));
         fetcher.insert(&saxony.url(), std::fs::read(FIXTURE_PBF).unwrap());
@@ -940,11 +944,11 @@ mod tests {
         let hamburg = extract_of("hamburg", 0);
         assert_eq!(
             hamburg.url(),
-            "https://download.geofabrik.de/europe/germany/hamburg-latest.osm.pbf"
+            "https://download.geofabrik.de/europe/germany/hamburg/hamburg-latest.osm.pbf"
         );
         assert_eq!(
             hamburg.state_url(),
-            "https://download.geofabrik.de/europe/germany/hamburg-updates/state.txt"
+            "https://download.geofabrik.de/europe/germany/hamburg/updates/state.txt"
         );
         assert_eq!(hamburg.label(), "Hamburg");
     }
@@ -954,11 +958,11 @@ mod tests {
         let hessen = extract_of("hessen", 0);
         assert_eq!(
             hessen.url(),
-            "https://download.geofabrik.de/europe/germany/hessen-latest.osm.pbf"
+            "https://download.geofabrik.de/europe/germany/hessen/hessen-latest.osm.pbf"
         );
         assert_eq!(
             hessen.state_url(),
-            "https://download.geofabrik.de/europe/germany/hessen-updates/state.txt"
+            "https://download.geofabrik.de/europe/germany/hessen/updates/state.txt"
         );
         assert_eq!(hessen.label(), "Hesse");
         assert_eq!(hessen.megabytes(), 348.0);
@@ -969,11 +973,11 @@ mod tests {
         let sh = extract_of("schleswigholstein", 0);
         assert_eq!(
             sh.url(),
-            "https://download.geofabrik.de/europe/germany/schleswig-holstein-latest.osm.pbf"
+            "https://download.geofabrik.de/europe/germany/schleswig-holstein/schleswig-holstein-latest.osm.pbf"
         );
         assert_eq!(
             sh.state_url(),
-            "https://download.geofabrik.de/europe/germany/schleswig-holstein-updates/state.txt"
+            "https://download.geofabrik.de/europe/germany/schleswig-holstein/updates/state.txt"
         );
         assert_eq!(sh.label(), "Schleswig-Holstein");
         assert_eq!(sh.megabytes(), 159.0);
@@ -984,11 +988,11 @@ mod tests {
         let mv = extract_of("mecklenburgvorpommern", 0);
         assert_eq!(
             mv.url(),
-            "https://download.geofabrik.de/europe/germany/mecklenburg-vorpommern-latest.osm.pbf"
+            "https://download.geofabrik.de/europe/germany/mecklenburg-vorpommern/mecklenburg-vorpommern-latest.osm.pbf"
         );
         assert_eq!(
             mv.state_url(),
-            "https://download.geofabrik.de/europe/germany/mecklenburg-vorpommern-updates/state.txt"
+            "https://download.geofabrik.de/europe/germany/mecklenburg-vorpommern/updates/state.txt"
         );
         assert_eq!(mv.label(), "Mecklenburg-Vorpommern");
         assert_eq!(mv.megabytes(), 128.8);
@@ -999,11 +1003,11 @@ mod tests {
         let ni = extract_of("niedersachsen", 0);
         assert_eq!(
             ni.url(),
-            "https://download.geofabrik.de/europe/germany/niedersachsen-latest.osm.pbf"
+            "https://download.geofabrik.de/europe/germany/niedersachsen/niedersachsen-latest.osm.pbf"
         );
         assert_eq!(
             ni.state_url(),
-            "https://download.geofabrik.de/europe/germany/niedersachsen-updates/state.txt"
+            "https://download.geofabrik.de/europe/germany/niedersachsen/updates/state.txt"
         );
         assert_eq!(ni.label(), "Lower Saxony");
         assert_eq!(ni.megabytes(), 510.0);
@@ -1026,11 +1030,11 @@ mod tests {
         let rp = extract_of("rheinlandpfalz", 0);
         assert_eq!(
             rp.url(),
-            "https://download.geofabrik.de/europe/germany/rheinland-pfalz-latest.osm.pbf"
+            "https://download.geofabrik.de/europe/germany/rheinland-pfalz/rheinland-pfalz-latest.osm.pbf"
         );
         assert_eq!(
             rp.state_url(),
-            "https://download.geofabrik.de/europe/germany/rheinland-pfalz-updates/state.txt"
+            "https://download.geofabrik.de/europe/germany/rheinland-pfalz/updates/state.txt"
         );
         assert_eq!(rp.label(), "Rhineland-Palatinate");
         assert_eq!(rp.megabytes(), 275.0);
@@ -1064,11 +1068,11 @@ mod tests {
         );
         assert_eq!(
             koeln.url(),
-            "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/koeln-regbez-latest.osm.pbf"
+            "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/koeln-regbez/koeln-regbez-latest.osm.pbf"
         );
         assert_eq!(
             koeln.state_url(),
-            "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/koeln-regbez-updates/state.txt"
+            "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/koeln-regbez/updates/state.txt"
         );
         assert_eq!(koeln.label(), "North Rhine-Westphalia, Köln");
         assert_eq!(koeln.megabytes(), 225.2);
@@ -1083,8 +1087,8 @@ mod tests {
             let base = format!(
                 "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/{slug}-regbez"
             );
-            assert_eq!(source.url(), format!("{base}-latest.osm.pbf"));
-            assert_eq!(source.state_url(), format!("{base}-updates/state.txt"));
+            assert_eq!(source.url(), format!("{base}/{slug}-regbez-latest.osm.pbf"));
+            assert_eq!(source.state_url(), format!("{base}/updates/state.txt"));
             assert_eq!(source.prefix(), format!("nrw-{slug}_"));
         }
         // Places well inside the other four districts read only their own extract.
@@ -1304,8 +1308,12 @@ mod tests {
                     names: freemapper_adapter_api::info::Names {
                         en: "Square".to_string(),
                         de: "Quadrat".to_string(),
+                        pl: None,
+                        cs: None,
                     },
                     crs: crate::crs::Crs::Utm33,
+                    country: freemapper_adapter_api::info::Country::De,
+                    coverage: freemapper_adapter_api::info::Coverage::Full,
                     object_id_prefix: None,
                     osm: (0..extracts)
                         .map(|i| OsmExtractInfo {
@@ -1338,7 +1346,7 @@ mod tests {
         let read = extracts_for_in(&square(1), &inside, &mut |m| messages.push(m.to_string()));
         assert_eq!(
             read.iter().map(|e| e.url()).collect::<Vec<_>>(),
-            ["https://download.geofabrik.de/europe/square/part-0-latest.osm.pbf"]
+            ["https://download.geofabrik.de/europe/square/part-0/part-0-latest.osm.pbf"]
         );
         assert_eq!((read[0].adapter.as_str(), read[0].index), ("square", 0));
         assert!(messages.is_empty(), "{messages:?}");
@@ -1843,6 +1851,96 @@ mod tests {
         let extract = online(&fetcher, &cache).unwrap();
         assert_eq!(extract.date.to_string(), "2026-11-06");
         assert_eq!(extracts(&cache), ["brandenburg_2026-11-06.osm.pbf"]);
+    }
+
+    /// Serves like `MapFetcher`, but the first `refusals` requests of each kind meet a 503, as Geofabrik
+    /// answers under load (#219).
+    struct Busy<'a> {
+        inner: &'a MapFetcher,
+        gets: std::cell::Cell<u32>,
+        downloads: std::cell::Cell<u32>,
+        refusals: u32,
+    }
+
+    impl Busy<'_> {
+        fn unavailable(url: &str) -> FetchError {
+            FetchError::Http {
+                url: url.to_string(),
+                message: "http status: 503".to_string(),
+            }
+        }
+    }
+
+    impl Fetcher for Busy<'_> {
+        fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
+            self.gets.set(self.gets.get() + 1);
+            if self.gets.get() <= self.refusals {
+                return Err(Self::unavailable(url));
+            }
+            self.inner.get(url)
+        }
+
+        fn download_to(
+            &self,
+            url: &str,
+            path: &Path,
+            max_bytes: u64,
+            progress: &mut dyn FnMut(Note),
+        ) -> Result<(), FetchError> {
+            self.downloads.set(self.downloads.get() + 1);
+            if self.downloads.get() <= self.refusals {
+                return Err(Self::unavailable(url));
+            }
+            self.inner.download_to(url, path, max_bytes, progress)
+        }
+    }
+
+    #[test]
+    fn a_busy_server_is_asked_again_for_the_state_file_and_the_extract() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        serve(&fetcher, "2026-11-06");
+        let busy = Busy {
+            inner: &fetcher,
+            gets: 0.into(),
+            downloads: 0.into(),
+            refusals: 2,
+        };
+        let extract = fetch_extract(
+            &busy,
+            &cache,
+            &extract_of("brandenburg", 0),
+            FetchMode::Online,
+            &mut |_| {},
+        )
+        .unwrap();
+        assert_eq!(extract.date.to_string(), "2026-11-06");
+        assert_eq!((busy.gets.get(), busy.downloads.get()), (3, 3));
+    }
+
+    #[test]
+    fn a_server_that_stays_busy_fails_after_the_attempts() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        serve(&fetcher, "2026-11-06");
+        let busy = Busy {
+            inner: &fetcher,
+            gets: 0.into(),
+            downloads: 0.into(),
+            refusals: 99,
+        };
+        let err = fetch_extract(
+            &busy,
+            &cache,
+            &extract_of("brandenburg", 0),
+            FetchMode::Online,
+            &mut |_| {},
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("503"), "{err}");
+        assert_eq!(busy.gets.get(), freemapper_adapter_api::fetch::ATTEMPTS);
     }
 
     /// Serves like `MapFetcher`, but every download into a file meets a full disk.

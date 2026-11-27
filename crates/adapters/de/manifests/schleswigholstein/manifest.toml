@@ -40,6 +40,9 @@ square_bez = "ohne Unterart (Schleswig-Holstein)"
 
 [orthophoto]
 backend = "lvermgeo-sh"
+url = "https://dienste.gdi-sh.de/WMS_SH_DOP20col_OpenGBD"
+layer = "sh_dop20_rgb"
+max_px = 4000
 
 [terrain]
 backend = "lvermgeo-sh"
@@ -101,6 +104,57 @@ endpoints = [
 fields = { kind = "art_bot", id = "baumnr", species = "art_de", crown = "kronenm" }
 attribution = "Herausgeber: Stadtverwaltung Norderstedt, dl-de/by-2-0"
 max_bytes = 268435456
+
+# The state forest, the Naturwald and the water protection zones of the environment services (a deegree WFS
+# that answers GML 3.2 only), issue #273.
+[[permits.wfs]]
+key = "umwelt"
+label = { en = "Umweltportal Schleswig-Holstein", de = "Umweltportal Schleswig-Holstein" }
+what = { en = "state forest with its Reviere, Naturwald, water protection zones", de = "Landeswald mit seinen Revieren, Naturwald, Wasserschutzgebiete" }
+credit = "Quellenvermerk: LfU SH; Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)"
+sections = ["state-forest", "forest-units", "forest-functions", "water-protection"]
+url = "https://umweltgeodienste.schleswig-holstein.de/WFS_UWAT"
+output_format = "application%2Fgml%2Bxml%3B%20version%3D3.2"
+gml = true
+layers = [
+    { key = "landeswald", type_name = "app:shlf_gesamtflaeche", reading = "state-forest", owner = "Bundesland Schleswig-Holstein", prefix = "Schleswig-Holsteinische Landesforsten, Revier ", office = "reviername" },
+    { key = "reviere", type_name = "app:shlf_gesamtflaeche", reading = "unit", administration = "Schleswig-Holsteinische Landesforsten", prefix = "Revier ", office = "reviername" },
+    { key = "naturwald", type_name = "app:shlf_naturwald", reading = "function", function = "natural" },
+    { key = "wasserschutzgebiete", type_name = "app:wsg_zonen", reading = "water", name = "wsg_name", zone = "wsg_zone" },
+]
+
+# The Naturdenkmale and geschützte Landschaftsbestandteile of the INSPIRE service (a deegree WFS that
+# answers GML 3.2 only, CC BY 4.0), issue #273. The Kreise reported few of them.
+[[permits.wfs]]
+key = "naturschutz"
+label = { en = "INSPIRE protected sites of Schleswig-Holstein", de = "INSPIRE-Schutzgebiete Schleswig-Holstein" }
+what = { en = "Naturdenkmale, geschützte Landschaftsbestandteile", de = "Naturdenkmale, geschützte Landschaftsbestandteile" }
+credit = "© GeoBasis-DE/LVermGeo SH/CC BY 4.0"
+gaps = { en = "The Naturdenkmale come almost only from the Kreis Schleswig-Flensburg, the Landschaftsbestandteile only from Kiel, Lübeck and the Kreise Plön, Schleswig-Flensburg and Stormarn; ask the lower nature conservation authority for the others", de = "Die Naturdenkmale stammen fast nur aus dem Kreis Schleswig-Flensburg, die Landschaftsbestandteile nur aus Kiel, Lübeck und den Kreisen Plön, Schleswig-Flensburg und Stormarn; die übrigen kennt die untere Naturschutzbehörde" }
+sections = ["protected-objects"]
+url = "https://service.gdi-sh.de/SH_INSPIREDOWNLOAD_AI_PS"
+output_format = "application%2Fgml%2Bxml%3B%20version%3D3.2"
+gml = true
+layers = [
+    { key = "naturdenkmale", type_name = "app:Naturdenkmale", reading = "object", object = "natural-monument", name = "text" },
+    { key = "landschaftsbestandteile", type_name = "app:geschuetzte_Landschaftsbestandteile", reading = "object", object = "protected-landscape-part", name = "text" },
+]
+
+# The monuments of the Landesamt für Denkmalpflege: one GeoJSON file for the state (about 52 MB, EPSG:25832, a
+# new one each week; the server sends `aktuell.geojson` on to the file of the week), issue #273. The
+# archaeological monuments are not in it.
+[[permits.geojson]]
+key = "denkmale"
+label = { en = "Landesamt für Denkmalpflege Schleswig-Holstein", de = "Landesamt für Denkmalpflege Schleswig-Holstein" }
+what = { en = "list of monuments (one file for the state, kept in the cache)", de = "Denkmalliste (eine Datei für das Bundesland, im Zwischenspeicher)" }
+credit = "Landesamt für Denkmalpflege Schleswig-Holstein; Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)"
+gaps = { en = "the archaeological monuments are not in it, and the Hansestadt Lübeck keeps its own list", de = "Die Bodendenkmale fehlen darin, und die Hansestadt Lübeck führt ihre Denkmalliste selbst" }
+sections = ["monuments"]
+url = "https://opendata.schleswig-holstein.de/collection/geodaten-denkmalliste-sh/aktuell.geojson"
+crs = 25832
+layers = [
+    { key = "denkmale", reading = "monument", monument = "Denkmal", kind_from = "LayerName" },
+]
 
 [preview]
 wms = "https://dienste.gdi-sh.de/WMS_SH_DOP20col_OpenGBD"

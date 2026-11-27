@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The area selection page served by `freemapper select`, spoken to over HTTP as the page does.
 
 use std::io::{BufRead, BufReader, Read, Write};
@@ -220,7 +222,9 @@ fn adapters_endpoint_lists_the_states_with_previews() {
             "saarland",
             "badenwuerttemberg",
             "bremen",
-            "bayern"
+            "bayern",
+            "polska",
+            "cesko"
         ]
     );
     assert_eq!(
@@ -242,7 +246,7 @@ fn adapters_endpoint_lists_the_states_with_previews() {
         }
     }
     assert_eq!(adapters[0]["preview"], adapters[1]["preview"]);
-    assert_eq!(services.len(), 14);
+    assert_eq!(services.len(), 16);
     assert_eq!(adapters[4]["preview"]["params"], json!({ "time": "2026" }));
     assert!(
         adapters[10]["preview"]["attribution"]
@@ -250,7 +254,7 @@ fn adapters_endpoint_lists_the_states_with_previews() {
             .unwrap()
             .contains("LVermGeoRP{year},")
     );
-    // The policy names the hosts of those fourteen services, in that order, and no other.
+    // The policy names the hosts of those sixteen services, in that order, and no other.
     let response = selector.agent.get(&selector.url).call().unwrap();
     let policy = response
         .headers()
@@ -268,7 +272,8 @@ fn adapters_endpoint_lists_the_states_with_previews() {
          https://www.geodaten-mv.de https://www.wms.nrw.de \
          https://opendata.lgln.niedersachsen.de https://geo4.service24.rlp.de \
          https://geoportal.saarland.de https://owsproxy.lgl-bw.de \
-         https://geodienste.bremen.de https://geoservices.bayern.de; \
+         https://geodienste.bremen.de https://geoservices.bayern.de \
+         https://mapy.geoportal.gov.pl https://ags.cuzk.gov.cz; \
          frame-ancestors 'none'"
     );
     for service in services {
@@ -451,6 +456,61 @@ fn the_page_sets_and_clears_the_contour_interval() {
     assert_eq!(status, 200, "{saved}");
     let text = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
     assert!(!text.contains("contour_interval_m"), "{text}");
+}
+
+#[test]
+fn the_page_sets_and_clears_the_steepness_threshold() {
+    let (_dir, _cache, project, selector) = page_on_a_project();
+    assert_eq!(selector.project()["steep_slope_deg"], Value::Null);
+    let save = |slope: Value| {
+        let seen = selector.project()["revision"].as_str().unwrap().to_owned();
+        selector.post_with_revision(
+            "api/save",
+            json!({ "area": school_area(), "steep_slope_deg": slope }),
+            Some(&seen),
+        )
+    };
+    let (status, saved) = save(json!(55.0));
+    assert_eq!(status, 200, "{saved}");
+    let text = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
+    assert!(text.contains("steep_slope_deg = 55.0"), "{text}");
+    assert_eq!(selector.project()["steep_slope_deg"], 55.0);
+    let (status, _) = save(json!(5));
+    assert_eq!(status, 400);
+    let (status, saved) = save(Value::Null);
+    assert_eq!(status, 200, "{saved}");
+    let text = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
+    assert!(!text.contains("steep_slope_deg"), "{text}");
+}
+
+#[test]
+fn the_page_sets_and_clears_the_face_threshold() {
+    let (_dir, _cache, project, selector) = page_on_a_project();
+    assert_eq!(selector.project()["face_slope_deg"], Value::Null);
+    let save = |slope: Value| {
+        let seen = selector.project()["revision"].as_str().unwrap().to_owned();
+        selector.post_with_revision(
+            "api/save",
+            json!({ "area": school_area(), "face_slope_deg": slope }),
+            Some(&seen),
+        )
+    };
+    let (status, saved) = save(json!(75.0));
+    assert_eq!(status, 200, "{saved}");
+    let text = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
+    assert!(text.contains("face_slope_deg = 75.0"), "{text}");
+    assert!(!text.contains("steep_slope_deg"), "{text}");
+    assert_eq!(selector.project()["face_slope_deg"], 75.0);
+    let (status, _) = save(json!(5));
+    assert_eq!(status, 400);
+    let (status, _) = save(json!(90));
+    assert_eq!(status, 400);
+    let (status, _) = save(json!("steep"));
+    assert_eq!(status, 400);
+    let (status, saved) = save(Value::Null);
+    assert_eq!(status, 200, "{saved}");
+    let text = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
+    assert!(!text.contains("face_slope_deg"), "{text}");
 }
 
 #[test]
@@ -848,10 +908,10 @@ fn api_texts_language_comes_from_lang_then_the_browser_then_english() {
     assert_eq!(answer["lang"], "de");
     assert_eq!(answer["texts"]["page-heading"], "Kartengebiet wählen");
     assert_eq!(
-        texts_answer(&[], &NO_LANGUAGE, Some("fr, en;q=0.5"))["lang"],
+        texts_answer(&[], &NO_LANGUAGE, Some("ja, en;q=0.5"))["lang"],
         "en"
     );
-    let answer = texts_answer(&[], &NO_LANGUAGE, Some("fr"));
+    let answer = texts_answer(&[], &NO_LANGUAGE, Some("ja"));
     assert_eq!(answer["lang"], "en");
     assert_eq!(answer["texts"]["page-title"], "freemapper – area selection");
     assert_eq!(texts_answer(&[], &NO_LANGUAGE, None)["lang"], "en");

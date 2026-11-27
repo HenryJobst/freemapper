@@ -39,6 +39,9 @@ square_bez = "ohne Unterart (Hessen)"
 
 [orthophoto]
 backend = "hvbg"
+url = "https://www.gds-srv.hessen.de/cgi-bin/lika-services/ogc-free-images.ows"
+layer = "he_dop20_rgb"
+max_px = 3000
 
 [terrain]
 backend = "hvbg"
@@ -76,6 +79,48 @@ endpoints = [
 fields = { kind = "Lateinischer Name", id = "Objekt ID", crown = "Kronen Durchmesser in Meter" }
 attribution = "Stadt Frankfurt am Main, Baumkataster, dl-de/by-2-0"
 max_bytes = 67108864
+
+# The drinking water and medicinal spring protection areas of the HLNUG (issue #273).
+[[permits.wfs]]
+key = "wasserschutzgebiete"
+label = { en = "HLNUG", de = "HLNUG" }
+what = { en = "drinking water and medicinal spring protection areas", de = "Trinkwasser- und Heilquellenschutzgebiete" }
+credit = "Lizenz: Creative Commons BY 4.0 (https://creativecommons.org/licenses/by/4.0/deed.de). Quellenvermerk für Daten: „Darstellung auf der Grundlage von Daten des Hessischen Landesamtes für Naturschutz, Umwelt und Geologie (HLNUG)“."
+sections = ["water-protection"]
+url = "https://geodienste-umwelt.hessen.de/arcgis/services/inspire/bewirtschaftungsgebiete/MapServer/WFSServer"
+output_format = "GEOJSON"
+layers = [
+    { key = "wasserschutzgebiete", type_name = "inspire_bewirtschaftungsgebiete:TWS_HQS_ALK", reading = "water", name = "WSG_KURZNAME", zone = "ZONE", citation = "STAATSANZEIGER" },
+]
+
+# The monuments of the Landesamt für Denkmalpflege Hessen (DenkXweb), with the link into the list (issue #273).
+[[permits.wfs]]
+key = "denkmale"
+label = { en = "Landesamt für Denkmalpflege Hessen", de = "Landesamt für Denkmalpflege Hessen" }
+what = { en = "Kulturdenkmäler, Gesamtanlagen, archaeological monuments (DenkXweb)", de = "Kulturdenkmäler, Gesamtanlagen, Bodendenkmäler (DenkXweb)" }
+credit = "Datenlizenz Deutschland – Namensnennung – Version 2.0 (dl-de/by-2-0); Quellenvermerk: Landesamt für Denkmalpflege Hessen (LfDH)"
+sections = ["monuments"]
+url = "https://geodienste.denkx.de/geoserver/denkx/wfs"
+output_format = "application/json"
+layers = [
+    { key = "kulturdenkmale", type_name = "denkx:baudenkmal", reading = "monument", monument = "Kulturdenkmal", link_attribute = "publicationSource", link_prefix = "http://denkxweb.denkmalpflege-hessen.de/" },
+    { key = "gesamtanlagen", type_name = "denkx:flaechendenkmal", reading = "monument", monument = "Gesamtanlage", link_attribute = "publicationSource", link_prefix = "http://denkxweb.denkmalpflege-hessen.de/" },
+    { key = "bodendenkmale", type_name = "denkx:archaeologischesDenkmal", reading = "monument", monument = "Bodendenkmal", link_attribute = "publicationSource", link_prefix = "http://denkxweb.denkmalpflege-hessen.de/" },
+]
+
+# The protected biotopes of the old Hessian biotope mapping (1992 to 2006, INSPIRE), issue #273.
+[[permits.wfs]]
+key = "biotope"
+label = { en = "HLNUG", de = "HLNUG" }
+what = { en = "protected biotopes of the Hessian biotope mapping", de = "geschützte Biotope der Hessischen Biotopkartierung" }
+credit = "Lizenz: Creative Commons BY 4.0 (https://creativecommons.org/licenses/by/4.0/deed.de). Quellenvermerk für Daten: „Darstellung auf der Grundlage von Daten des Hessischen Landesamtes für Naturschutz, Umwelt und Geologie (HLNUG)“."
+gaps = { en = "the mapping is of 1992 to 2006; newer biotopes are missing", de = "Die Kartierung stammt aus den Jahren 1992 bis 2006; neuere Biotope fehlen" }
+sections = ["protected-objects"]
+url = "https://geodienste-umwelt.hessen.de/arcgis/services/inspire/lebensraeume_biotope/MapServer/WFSServer"
+output_format = "GEOJSON"
+layers = [
+    { key = "biotope", type_name = "inspire_lebensraeume_biotope:GESCH_BIOTOPE", reading = "object", object = "biotope", name = "BIOTYP_BEZ" },
+]
 
 [preview]
 wms = "https://www.gds-srv.hessen.de/cgi-bin/lika-services/ogc-free-images.ows"

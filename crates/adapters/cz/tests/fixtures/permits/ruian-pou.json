@@ -1,0 +1,15 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": null,
+   "properties": {
+    "kod": 2283,
+    "orp": 1031,
+    "nespravny": null,
+    "platido": null
+   }
+  }
+ ]
+}

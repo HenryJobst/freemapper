@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 use std::process::Command;
 
 mod isolation;
@@ -71,7 +73,7 @@ fn texts_follow_lang_switch_and_environment() {
 fn an_unknown_language_is_a_usage_error() {
     let dir = tempfile::tempdir().unwrap();
     let output = freemapper_in(&[("LANG", "de_DE.UTF-8")])
-        .args(["--lang", "fr", "init"])
+        .args(["--lang", "ja", "init"])
         .arg(dir.path().join("a"))
         .args(["--geojson", FIXTURE])
         .output()
@@ -79,7 +81,7 @@ fn an_unknown_language_is_a_usage_error() {
     assert_eq!(output.status.code(), Some(2));
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("fr") && stderr.contains("en, de"),
+        stderr.contains("ja") && stderr.contains("en, de, pl"),
         "{stderr}"
     );
     assert!(
@@ -843,6 +845,51 @@ fn run_training_writes_both_files_and_says_so() {
     );
 }
 
+/// `run --training --view` also writes a view of the training map; `--view` without `--training` is a usage
+/// error, and a view that does not parse says what it expects.
+#[test]
+fn run_training_view_writes_the_view_files() {
+    let dir = tempfile::tempdir().unwrap();
+    let (project, cache) = offline_school(dir.path());
+    let output = freemapper()
+        .arg("run")
+        .arg(&project)
+        .args([
+            "--offline",
+            "--training",
+            "--view",
+            "no-north-lines",
+            "--cache-dir",
+        ])
+        .arg(&cache)
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert_eq!(output.status.code(), Some(0), "{stderr}");
+    let map = project.join("school-training-no-north-lines.omap");
+    assert!(std::fs::read_to_string(&map).unwrap().contains("<map"));
+    assert!(
+        std::fs::read(project.join("school-training-no-north-lines.pdf"))
+            .unwrap()
+            .starts_with(b"%PDF-")
+    );
+    let alone = freemapper()
+        .arg("run")
+        .arg(&project)
+        .args(["--offline", "--view", "no-paths"])
+        .output()
+        .unwrap();
+    assert_eq!(alone.status.code(), Some(2));
+    let bad = freemapper()
+        .arg("run")
+        .arg(&project)
+        .args(["--offline", "--training", "--view", "paths", "--lang", "en"])
+        .output()
+        .unwrap();
+    assert_eq!(bad.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&bad.stderr).contains("not paths"));
+}
+
 /// `run --training` keeps an existing training map as it keeps the map: a note names it and says
 /// that --force replaces it, nothing of the training map is written, and the run ends with 0.
 #[test]
@@ -1140,6 +1187,106 @@ fn init_saves_the_contour_interval_and_refuses_a_bad_one() {
     assert!(!output.status.success());
     assert!(stderr.contains("invalid contour interval"), "{stderr}");
     assert!(!bad.exists(), "a refused interval creates no project");
+}
+
+#[test]
+fn init_saves_the_steepness_threshold_and_refuses_a_bad_one() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("forest");
+    let output = freemapper()
+        .args(["init", project.to_str().unwrap(), "--geojson", FIXTURE])
+        .args(["--kind", "forest", "--steep-slope", "55,5", "--lang", "en"])
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{output:?}");
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("Steepness threshold saved in freemapper.toml: 55.5°"),
+        "{stdout}"
+    );
+    let written = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
+    assert!(written.contains("steep_slope_deg = 55.5"), "{written}");
+    // `auto` gives the default back.
+    let output = freemapper()
+        .args(["derive", project.to_str().unwrap(), "--steep-slope", "auto"])
+        .args(["--lang", "en"])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("Steepness threshold in freemapper.toml: default"),
+        "{stdout}"
+    );
+    let written = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
+    assert!(!written.contains("steep_slope_deg"), "{written}");
+    let bad = dir.path().join("bad");
+    let output = freemapper()
+        .args(["init", bad.to_str().unwrap(), "--geojson", FIXTURE])
+        .args(["--kind", "forest", "--steep-slope", "5", "--lang", "en"])
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(!output.status.success());
+    assert!(stderr.contains("invalid steepness threshold"), "{stderr}");
+    assert!(!bad.exists(), "a refused threshold creates no project");
+}
+
+#[test]
+fn init_saves_the_face_threshold_and_refuses_a_bad_one() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("forest");
+    let output = freemapper()
+        .args(["init", project.to_str().unwrap(), "--geojson", FIXTURE])
+        .args(["--kind", "forest", "--face-slope", "75,5", "--lang", "en"])
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{output:?}");
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("Face threshold saved in freemapper.toml: 75.5°"),
+        "{stdout}"
+    );
+    let written = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
+    assert!(written.contains("face_slope_deg = 75.5"), "{written}");
+    assert!(!written.contains("steep_slope_deg"), "{written}");
+    // Both thresholds in one call; the steep one is saved as well.
+    let output = freemapper()
+        .args(["derive", project.to_str().unwrap(), "--steep-slope", "55"])
+        .args(["--face-slope", "65", "--lang", "en"])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("Steepness threshold saved"), "{stdout}");
+    assert!(stdout.contains("Face threshold saved"), "{stdout}");
+    let written = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
+    assert!(written.contains("steep_slope_deg = 55.0"), "{written}");
+    assert!(written.contains("face_slope_deg = 65.0"), "{written}");
+    // `auto` gives the default back; the steep one stays.
+    let output = freemapper()
+        .args(["derive", project.to_str().unwrap(), "--face-slope", "auto"])
+        .args(["--lang", "en"])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("Face threshold in freemapper.toml: default"),
+        "{stdout}"
+    );
+    let written = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
+    assert!(!written.contains("face_slope_deg"), "{written}");
+    assert!(written.contains("steep_slope_deg = 55.0"), "{written}");
+    for (name, value) in [("bad", "5"), ("high", "90")] {
+        let bad = dir.path().join(name);
+        let output = freemapper()
+            .args(["init", bad.to_str().unwrap(), "--geojson", FIXTURE])
+            .args(["--kind", "forest", "--face-slope", value, "--lang", "en"])
+            .output()
+            .unwrap();
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert!(!output.status.success());
+        assert!(stderr.contains("invalid face threshold"), "{stderr}");
+        assert!(!bad.exists(), "a refused threshold creates no project");
+    }
 }
 
 /// A lock file as another freemapper process would have left it.
@@ -2333,12 +2480,14 @@ fn adapters_list_shows_built_in_user_and_project_adapters() {
     let (out, err) = list(&["--json"]);
     let json: serde_json::Value = serde_json::from_str(&out).unwrap();
     let adapters = json["adapters"].as_array().unwrap();
-    assert_eq!(adapters.len(), 16, "{out}");
+    assert_eq!(adapters.len(), 18, "{out}");
     assert_eq!(adapters[0]["id"], "brandenburg");
     assert_eq!(adapters[0]["source"], "built-in");
-    assert_eq!(adapters[15]["id"], "mine");
-    assert_eq!(adapters[15]["source"], "user");
-    assert_eq!(adapters[15]["revision"], 2);
+    assert_eq!(adapters[15]["id"], "polska");
+    assert_eq!(adapters[16]["id"], "cesko");
+    assert_eq!(adapters[17]["id"], "mine");
+    assert_eq!(adapters[17]["source"], "user");
+    assert_eq!(adapters[17]["revision"], 2);
     assert_eq!(json["warnings"][0]["skipped"], true);
     assert_eq!(
         json["warnings"][0]["findings"][0]["code"],
@@ -2348,22 +2497,22 @@ fn adapters_list_shows_built_in_user_and_project_adapters() {
     // The project's adapters only when asked for.
     let (out, _) = list(&["--json", "--project", project.path().to_str().unwrap()]);
     let json: serde_json::Value = serde_json::from_str(&out).unwrap();
-    assert_eq!(json["adapters"][16]["id"], "theirs");
-    assert_eq!(json["adapters"][16]["source"], "project");
+    assert_eq!(json["adapters"][18]["id"], "theirs");
+    assert_eq!(json["adapters"][18]["source"], "project");
     // As text, with the warning on stderr.
     let (out, err) = list(&[]);
     let lines: Vec<&str> = out.lines().collect();
-    assert_eq!(lines.len(), 17, "{out}");
+    assert_eq!(lines.len(), 19, "{out}");
     assert!(
         lines[0].starts_with("brandenburg  Brandenburg  built in  revision 2  "),
         "{out}"
     );
     assert_eq!(
-        lines[15],
+        lines[17],
         "mine  Sample  from your folder  revision 2  checked never  hosts: geo.example.org  shares ground with: Brandenburg"
     );
     assert!(
-        lines[16].starts_with("Your adapters are read from "),
+        lines[18].starts_with("Your adapters are read from "),
         "{out}"
     );
     assert!(err.starts_with("warning: the adapter in "), "{err}");
@@ -2371,6 +2520,163 @@ fn adapters_list_shows_built_in_user_and_project_adapters() {
     let (out, err) = list(&["--lang", "de"]);
     assert!(out.contains("  eingebaut  Revision 1  "), "{out}");
     assert!(err.starts_with("Warnung: Der Adapter in "), "{err}");
+}
+
+/// The ids of the built-in states a manifest declares.
+const STATES: [&str; 15] = [
+    "brandenburg",
+    "berlin",
+    "saxony",
+    "saxonyanhalt",
+    "hamburg",
+    "hessen",
+    "schleswigholstein",
+    "mecklenburgvorpommern",
+    "nordrheinwestfalen",
+    "niedersachsen",
+    "rheinlandpfalz",
+    "saarland",
+    "badenwuerttemberg",
+    "bremen",
+    "bayern",
+];
+
+/// `adapters export` writes the built-in adapter of a state as a folder that passes
+/// `adapters check` and that, in the person's adapter folder, replaces the built-in one.
+#[test]
+fn adapters_export_writes_a_folder_that_replaces_the_built_in_adapter() {
+    let manifests = concat!(env!("CARGO_MANIFEST_DIR"), "/../adapters/de/manifests");
+    let run = |args: &[&str]| {
+        let output = freemapper().args(args).output().unwrap();
+        (
+            output.status.code(),
+            String::from_utf8(output.stdout).unwrap(),
+            String::from_utf8(output.stderr).unwrap(),
+        )
+    };
+    let out_dir = tempfile::tempdir().unwrap();
+    let root = out_dir.path().to_str().unwrap();
+    // Every state: the same files as in the program, and a check with the one warning that
+    // the id is built in.
+    for id in STATES {
+        let (code, out, err) = run(&["adapters", "export", id, root]);
+        assert_eq!(code, Some(0), "{id}: {out}{err}");
+        let folder = out_dir.path().join(id);
+        let source = std::path::Path::new(manifests).join(id);
+        let mut names: Vec<String> = std::fs::read_dir(&folder)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().into_string().unwrap())
+            .collect();
+        names.sort();
+        assert!(names.contains(&"manifest.toml".to_string()), "{id}");
+        // The files are those of the program; only a manifest that declares its orthophoto as
+        // a service gets a provider of its own, which a replacement needs to load.
+        let without_provider = |bytes: Vec<u8>| -> String {
+            String::from_utf8(bytes)
+                .unwrap()
+                .lines()
+                .filter(|line| !line.starts_with("provider = "))
+                .collect::<Vec<_>>()
+                .join("\n")
+        };
+        for name in &names {
+            let (got, want) = (
+                std::fs::read(folder.join(name)).unwrap(),
+                std::fs::read(source.join(name)).unwrap(),
+            );
+            if name == "manifest.toml" {
+                assert_eq!(without_provider(got), without_provider(want), "{id}");
+            } else {
+                assert_eq!(got, want, "{id}/{name}");
+            }
+        }
+        let exported = std::fs::read_to_string(folder.join("manifest.toml")).unwrap();
+        let built_in = std::fs::read_to_string(source.join("manifest.toml")).unwrap();
+        if id == "saxonyanhalt" {
+            assert!(
+                exported.contains("provider = \"saxonyanhalt\""),
+                "{exported}"
+            );
+            assert!(built_in.contains("provider = \"lvermgeo\""));
+        } else {
+            assert_eq!(exported, built_in, "{id}");
+        }
+        let (code, out, err) = run(&["adapters", "check", folder.to_str().unwrap(), "--json"]);
+        assert_eq!(code, Some(0), "{id}: {out}{err}");
+        let json: serde_json::Value = serde_json::from_str(&out).unwrap();
+        let codes: Vec<&str> = json["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|f| f["code"].as_str().unwrap())
+            .collect();
+        assert_eq!(codes, ["check.built-in-id"], "{id}: {out}");
+    }
+    // Never over something: the folder exists with files in it.
+    let (code, _, err) = run(&["adapters", "export", "hamburg", root]);
+    assert_eq!(code, Some(1));
+    assert!(err.contains("exists and is not empty"), "{err}");
+    // A file where the folder should go is no folder to write into either.
+    let file_dir = tempfile::tempdir().unwrap();
+    std::fs::write(file_dir.path().join("hamburg"), "x").unwrap();
+    let (code, _, err) = run(&[
+        "adapters",
+        "export",
+        "hamburg",
+        file_dir.path().to_str().unwrap(),
+    ]);
+    assert_eq!(code, Some(1));
+    assert!(err.contains("exists and is not empty"), "{err}");
+    // An empty folder is fine.
+    std::fs::create_dir(out_dir.path().join("empty")).unwrap();
+    std::fs::create_dir(out_dir.path().join("empty").join("hamburg")).unwrap();
+    let (code, out, err) = run(&[
+        "adapters",
+        "export",
+        "hamburg",
+        out_dir.path().join("empty").to_str().unwrap(),
+    ]);
+    assert_eq!(code, Some(0), "{out}{err}");
+    assert!(
+        out.contains("Wrote the 2 files of the adapter hamburg"),
+        "{out}"
+    );
+    // An adapter that code declares has no manifest to export.
+    let (code, _, err) = run(&["adapters", "export", "polska", root]);
+    assert_eq!(code, Some(1));
+    assert!(err.contains("nothing to export"), "{err}");
+    // In the person's adapter folder the exports replace the built-in adapters, each in its
+    // place, with nothing left out.
+    let mine = tempfile::tempdir().unwrap();
+    for id in STATES {
+        let target = mine.path().join(id);
+        std::fs::create_dir(&target).unwrap();
+        for entry in std::fs::read_dir(out_dir.path().join(id)).unwrap() {
+            let entry = entry.unwrap();
+            std::fs::copy(entry.path(), target.join(entry.file_name())).unwrap();
+        }
+    }
+    let output = freemapper()
+        .env("FREEMAPPER_ADAPTER_DIR", mine.path())
+        .args(["adapters", "list", "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(output.stdout).unwrap()).unwrap();
+    assert_eq!(json["adapters"].as_array().unwrap().len(), 17, "{json}");
+    for id in STATES {
+        let adapter = json["adapters"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|a| a["id"] == id)
+            .unwrap();
+        assert_eq!(adapter["replaces_built_in"], true, "{id}: {json}");
+        assert_eq!(adapter["source"], "user", "{id}");
+    }
+    for warning in json["warnings"].as_array().unwrap() {
+        assert_eq!(warning["skipped"], false, "{warning}");
+    }
 }
 
 /// `adapters check` reads the folder of one adapter: exit code 0 when it would load, 1 with
@@ -2773,4 +3079,113 @@ fn a_project_adapter_with_a_hostile_host_list_is_left_out() {
         assert!(!stderr.contains("is in use"), "{host}: {stderr}");
         assert!(!stderr.contains("panicked"), "{host}: {stderr}");
     }
+}
+
+/// `sources` reads the addresses of the manifests, corrects one in the person's own adapter
+/// folder after the whole manifest passed its check, and refuses what would not pass.
+#[test]
+fn sources_lists_reads_and_corrects_addresses() {
+    let mine = tempfile::tempdir().unwrap();
+    let run = |args: &[&str]| {
+        let output = freemapper()
+            .env("FREEMAPPER_ADAPTER_DIR", mine.path())
+            .args(args)
+            .output()
+            .unwrap();
+        (
+            output.status.code(),
+            String::from_utf8(output.stdout).unwrap(),
+            String::from_utf8(output.stderr).unwrap(),
+        )
+    };
+    // The list of one adapter: built in, with paths.
+    let (code, out, err) = run(&["sources", "list", "hamburg", "--json"]);
+    assert_eq!(code, Some(0), "{out}{err}");
+    let rows: serde_json::Value = serde_json::from_str(&out).unwrap();
+    let rows = rows.as_array().unwrap();
+    assert!(rows.len() > 10, "{out}");
+    assert!(
+        rows.iter()
+            .all(|r| r["adapter"] == "hamburg" && r["source"] == "built-in")
+    );
+    let first = rows.iter().find(|r| r["path"] == "orthophoto.url").unwrap();
+    let old = first["url"].as_str().unwrap().to_string();
+    // `get` prints the address and nothing else.
+    let (code, out, _) = run(&["sources", "get", "hamburg", "orthophoto.url"]);
+    assert_eq!(code, Some(0));
+    assert_eq!(out, format!("{old}\n"));
+    // Unknown adapter, unknown path, an adapter that code declares.
+    let (code, _, err) = run(&["sources", "get", "nowhere", "orthophoto.url"]);
+    assert_eq!(code, Some(1));
+    assert!(err.contains("nowhere"), "{err}");
+    let (code, _, err) = run(&["sources", "get", "hamburg", "orthophoto.nothing"]);
+    assert_eq!(code, Some(1));
+    assert!(err.contains("orthophoto.nothing"), "{err}");
+    let (code, _, err) = run(&["sources", "list", "polska"]);
+    assert_eq!(code, Some(1));
+    assert!(err.contains("no manifest"), "{err}");
+    // Nothing to compare before a folder exists.
+    let (code, _, err) = run(&["sources", "diff", "hamburg"]);
+    assert_eq!(code, Some(1));
+    assert!(err.contains("no folder"), "{err}");
+    // A new host is refused without --add-host, and nothing is written.
+    let moved = "https://moved.example.org/wfs";
+    let (code, _, err) = run(&["sources", "set", "hamburg", "orthophoto.url", moved]);
+    assert_eq!(code, Some(1));
+    assert!(err.contains("moved.example.org"), "{err}");
+    assert!(!mine.path().join("hamburg").exists());
+    // With it the folder is made, the host declared and the address changed.
+    let (code, out, err) = run(&[
+        "sources",
+        "set",
+        "hamburg",
+        "orthophoto.url",
+        moved,
+        "--add-host",
+    ]);
+    assert_eq!(code, Some(0), "{out}{err}");
+    assert!(out.contains("Made the folder"), "{out}");
+    assert!(out.contains("Declared the host moved.example.org"), "{out}");
+    let manifest = std::fs::read_to_string(mine.path().join("hamburg/manifest.toml")).unwrap();
+    assert!(
+        manifest.contains(&format!("url = \"{moved}\"")),
+        "{manifest}"
+    );
+    assert!(manifest.contains("\"moved.example.org\""), "{manifest}");
+    // The list now shows the folder as the source, and the diff the two changes.
+    let (code, out, _) = run(&["sources", "get", "hamburg", "orthophoto.url"]);
+    assert_eq!(code, Some(0));
+    assert_eq!(out, format!("{moved}\n"));
+    let (code, out, _) = run(&["sources", "list", "hamburg"]);
+    assert_eq!(code, Some(0));
+    assert!(
+        out.lines()
+            .any(|l| l.contains("orthophoto.url") && l.ends_with("user")),
+        "{out}"
+    );
+    let (code, out, _) = run(&["sources", "diff", "hamburg"]);
+    assert_eq!(code, Some(0));
+    assert!(out.contains("~ orthophoto.url"), "{out}");
+    assert!(out.contains("+ net.hosts["), "{out}");
+    // The check passes with the one warning that the id is built in.
+    let (code, out, err) = run(&["sources", "check", "hamburg", "--json"]);
+    assert_eq!(code, Some(0), "{out}{err}");
+    // A second change keeps the folder and does not make it again.
+    let (code, out, err) = run(&["sources", "set", "hamburg", "orthophoto.url", &old]);
+    assert_eq!(code, Some(0), "{out}{err}");
+    assert!(!out.contains("Made the folder"), "{out}");
+    // The schema is a JSON Schema of the address keys.
+    let (code, out, _) = run(&["sources", "schema", "--json"]);
+    assert_eq!(code, Some(0));
+    let schema: serde_json::Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(
+        schema["properties"]["alkis"]["properties"]["url"]["$ref"],
+        "#/$defs/url"
+    );
+    let (code, out, _) = run(&["sources", "schema"]);
+    assert_eq!(code, Some(0));
+    assert!(out.lines().any(|l| l == "orthophoto.url"), "{out}");
+    // `sources check` of an adapter without a folder cannot run.
+    let (code, _, _) = run(&["sources", "check", "bayern"]);
+    assert_eq!(code, Some(2));
 }

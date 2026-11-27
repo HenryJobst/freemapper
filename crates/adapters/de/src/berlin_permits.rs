@@ -1,373 +1,18 @@
-//! Berlin's sources of the permit notes (ADR 0120): six WFS of the Geoportal Berlin
-//! (dl-de/zero-2-0) for the Bezirke, the green spaces and playgrounds, the land of the Land
-//! Berlin and the Bund, the monuments, the protected objects under nature conservation law and
-//! the Forstämter and Reviere of the Berliner Forsten (ADR 0124).
-//!
-//! All six are GeoServer WFS 2.0.0 that answer GeoJSON (`application/json`) and read a box in
-//! WGS 84 latitude first when it ends with its CRS, which is how the generic reader asks
-//! ([`get_features`]). The answers come as longitude, latitude; the parser still accepts
-//! EPSG:25833 (the default CRS of the services) and latitude first, so a changed default does
-//! not turn the findings into nonsense. A blank value of the services is a single space.
-//!
-//! The NSG, LSG, FFH, SPA and Naturpark layers of the `schutzgebiete` service are left out on
-//! purpose: the BfN has them for every state, and the notes take each kind from one source.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::path::Path;
+//! The geometry of the Berlin sources of the permit notes (ADR 0120), and their fixture tests.
+//! The seven services of the Geoportal Berlin (dl-de/zero-2-0) had their table in this file
+//! until they moved into the manifest of Berlin (issue #273): GeoServer WFS 2.0.0 that answer
+//! GeoJSON (`application/json`) and read a box in WGS 84 latitude first when it ends with its
+//! CRS, which is how the generic reader asks. The answers come as longitude, latitude; the
+//! parser still accepts EPSG:25833 (the default CRS of the services) and latitude first, so a
+//! changed default does not turn the findings into nonsense. A blank value of the services is a
+//! single space.
 
-use freemapper_adapter_api::permits::{
-    DistrictOffices, FindingKind, PermitFinding, PermitSection, PermitSource, PermitSourceInfo,
-    ProtectedObjectKind, Wording,
-};
-use freemapper_sources::geojson_wfs::{GeoJsonWfs, LatLonBox, get_features};
-use geo_types::{Coord, Geometry, Rect};
+use geo_types::{Coord, Geometry};
 use serde_json::Value;
 
 use crate::crs::{Crs, ProjectedPoint};
-use crate::fetch::{FetchError, Fetcher};
-
-/// The licence of all six services, verbatim from their capabilities (`Fees`).
-pub const LICENCE: &str = "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - \
-    Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar.";
-
-/// What the protected objects are worth legally, verbatim from the abstract of the service
-/// `schutzgebiete`.
-pub const ANALOGUE_MAPS: &str = "Die amtlichen Karten zur jeweiligen Schutzverordnung können \
-    bei der jeweils örtlich zuständigen unteren Behörde für Naturschutz und Landschaftspflege im \
-    Bezirksamt oder bei der obersten Behörde für Naturschutz und Landschaftspflege \
-    (Senatsverwaltung für Mobilität, Verkehr, Klimaschutz und Umwelt Abt. III) eingesehen \
-    werden. Nur diese amtlichen analogen Karten sind rechtsverbindlich, sofern die Karten nicht \
-    im Gesetz- und Verordnungsblatt für Berlin mitveröffentlicht wurden.";
-
-pub(crate) const LABEL: Wording = Wording {
-    en: "Geoportal Berlin",
-    de: "Geoportal Berlin",
-};
-
-/// The owners the Liegenschaftsplan is named for. A parcel of any other owner counts as one of
-/// another public owner, without its name: the notes never carry what the data might hold
-/// beyond these two.
-const NAMED_OWNERS: [&str; 2] = ["Land Berlin", "Bundesrepublik Deutschland"];
-
-/// The link of a monument goes into this list; another link is not taken.
-const MONUMENT_LIST: &str = "https://denkmaldatenbank.berlin.de/";
-
-/// How the features of a layer become findings.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Reading {
-    District,
-    GreenSpace,
-    Playground,
-    Owner,
-    Monument,
-    Protected(ProtectedObjectKind),
-    /// A Distrikt of the Berliner Forsten with its Forstamt and Revier.
-    Forest,
-}
-
-/// One service of the Geoportal Berlin with its layers: the key, the WFS type and how the
-/// features are read, in the order of [`PermitSourceInfo::layers`].
-pub struct BerlinPermitSource {
-    info: PermitSourceInfo,
-    service: GeoJsonWfs,
-    layers: &'static [(&'static str, &'static str, Reading)],
-}
-
-const fn wfs(base: &'static str) -> GeoJsonWfs {
-    GeoJsonWfs {
-        base,
-        output_format: "application/json",
-        bbox_crs_suffix: true,
-    }
-}
-
-const BEZIRKE: &[(&str, &str, Reading)] = &[(
-    "bezirksgrenzen",
-    "alkis_bezirke:bezirksgrenzen",
-    Reading::District,
-)];
-const GRUENANLAGEN: &[(&str, &str, Reading)] = &[
-    (
-        "gruenanlagen",
-        "gruenanlagen:gruenanlagen",
-        Reading::GreenSpace,
-    ),
-    (
-        "spielplaetze",
-        "gruenanlagen:spielplaetze",
-        Reading::Playground,
-    ),
-];
-const LIEGENSCHAFTEN: &[(&str, &str, Reading)] = &[(
-    "liegenschaftsplan",
-    "liegenschaftsplan:liegenschaftsplan",
-    Reading::Owner,
-)];
-const DENKMALE: &[(&str, &str, Reading)] = &[("denkmale", "denkmale:denkmale", Reading::Monument)];
-const SCHUTZOBJEKTE: &[(&str, &str, Reading)] = &[
-    (
-        "a-nd",
-        "schutzgebiete:a_nd",
-        Reading::Protected(ProtectedObjectKind::NaturalMonument),
-    ),
-    (
-        "e-fnd",
-        "schutzgebiete:e_fnd",
-        Reading::Protected(ProtectedObjectKind::NaturalMonument),
-    ),
-    (
-        "g-glb",
-        "schutzgebiete:g_glb",
-        Reading::Protected(ProtectedObjectKind::ProtectedLandscapePart),
-    ),
-    (
-        "f-fspr",
-        "schutzgebiete:f_fspr",
-        Reading::Protected(ProtectedObjectKind::SpecialRules),
-    ),
-];
-
-const FORSTVERWALTUNG: &[(&str, &str, Reading)] = &[(
-    "forstverwalt",
-    "forstverwalt:b_forstverwalt",
-    Reading::Forest,
-)];
-
-/// The administration of the forest offices of Berlin.
-const BERLINER_FORSTEN: &str = "Berliner Forsten";
-
-/// One service of the six.
-#[allow(clippy::too_many_arguments)]
-fn source(
-    key: &'static str,
-    what: Wording,
-    layers: &'static [&'static str],
-    sections: &'static [PermitSection],
-    note: Option<&'static str>,
-    base: &'static str,
-    table: &'static [(&'static str, &'static str, Reading)],
-) -> Box<dyn PermitSource> {
-    debug_assert!(
-        layers.len() == table.len() && layers.iter().zip(table).all(|(a, (b, _, _))| a == b)
-    );
-    Box::new(BerlinPermitSource {
-        info: PermitSourceInfo {
-            key,
-            label: LABEL,
-            what,
-            credit: LICENCE,
-            note,
-            sampled: false,
-            gaps: None,
-            layers,
-            sections,
-            // The Bezirke name the offices of Berlin's Bezirksämter (ADR 0129).
-            offices: (key == "bezirke").then_some(DistrictOffices::Berlin),
-        },
-        service: wfs(base),
-        layers: table,
-    })
-}
-
-/// The six services, in the order the notes list their sections.
-pub fn sources() -> Vec<Box<dyn PermitSource>> {
-    vec![
-        source(
-            "bezirke",
-            Wording {
-                en: "Bezirk borders (ALKIS Berlin)",
-                de: "Bezirksgrenzen (ALKIS Berlin)",
-            },
-            &["bezirksgrenzen"],
-            &[PermitSection::Districts],
-            None,
-            "https://gdi.berlin.de/services/wfs/alkis_bezirke",
-            BEZIRKE,
-        ),
-        source(
-            "gruenanlagen",
-            Wording {
-                en: "green spaces and public playgrounds",
-                de: "Grünanlagenbestand mit den öffentlichen Spielplätzen",
-            },
-            &["gruenanlagen", "spielplaetze"],
-            &[PermitSection::GreenSpaces],
-            None,
-            "https://gdi.berlin.de/services/wfs/gruenanlagen",
-            GRUENANLAGEN,
-        ),
-        source(
-            "liegenschaftsplan",
-            Wording {
-                en: "land of the Land Berlin and the Bund (Liegenschaftsplan)",
-                de: "Liegenschaftsplan (Flurstücke des Bundeslandes Berlin und des Bundes)",
-            },
-            &["liegenschaftsplan"],
-            &[PermitSection::Owners],
-            None,
-            "https://gdi.berlin.de/services/wfs/liegenschaftsplan",
-            LIEGENSCHAFTEN,
-        ),
-        source(
-            "denkmale",
-            Wording {
-                en: "monuments (Denkmalkarte)",
-                de: "Denkmale (Denkmalkarte)",
-            },
-            &["denkmale"],
-            &[PermitSection::Monuments],
-            None,
-            "https://gdi.berlin.de/services/wfs/denkmale",
-            DENKMALE,
-        ),
-        source(
-            "schutzgebiete",
-            Wording {
-                en: "protected objects under nature conservation law",
-                de: "Schutzobjekte nach Naturschutzrecht",
-            },
-            &["a-nd", "e-fnd", "g-glb", "f-fspr"],
-            &[PermitSection::ProtectedObjects],
-            Some(ANALOGUE_MAPS),
-            "https://gdi.berlin.de/services/wfs/schutzgebiete",
-            SCHUTZOBJEKTE,
-        ),
-        source(
-            "forstverwalt",
-            Wording {
-                en: "forest administration (Forstämter and Reviere of the Berliner Forsten)",
-                de: "Forstverwaltung (Forstämter und Reviere der Berliner Forsten)",
-            },
-            &["forstverwalt"],
-            &[PermitSection::ForestUnits],
-            None,
-            "https://gdi.berlin.de/services/wfs/forstverwalt",
-            FORSTVERWALTUNG,
-        ),
-        // Read by a table (ADR 0130): the water protection zones.
-        crate::wfs_permits::source(
-            "wsg",
-            LABEL,
-            Wording {
-                en: "water protection areas",
-                de: "Wasserschutzgebiete",
-            },
-            LICENCE,
-            &["wsg"],
-            &[PermitSection::WaterProtection],
-            "https://gdi.berlin.de/services/wfs/wsg",
-            "application/json",
-            &[(
-                "wsg",
-                "wsg:wsg",
-                crate::wfs_permits::Reading::Water {
-                    name: "wasserwerk",
-                    zone: "zone",
-                    citation: Some("verordnung"),
-                    planned: None,
-                },
-            )],
-        ),
-    ]
-}
-
-impl PermitSource for BerlinPermitSource {
-    fn info(&self) -> &PermitSourceInfo {
-        &self.info
-    }
-
-    fn fetch(
-        &self,
-        fetcher: &dyn Fetcher,
-        bbox: &Rect<f64>,
-        part: &Path,
-    ) -> Result<Vec<Vec<Value>>, FetchError> {
-        let bbox = LatLonBox {
-            min_lat: bbox.min().y,
-            min_lon: bbox.min().x,
-            max_lat: bbox.max().y,
-            max_lon: bbox.max().x,
-        };
-        self.layers
-            .iter()
-            .map(|(_, type_name, _)| get_features(fetcher, &self.service, type_name, &bbox, part))
-            .collect()
-    }
-
-    fn findings(&self, layer: &str, features: &[Value]) -> Vec<PermitFinding> {
-        let Some((_, _, reading)) = self.layers.iter().find(|(key, _, _)| *key == layer) else {
-            return Vec::new();
-        };
-        features
-            .iter()
-            .filter_map(|feature| finding(*reading, feature))
-            .collect()
-    }
-}
-
-/// The finding of one feature; `None` without a usable geometry or without the attribute the
-/// finding is about.
-fn finding(reading: Reading, feature: &Value) -> Option<PermitFinding> {
-    let geometry = geometry(feature)?;
-    let area = matches!(geometry, Geometry::MultiPolygon(_));
-    let kind = match reading {
-        Reading::District => FindingKind::District {
-            name: text(feature, "namgem")?,
-        },
-        Reading::GreenSpace => FindingKind::GreenSpace {
-            name: text(feature, "namenr")
-                .map(|name| park_name(&name))
-                .unwrap_or_default(),
-            district: text(feature, "bezirkname"),
-            dedication: text(feature, "widmung"),
-        },
-        Reading::Playground => FindingKind::Playground,
-        Reading::Owner => {
-            let owner = text(feature, "sch")?;
-            FindingKind::OwnerShare {
-                owner: NAMED_OWNERS.contains(&owner.as_str()).then_some(owner),
-            }
-        }
-        Reading::Monument => FindingKind::Monument {
-            kind: text(feature, "typ")?,
-            link: text(feature, "link").filter(|link| {
-                link.starts_with(MONUMENT_LIST) && !link.contains(char::is_whitespace)
-            }),
-        },
-        // The points of trees and boulders.
-        Reading::Protected(kind) if !area => FindingKind::ProtectedObject {
-            kind,
-            name: text(feature, "baum_deutsch")
-                .or_else(|| text(feature, "gestein_art"))
-                .or_else(|| text(feature, "nd_art")),
-            citation: text(feature, "zitat"),
-        },
-        Reading::Protected(kind) => FindingKind::ProtectedObject {
-            kind,
-            name: text(feature, "gebietsname"),
-            citation: text(feature, "zitat"),
-        },
-        Reading::Forest => FindingKind::ForestUnit {
-            administration: BERLINER_FORSTEN.to_string(),
-            office: format!("Forstamt {}", text(feature, "foa_name")?),
-            unit: text(feature, "rev_name").map(|name| format!("Revier {name}")),
-        },
-    };
-    // A district, a green space, a parcel is an area; only protected objects may be points.
-    let point_allowed = matches!(reading, Reading::Protected(_) | Reading::Monument);
-    (area || point_allowed).then_some(PermitFinding { kind, geometry })
-}
-
-/// The park a green space belongs to: Berlin names the parts of a park after it, with the part
-/// after a comma ("Viktoriapark, Rosengarten"), and the notes give the park one line.
-fn park_name(name: &str) -> String {
-    name.split(", ").next().unwrap_or(name).trim().to_string()
-}
-
-/// The text of property `key`, trimmed; `None` when it is missing, not text or blank.
-fn text(feature: &Value, key: &str) -> Option<String> {
-    let text = feature.get("properties")?.get(key)?.as_str()?.trim();
-    (!text.is_empty()).then(|| text.to_string())
-}
 
 /// The geometry of `feature` in WGS 84 with x = longitude: a MultiPolygon for an area, a
 /// MultiPoint for an object.
@@ -422,7 +67,42 @@ fn lon_lat(geometry: Geometry<f64>) -> Option<Geometry<f64>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::Path;
+
     use crate::fetch::test_support::MapFetcher;
+    use crate::wfs_permits::declared_source;
+    use freemapper_adapter_api::permits::{
+        FindingKind, PermitFinding, PermitSource, ProtectedObjectKind, Wording,
+    };
+    use geo_types::Rect;
+
+    const LICENCE: &str = "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - \
+        Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar.";
+
+    const LABEL: Wording = Wording {
+        en: "Geoportal Berlin",
+        de: "Geoportal Berlin",
+    };
+
+    /// What the protected objects are worth legally, verbatim from the abstract of the service
+    /// `schutzgebiete`.
+    const ANALOGUE_MAPS: &str = "Die amtlichen Karten zur jeweiligen Schutzverordnung können \
+        bei der jeweils örtlich zuständigen unteren Behörde für Naturschutz und Landschaftspflege im \
+        Bezirksamt oder bei der obersten Behörde für Naturschutz und Landschaftspflege \
+        (Senatsverwaltung für Mobilität, Verkehr, Klimaschutz und Umwelt Abt. III) eingesehen \
+        werden. Nur diese amtlichen analogen Karten sind rechtsverbindlich, sofern die Karten nicht \
+        im Gesetz- und Verordnungsblatt für Berlin mitveröffentlicht wurden.";
+
+    /// The sources the manifest of Berlin declares, in its order.
+    fn sources() -> Vec<Box<dyn PermitSource>> {
+        let text = include_str!("../manifests/berlin/manifest.toml");
+        freemapper_manifest::parse(text, Path::new("berlin"))
+            .unwrap()
+            .permits
+            .iter()
+            .map(declared_source)
+            .collect()
+    }
 
     macro_rules! fixture {
         ($name:literal) => {
@@ -508,7 +188,8 @@ mod tests {
                 "denkmale",
                 "schutzgebiete",
                 "forstverwalt",
-                "wsg"
+                "wsg",
+                "biotope"
             ]
         );
         for s in &all {

@@ -48,3 +48,8 @@ sha2.workspace = true
 
 [lints]
 workspace = true
+
+[package.metadata.cargo-machete]
+# The `JsonSchema` derive expands to paths in `schemars`, so the direct
+# dependency is needed even though no code names the crate.
+ignored = ["schemars"]

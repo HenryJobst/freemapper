@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Project folder and project file (`freemapper.toml`).
 
 use crate::note::{Arg, Note, note};
@@ -27,7 +29,9 @@ use crate::derive::contours::{
     gaussian_smooth, generalize, terrain_inside,
 };
 use crate::derive::landforms::{
-    height_jumps, knolls_and_depressions, landforms_from_geojson, landforms_to_geojson,
+    DEFAULT_FACE_SLOPE_DEG, FACE_SLOPE_RANGE_DEG, STEEP_SLOPE_RANGE_DEG, height_jumps,
+    knolls_and_depressions, landforms_from_geojson, landforms_to_geojson, rock_faces,
+    steep_gradient,
 };
 use crate::derive::ndsm::{fill_from_dsm, rasterize, tree_cover, write_ndsm_png};
 use crate::derive::orthophoto::{build_orthophoto, build_orthophoto_from_image};
@@ -63,15 +67,19 @@ use crate::sources::region::{
 use crate::sources::trees;
 use crate::space::{Part, SpacePlan};
 use crate::tiles::TileId;
+use freemapper_adapter_api::info::{Country, Coverage};
 
 mod export;
 mod extras;
 pub use crate::build::light::LightReport;
-pub use crate::build::training::TrainingReport;
+pub use crate::build::training::{FreeEnd, TrainingReport};
 pub use export::*;
 pub(crate) use extras::ExtraSets;
 
 pub const PROJECT_FILE_NAME: &str = freemapper_contract::tags::SIDECAR_FILE;
+
+/// What a PDF page of the map can fail with (the font subsets of freemapper-core).
+pub use freemapper_render::pdf::PdfError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ProjectError {
@@ -85,6 +93,10 @@ pub enum ProjectError {
     InvalidScale(u32),
     #[error("invalid contour interval {0} m; it must be more than 0")]
     InvalidContourInterval(f64),
+    #[error("invalid steepness threshold {0}°; it must lie between 15° and 80°")]
+    InvalidSteepSlope(f64),
+    #[error("invalid face threshold {0}°; it must lie between 55° and 85°")]
+    InvalidFaceSlope(f64),
     #[error("scale 1:{scale} is not allowed for {kind} maps; use {allowed}{hint}")]
     ScaleNotAllowed {
         kind: &'static str,
@@ -123,6 +135,8 @@ pub enum ProjectError {
     Layer(Note),
     #[error("OCAD export: {0}")]
     Ocd(#[from] crate::ocd::file::OcdBuildError),
+    #[error("PDF: {0}")]
+    Pdf(#[from] PdfError),
     #[error(
         "{}: image and world file do not match the map area; run `freemapper derive` again",
         .0.display()
@@ -148,9 +162,21 @@ pub enum ProjectError {
     AreaTooLarge { width_m: f64, height_m: f64 },
     #[error(
         "the map area lies outside the supported states ({}); freemapper has data sources for those only so far",
-        crate::adapters::region_names(false).join(", ")
+        crate::adapters::region_names("en").join(", ")
     )]
     OutsideCoverage,
+    /// A map whose centre lies in a region without a cadastre (Poland) and whose area reaches into a
+    /// region of another country: it would be made half from each.
+    #[error(
+        "the map area lies on both sides of a country border; maps across a border are not supported yet, so draw the area inside one country"
+    )]
+    AreaCrossesCountry,
+    /// The permit notes of a map in a region without a cadastre (Poland): their services, their
+    /// authorities and their law are German.
+    #[error(
+        "the permit notes are not available for this region yet: they ask German services and name German authorities"
+    )]
+    PermitsNotForRegion,
     #[error("{}: {message}; run `freemapper fetch` again", path.display())]
     StoredBuildings { path: PathBuf, message: String },
     /// A part the run needs does not fit on its volume.
@@ -350,6 +376,16 @@ pub struct ProjectFile {
     /// relief (`derive::contours::contour_interval_for`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub contour_interval_m: Option<f64>,
+    /// Slope angle in degrees from which a patch of the terrain counts as steep when `derive`
+    /// looks for earth banks and cliffs; without it the default of about 27° holds
+    /// (`derive::landforms::steep_gradient`, ADR 0198).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub steep_slope_deg: Option<f64>,
+    /// Slope angle in degrees from which the ground is a rock face (symbol 206) when `derive`
+    /// looks for faces; without it the default of 70° holds
+    /// (`derive::landforms::DEFAULT_FACE_SLOPE_DEG`, ADR 0200).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub face_slope_deg: Option<f64>,
     /// Tiles used by the last `fetch`.
     #[serde(default)]
     pub tiles: Vec<TileRecord>,
@@ -361,17 +397,17 @@ pub struct ProjectFile {
     pub land_use: Option<AlkisRecord>,
     /// The layers of the sets of extra layers of the last online `fetch` (ADR 0149), by set key,
     /// then by file name under `data/<set key>`; Berlin's are written as `berlin_layers`, the
-    /// field older project files have ([`ExtraSets`]). A layer without objects in the area is
+    /// field older project files have (`ExtraSets`). A layer without objects in the area is
     /// recorded with count 0.
     #[serde(flatten)]
     pub extra_sets: ExtraSets,
     /// The NAS layers (full ALKIS) of the last online `fetch`, by file name under
-    /// [`NAS_LAYERS_DIR`]; empty outside the states with a NAS service. A layer without objects
+    /// `NAS_LAYERS_DIR`; empty outside the states with a NAS service. A layer without objects
     /// in the area is recorded with count 0, and `latest_update` is the newest `beginnt`.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub nas_layers: BTreeMap<String, AlkisRecord>,
     /// The city tree cadastres of the last online `fetch`, by dataset id under
-    /// [`TREE_LAYERS_DIR`]; empty outside the cities of the table. A dataset without trees in the
+    /// `TREE_LAYERS_DIR`; empty outside the cities of the table. A dataset without trees in the
     /// area is recorded with count 0, and `latest_update` is the newest tree survey date.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub tree_layers: BTreeMap<String, AlkisRecord>,
@@ -381,7 +417,7 @@ pub struct ProjectFile {
     /// The orthophoto from a WMS or WCS (GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH: WMS; LAiV M-V: WCS); LGB orthophotos are tiles.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub orthophoto: Option<WmsRecord>,
-    /// The Berlin K5 map (1:5000) written as a template at [`K5_RELPATH`]; `flight` is the K5
+    /// The Berlin K5 map (1:5000) written as a template at `K5_RELPATH`; `flight` is the K5
     /// dataset date. Berlin only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub k5: Option<WmsRecord>,
@@ -503,6 +539,12 @@ impl ProjectFile {
             toml::from_str(&text).map_err(|e| ProjectError::Toml(e.to_string()))?;
         if let Some(interval) = project.contour_interval_m {
             check_contour_interval(interval)?;
+        }
+        if let Some(slope) = project.steep_slope_deg {
+            check_steep_slope(slope)?;
+        }
+        if let Some(slope) = project.face_slope_deg {
+            check_face_slope(slope)?;
         }
         project.check_adapters()?;
         project.drop_unknown_names(progress);
@@ -763,6 +805,8 @@ pub fn init_project_with_content(
         map_area: area.to_geojson_value(),
         title: title.as_deref().and_then(clean_title),
         contour_interval_m: None,
+        steep_slope_deg: None,
+        face_slope_deg: None,
         contours: None,
         tiles: Vec::new(),
         buildings: None,
@@ -804,7 +848,7 @@ pub(crate) const NDSM_RELPATH: &str = "templates/ndsm.png";
 /// The Berlin K5 map (1:5000) as fetched; a template the mapper draws on, optional.
 pub(crate) const K5_RELPATH: &str = "templates/k5.png";
 /// The key of the raster template whose record the project file keeps in `k5` and whose file
-/// is [`K5_RELPATH`]: the one template there is. A second one needs a field of its own.
+/// is `K5_RELPATH`: the one template there is. A second one needs a field of its own.
 pub(crate) const K5_TEMPLATE: &str = "k5";
 /// The terrain mosaic of a tile provider (LGB, GeoSN) cut to the map area plus buffer, with its
 /// world file. `derive` writes it for every map (ADR 0134): the export reads the walking direction
@@ -960,9 +1004,114 @@ pub fn set_contour_interval(
     Ok(project)
 }
 
+/// Refuses a steep slope outside [`STEEP_SLOPE_RANGE_DEG`].
+pub fn check_steep_slope(slope_deg: f64) -> Result<(), ProjectError> {
+    if STEEP_SLOPE_RANGE_DEG.contains(&slope_deg) {
+        Ok(())
+    } else {
+        Err(ProjectError::InvalidSteepSlope(slope_deg))
+    }
+}
+
+/// A steep slope as a person writes it: `auto` (the default, `None`) or degrees with a dot or a
+/// comma, such as `55`.
+pub fn parse_steep_slope(text: &str) -> Result<Option<f64>, ProjectError> {
+    let text = text.trim();
+    if text.eq_ignore_ascii_case("auto") {
+        return Ok(None);
+    }
+    let slope: f64 = text.replace(',', ".").parse().unwrap_or(f64::NAN);
+    check_steep_slope(slope)?;
+    Ok(Some(slope))
+}
+
+/// Sets the steep slope of the project in `dir`; `None` gives back the default. The next
+/// `derive` looks for banks and cliffs with it.
+pub fn set_steep_slope(dir: &Path, slope_deg: Option<f64>) -> Result<ProjectFile, ProjectError> {
+    if let Some(slope) = slope_deg {
+        check_steep_slope(slope)?;
+    }
+    let mut project = ProjectFile::load(dir)?;
+    check_folders(dir, &WRITTEN_FOLDERS)?;
+    if project.steep_slope_deg != slope_deg {
+        project.steep_slope_deg = slope_deg;
+        project.save(dir)?;
+    }
+    Ok(project)
+}
+
+/// Refuses a face slope outside [`FACE_SLOPE_RANGE_DEG`].
+pub fn check_face_slope(slope_deg: f64) -> Result<(), ProjectError> {
+    if FACE_SLOPE_RANGE_DEG.contains(&slope_deg) {
+        Ok(())
+    } else {
+        Err(ProjectError::InvalidFaceSlope(slope_deg))
+    }
+}
+
+/// A face slope as a person writes it: `auto` (the default, `None`) or degrees with a dot or a
+/// comma, such as `75`.
+pub fn parse_face_slope(text: &str) -> Result<Option<f64>, ProjectError> {
+    let text = text.trim();
+    if text.eq_ignore_ascii_case("auto") {
+        return Ok(None);
+    }
+    let slope: f64 = text.replace(',', ".").parse().unwrap_or(f64::NAN);
+    check_face_slope(slope)?;
+    Ok(Some(slope))
+}
+
+/// Sets the face slope of the project in `dir`; `None` gives back the default. The next
+/// `derive` looks for rock faces with it.
+pub fn set_face_slope(dir: &Path, slope_deg: Option<f64>) -> Result<ProjectFile, ProjectError> {
+    if let Some(slope) = slope_deg {
+        check_face_slope(slope)?;
+    }
+    let mut project = ProjectFile::load(dir)?;
+    check_folders(dir, &WRITTEN_FOLDERS)?;
+    if project.face_slope_deg != slope_deg {
+        project.face_slope_deg = slope_deg;
+        project.save(dir)?;
+    }
+    Ok(project)
+}
+
+/// Whether a map of `region_bbox` (EPSG:25833) is made from OSM alone: its region supplies
+/// the OSM extracts and nothing else ([`Coverage::OsmOnly`]), so no raster is fetched or derived.
+pub(crate) fn osm_only(region_bbox: &BoundingBox) -> bool {
+    raster_region_in(registry(), region_bbox)
+        .is_some_and(|adapter| adapter.info().coverage == Coverage::OsmOnly)
+}
+
+/// Whether the region of a map of `region_bbox` has no cadastre (ALKIS): the buildings and the
+/// land use come from OSM alone. That holds for [`Coverage::OsmOnly`] and [`Coverage::Rasters`]
+/// (no built-in region is one of them at present).
+pub(crate) fn no_cadastre(region_bbox: &BoundingBox) -> bool {
+    raster_region_in(registry(), region_bbox)
+        .is_some_and(|adapter| adapter.info().coverage != Coverage::Full)
+}
+
+/// Whether the region of a map of `region_bbox` lies outside Germany: what only German sources
+/// can give (the permit notes) is not available there.
+pub(crate) fn outside_germany(region_bbox: &BoundingBox) -> bool {
+    raster_region_in(registry(), region_bbox)
+        .is_some_and(|adapter| adapter.info().country != Country::De)
+}
+
+/// The name of the cadastre of the region of a map of `region_bbox`: ALKIS for the German
+/// states, EGiB for Poland, RÚIAN for Czechia. The progress lines and warnings of the cadastre
+/// downloads name it.
+pub(crate) fn cadastre_name(region_bbox: &BoundingBox) -> &'static str {
+    match raster_region_in(registry(), region_bbox).map(|adapter| adapter.info().country) {
+        Some(Country::Pl) => "EGiB",
+        Some(Country::Cz) => "RÚIAN",
+        Some(Country::De) | None => "ALKIS",
+    }
+}
+
 /// The CRS of a map of `region_bbox` (EPSG:25833): that of its raster region.
 pub(crate) fn map_crs(region_bbox: &BoundingBox) -> Crs {
-    raster_region_in(registry(), region_bbox).map_or(Crs::Utm33, |adapter| adapter.info().crs)
+    freemapper_adapter_api::geometry::map_crs_in(registry(), region_bbox)
 }
 
 fn default_crs() -> u32 {
@@ -972,10 +1121,33 @@ fn default_crs() -> u32 {
 /// Refuses a map area plus buffer outside every supported region or larger than the templates
 /// can cover.
 pub(crate) fn check_area(bbox: &BoundingBox) -> Result<(), ProjectError> {
-    if raster_region_in(registry(), bbox).is_none() {
+    let Some(region) = raster_region_in(registry(), bbox) else {
         return Err(ProjectError::OutsideCoverage);
+    };
+    // A region without a cadastre cannot take the rasters and the cadastre of its neighbour, and
+    // the same holds outside Germany: the rasters of a map are those of one country, and its
+    // extracts end at its border, so an area that reaches over the border would be half made
+    // (ADR 0164). A map centred in Germany with a strip abroad still gets its warning.
+    if (region.info().coverage != Coverage::Full || region.info().country != Country::De)
+        && (crate::sources::region::reaches_beyond_coverage(bbox)
+            || registry().adapters().any(|other| {
+                other.info().country != region.info().country && overlaps_in(other, bbox)
+            }))
+    {
+        return Err(ProjectError::AreaCrossesCountry);
     }
     check_size(bbox)
+}
+
+/// Whether a map in a region with a cadastre has part of its area on the ground of a region of
+/// another country: the rasters of its own region end at the border.
+fn beside_another_country(region_bbox: &BoundingBox) -> bool {
+    !no_cadastre(region_bbox)
+        && raster_region_in(registry(), region_bbox).is_some_and(|home| {
+            registry().adapters().any(|adapter| {
+                adapter.info().country != home.info().country && overlaps_in(adapter, region_bbox)
+            })
+        })
 }
 
 /// Refuses a map area plus buffer larger than the templates can cover. The templates are built
@@ -1133,7 +1305,7 @@ fn fetch_project_parts(
     if crs != project.crs() {
         progress(note!(
             "warning-other-zone",
-            zone = if crs == Crs::Utm32 { "32" } else { "33" },
+            zone = crs.utm_zone().to_string(),
             epsg = crs.epsg().to_string()
         ));
         project.crs = crs.epsg();
@@ -1150,7 +1322,11 @@ fn fetch_project_parts(
     project.provider = provider;
     let bbox = project.bbox()?;
     check_size(&bbox)?;
-    if crate::sources::region::reaches_beyond_coverage(&region_bbox) {
+    // Part of the area on the ground of a region with OSM only has no terrain model or cadastre
+    // either: a map centred next to Poland says so, as one that reaches beyond every region does.
+    if beside_another_country(&region_bbox)
+        || crate::sources::region::reaches_beyond_coverage(&region_bbox)
+    {
         progress(note!("warning-beyond-coverage"));
     }
     // Offline nothing is downloaded, so nothing needs room.
@@ -1178,7 +1354,12 @@ fn fetch_project_parts(
                 region_bbox,
             },
         );
-        raster_backend(&region_bbox)?.fetch(env, p, &bbox)?;
+        if !osm_only(&region_bbox) {
+            raster_backend(&region_bbox)?.fetch(env, p, &bbox)?;
+        }
+    }
+    if osm_only(&region_bbox) {
+        progress(note!("warning-osm-only-no-terrain"));
     }
     stop_if(cancelled)?;
     project.save(dir)?;
@@ -1556,7 +1737,7 @@ fn raster_backend(region_bbox: &BoundingBox) -> Result<&'static dyn RasterBacken
         .ok_or(ProjectError::OutsideCoverage)
 }
 
-/// The raster template recorded in `k5` as the file [`K5_RELPATH`] (PNG and world file) over
+/// The raster template recorded in `k5` as the file `K5_RELPATH` (PNG and world file) over
 /// `bbox`, the map area plus buffer in the map's CRS: the template of the adapter that has it
 /// ([`extras::fetch_template_key_into`]). Optional like the extra layers: a failed request or a
 /// full disk (`skip`) leaves the template out with a warning, never fails the fetch. A stored
@@ -1705,10 +1886,19 @@ fn fetch_buildings_into(
     progress: &mut dyn FnMut(Note),
 ) -> Result<Option<AlkisRecord>, ProjectError> {
     let bbox = &area.bbox;
+    let cadastre = cadastre_name(&area.region_bbox);
     let path = dir.join(BUILDINGS_RELPATH);
+    // A region without a cadastre: an empty collection stands for no buildings, online and
+    // offline alike, and no ALKIS line is shown.
+    if no_cadastre(&area.region_bbox) {
+        if !path.exists() {
+            write_inside(dir, &path, br#"{"features":[],"type":"FeatureCollection"}"#)?;
+        }
+        return Ok(None);
+    }
     if mode == FetchMode::Offline {
         if previous.is_none() && path.exists() {
-            progress(note!("warning-alkis-coverage-unknown"));
+            progress(note!("warning-alkis-coverage-unknown", cadastre = cadastre));
         }
         let covered = previous.is_none_or(|record| record.covers(bbox));
         return if path.exists() && covered {
@@ -1717,20 +1907,28 @@ fn fetch_buildings_into(
             Err(ProjectError::BuildingsNotFetched)
         };
     }
-    progress(note!("progress-alkis-buildings-download"));
+    progress(note!(
+        "progress-alkis-buildings-download",
+        cadastre = cadastre
+    ));
     let text = fetch_buildings_in(&mut alkis_env(fetcher, cache, mode, &mut *progress), area)?;
     let parsed = parse_buildings(&text).map_err(FetchError::from)?;
     write_inside(dir, &path, text.as_bytes())?;
     let count = parsed.buildings.len();
-    progress(note!("progress-alkis-buildings", count = count));
+    progress(note!(
+        "progress-alkis-buildings",
+        cadastre = cadastre,
+        count = count
+    ));
     if count == 0 {
-        progress(note!("warning-alkis-no-buildings"));
+        progress(note!("warning-alkis-no-buildings", cadastre = cadastre));
     }
     if !parsed.skipped.is_empty() {
         let shown = parsed.skipped.iter().take(SKIPPED_SHOWN).cloned();
         let more = parsed.skipped.len() > SKIPPED_SHOWN;
         progress(note!(
             "progress-alkis-skipped",
+            cadastre = cadastre,
             count = parsed.skipped.len(),
             list = format!(
                 "{}{}",
@@ -1765,6 +1963,7 @@ fn fetch_buildings_into(
         if !changes.is_empty() {
             progress(note!(
                 "warning-alkis-buildings-changed",
+                cadastre = cadastre,
                 changes = changes.join(", ")
             ));
         }
@@ -1786,14 +1985,25 @@ fn fetch_land_use_into(
     progress: &mut dyn FnMut(Note),
 ) -> Option<Option<AlkisRecord>> {
     let bbox = &area.bbox;
+    let cadastre = cadastre_name(&area.region_bbox);
     let path = dir.join(LAND_USE_RELPATH);
+    // A region without a cadastre has none to be missing.
+    if no_cadastre(&area.region_bbox) {
+        return None;
+    }
     if mode == FetchMode::Offline {
         if previous.is_none() || !path.exists() {
-            progress(note!("progress-alkis-no-land-use-stored"));
+            progress(note!(
+                "progress-alkis-no-land-use-stored",
+                cadastre = cadastre
+            ));
         }
         return None;
     }
-    progress(note!("progress-alkis-land-use-download"));
+    progress(note!(
+        "progress-alkis-land-use-download",
+        cadastre = cadastre
+    ));
     let fetched = fetch_land_use_in(&mut alkis_env(fetcher, cache, mode, &mut *progress), area);
     let downloaded = fetched.and_then(|text| {
         let land_use = parse_land_use(&text).map_err(FetchError::from)?;
@@ -1802,8 +2012,15 @@ fn fetch_land_use_into(
     });
     match downloaded {
         Ok(land_use) => {
+            // In Poland the count also holds the parts BDOT10k filled in where EGiB had none.
+            let source = if cadastre == "EGiB" {
+                "EGiB/BDOT10k"
+            } else {
+                cadastre
+            };
             progress(note!(
                 "progress-alkis-land-use-parts",
+                cadastre = source,
                 count = land_use.len()
             ));
             Some(Some(AlkisRecord {
@@ -1821,26 +2038,35 @@ fn fetch_land_use_into(
         }
         Err(e) => match previous.filter(|_| path.exists()) {
             Some(record) if record.covers(bbox) => {
-                progress(note!("warning-alkis-land-use-kept", error = Arg::error(e)));
+                progress(note!(
+                    "warning-alkis-land-use-kept",
+                    cadastre = cadastre,
+                    error = Arg::error(e)
+                ));
                 None
             }
             Some(_) => {
                 progress(note!(
                     "warning-alkis-land-use-removed",
+                    cadastre = cadastre,
                     error = Arg::error(e)
                 ));
                 freemapper_fs::remove_inside(dir, &path);
                 Some(None)
             }
             None => {
-                progress(note!("warning-alkis-land-use-none", error = Arg::error(e)));
+                progress(note!(
+                    "warning-alkis-land-use-none",
+                    cadastre = cadastre,
+                    error = Arg::error(e)
+                ));
                 None
             }
         },
     }
 }
 
-/// Downloads the NAS layers (full ALKIS) of `kind` for `area` to [`NAS_LAYERS_DIR`] and returns
+/// Downloads the NAS layers (full ALKIS) of `kind` for `area` to `NAS_LAYERS_DIR` and returns
 /// the records that replace `previous`, as `extras::fetch_set_into` does for a set's
 /// layers: a layer that fails is a warning and never fails the fetch (a stored file that still
 /// covers the area stays), a layer without objects is stored as an empty collection, outside the
@@ -1948,7 +2174,7 @@ fn fetches_tree_registers(kind: MapKind) -> bool {
     kind != MapKind::Forest
 }
 
-/// Downloads the city tree cadastres for `area` to [`TREE_LAYERS_DIR`] and returns the records
+/// Downloads the city tree cadastres for `area` to `TREE_LAYERS_DIR` and returns the records
 /// that replace `previous`, as [`fetch_nas_layers_into`] does for the NAS layers: a dataset that
 /// fails is a warning and never fails the fetch (a stored file that still covers the area
 /// stays), a dataset without trees is stored as an empty collection, outside the envelopes of
@@ -2137,6 +2363,10 @@ pub fn derive_project_cancellable(
     stop_if(cancelled)?;
     let mut project = ProjectFile::load_reporting(dir, progress)?;
     check_folders(dir, &WRITTEN_FOLDERS)?;
+    // A region with OSM only has no raster to derive: the export draws the OSM objects.
+    if osm_only(&project.region_bbox()?) {
+        return Ok(Vec::new());
+    }
     if project.tiles.is_empty() && project.terrain.is_none() {
         return Err(ProjectError::NotFetched);
     }
@@ -2292,7 +2522,17 @@ pub fn derive_project_cancellable(
     stop_if(cancelled)?;
     let min_height_m = project.map_kind.landform_min_height_m();
     let mut landforms = knolls_and_depressions(&dtm, scale, min_height_m);
-    landforms.extend(height_jumps(&dtm, scale, min_height_m));
+    landforms.extend(height_jumps(
+        &dtm,
+        scale,
+        min_height_m,
+        steep_gradient(project.steep_slope_deg),
+    ));
+    landforms.extend(rock_faces(
+        &dtm,
+        scale,
+        project.face_slope_deg.unwrap_or(DEFAULT_FACE_SLOPE_DEG),
+    ));
     let landforms_path = dir.join(LANDFORMS_RELPATH);
     write_inside(
         dir,
@@ -2832,6 +3072,8 @@ pub mod golden {
             provider: None,
             title: None,
             contour_interval_m: None,
+            steep_slope_deg: None,
+            face_slope_deg: None,
             contours: None,
             tiles: Vec::new(),
             buildings: None,
@@ -5234,6 +5476,8 @@ mod tests {
             provider: Some(providers::LGB),
             title: Some("Clara-Zetkin-Schule".to_string()),
             contour_interval_m: None,
+            steep_slope_deg: None,
+            face_slope_deg: None,
             contours: None,
             tiles: vec![TileRecord {
                 product: Product::Dtm,
@@ -5765,13 +6009,9 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         assert!(contains(&pdf, b"0 0 0 0.5 k"), "building");
         assert!(contains(&pdf, b"0.1 0.35 0.5 0 k"), "pitch");
         assert!(contains(&pdf, b"0.25 0.75 1 0 K"), "contours");
-        // Texts are WinAnsi hex strings in the content stream.
-        let credit: String = "github.com/HenryJobst/freemapper"
-            .bytes()
-            .map(|b| format!("{b:02X}"))
-            .collect();
+        // Texts are glyph ids of the embedded font; the table of the font reads them back.
         assert!(
-            contains(&pdf, credit.as_bytes()),
+            crate::render::pdf::shown_text(&file).contains("github.com/HenryJobst/freemapper"),
             "credit line on the sheet"
         );
     }
@@ -5872,6 +6112,61 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let map = std::fs::read_to_string(&outcome.map).unwrap();
         assert!(omap_has_symbol(&map, set, "518"), "the candidate fence");
         assert!(omap_has_symbol(&map, set, "521"), "the building of the map");
+    }
+
+    #[test]
+    fn a_training_view_leaves_out_its_symbols_and_keeps_the_frame() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = sprint_with_paving_and_fence(&fetcher);
+        let documents = starter_documents(dir.path()).unwrap();
+        let set = &documents.map.symbol_set;
+        let views = [
+            crate::View::parse("no:518").unwrap(),
+            crate::View::parse("brown-only").unwrap(),
+        ];
+        let written = export_training_views(
+            dir.path(),
+            &documents,
+            &views,
+            false,
+            false,
+            PdfSources::Auto,
+            false,
+        )
+        .unwrap();
+        assert_eq!(written.len(), 2);
+        assert!(
+            written[0]
+                .map
+                .to_string_lossy()
+                .ends_with("-training-no-518.omap")
+        );
+        let without_fence = std::fs::read_to_string(&written[0].map).unwrap();
+        assert!(!omap_has_symbol(&without_fence, set, "518"));
+        assert!(
+            omap_has_symbol(&without_fence, set, "521"),
+            "the building stays"
+        );
+        let brown = std::fs::read_to_string(&written[1].map).unwrap();
+        assert!(!omap_has_symbol(&brown, set, "521"));
+        assert!(brown.contains(r#"<part name="peripheral information">"#));
+        assert!(
+            std::fs::read(&written[1].pdf)
+                .unwrap()
+                .starts_with(b"%PDF-")
+        );
+        // The training map itself is not written, and a view file stays unless `force`.
+        assert!(!training_map_path(dir.path()).exists());
+        let again = export_training_views(
+            dir.path(),
+            &documents,
+            &views[..1],
+            false,
+            false,
+            PdfSources::Auto,
+            false,
+        );
+        assert!(matches!(again, Err(ProjectError::MapExists(_))));
     }
 
     #[test]
@@ -6178,11 +6473,11 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let b = crate::render::pdf::content_of(&std::fs::read(&cand_pdf).unwrap());
         assert_ne!(a, b);
         assert!(a.len() < b.len(), "the candidates add drawing operators");
-        let credit: String = "github.com/HenryJobst/freemapper"
-            .bytes()
-            .map(|b| format!("{b:02X}"))
-            .collect();
-        assert!(contains(&a, credit.as_bytes()), "sheet is complete");
+        assert!(
+            crate::render::pdf::shown_text(&std::fs::read(&map_pdf).unwrap())
+                .contains("github.com/HenryJobst/freemapper"),
+            "sheet is complete"
+        );
         // The tartan pitch is a candidate: only the candidates PDF paints it.
         assert!(!contains(&a, b"0.1 0.35 0.5 0 k"));
         assert!(contains(&b, b"0.1 0.35 0.5 0 k"));
@@ -6700,14 +6995,9 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         }
     }
 
-    fn hex(text: &str) -> String {
-        text.bytes().map(|b| format!("{b:02X}")).collect()
-    }
-
-    /// Whether the content stream of the PDF shows `text` (ASCII only).
+    /// Whether the PDF shows `text`.
     fn pdf_shows(pdf: &std::path::Path, text: &str) -> bool {
-        let content = crate::render::pdf::content_of(&std::fs::read(pdf).unwrap());
-        contains(&content, hex(text).as_bytes())
+        crate::render::pdf::shown_text(&std::fs::read(pdf).unwrap()).contains(text)
     }
 
     #[test]
@@ -6794,17 +7084,19 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
     fn scale_bar_is_off_in_the_pdf_unless_asked() {
         let dir = tempfile::tempdir().unwrap();
         school_project(dir.path());
-        let content = |bar: bool| {
+        let file = |bar: bool| {
             let path = export_pdf(dir.path(), bar, PdfSources::Auto).unwrap();
-            crate::render::pdf::content_of(&std::fs::read(path).unwrap())
+            std::fs::read(path).unwrap()
         };
-        let without = content(false);
-        let with = content(true);
-        assert!(with.len() > without.len(), "the bar adds drawing operators");
+        let (without, with) = (file(false), file(true));
+        assert!(
+            crate::render::pdf::content_of(&with).len()
+                > crate::render::pdf::content_of(&without).len(),
+            "the bar adds drawing operators"
+        );
         // The scale number in the title block stays in both.
-        let label: String = "stab 1:".bytes().map(|b| format!("{b:02X}")).collect();
-        assert!(contains(&without, label.as_bytes()));
-        assert!(contains(&with, label.as_bytes()));
+        assert!(crate::render::pdf::shown_text(&without).contains("stab 1:"));
+        assert!(crate::render::pdf::shown_text(&with).contains("stab 1:"));
         // The OOM map keeps the bar.
         let documents = starter_documents(dir.path()).unwrap();
         assert!(
@@ -11625,6 +11917,241 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         );
     }
 
+    /// An area in Łódź: Poland has a cadastre (EGiB), so an online fetch of the buildings and of
+    /// the land use asks its service, once each, and stores what comes back.
+    #[test]
+    fn online_fetch_in_poland_asks_the_cadastre_of_gugik() {
+        let area = FetchArea::new(
+            BoundingBox {
+                min_e: 806_500.0,
+                min_n: 5_737_500.0,
+                max_e: 807_500.0,
+                max_n: 5_738_500.0,
+            },
+            Crs::Utm34,
+        );
+        assert!(!no_cadastre(&area.region_bbox) && outside_germany(&area.region_bbox));
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(
+            "https://mapy.geoportal.gov.pl/wss/service/PZGIK/EGIB/WFS/UslugaZbiorcza",
+            br#"<wfs:FeatureCollection xmlns:wfs="w"></wfs:FeatureCollection>"#.to_vec(),
+        );
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = CacheDir::new(cache_dir.path().to_path_buf());
+        let dir = tempfile::tempdir().unwrap();
+        let mut lines = Vec::new();
+        let mut progress = |note: Note| lines.push(note.to_string());
+        let record = fetch_buildings_into(
+            dir.path(),
+            &fetcher,
+            &cache,
+            &area,
+            FetchMode::Online,
+            None,
+            &mut progress,
+        )
+        .unwrap();
+        let land_use = fetch_land_use_into(
+            dir.path(),
+            &fetcher,
+            &cache,
+            &area,
+            FetchMode::Online,
+            None,
+            &mut progress,
+        );
+        assert!(record.is_some() && land_use.is_some());
+        // The lines name the cadastre of Poland, not the German one.
+        assert!(
+            lines
+                .iter()
+                .any(|l| l.contains("downloading EGiB buildings")),
+            "{lines:?}"
+        );
+        assert!(
+            lines
+                .iter()
+                .any(|l| l.contains("downloading EGiB land use")),
+            "{lines:?}"
+        );
+        assert!(lines.iter().all(|l| !l.contains("ALKIS")), "{lines:?}");
+        // The stand-in answers with nothing, so the BDOT10k fallback asks its index as well; the
+        // cadastre requests are the ones this test is about.
+        let log = fetcher.log.borrow();
+        let egib: Vec<_> = log.iter().filter(|u| u.contains("/EGIB/WFS/")).collect();
+        // An empty first answer is asked twice more before it counts as a gap.
+        assert_eq!(egib.len(), 6, "{log:?}");
+        assert!(
+            egib[..3].iter().all(|u| u.contains("TYPENAMES=ms:budynki")),
+            "{log:?}"
+        );
+        assert!(
+            egib[3..].iter().all(|u| u.contains("TYPENAMES=ms:dzialki")),
+            "{log:?}"
+        );
+        assert!(dir.path().join(BUILDINGS_RELPATH).exists());
+    }
+
+    /// The progress lines of the cadastre downloads say ALKIS for a map in Germany, EGiB for
+    /// one in Poland and RÚIAN for one in Czechia; the same message ids serve both.
+    #[test]
+    fn the_cadastre_lines_name_the_cadastre_of_the_region() {
+        let berlin = lon_lat_box(13.370, 52.510, 13.380, 52.516);
+        let lodz = lon_lat_box(19.450, 51.760, 19.460, 51.766);
+        assert_eq!(cadastre_name(&berlin), "ALKIS");
+        assert_eq!(cadastre_name(&lodz), "EGiB");
+        let prague = lon_lat_box(14.419, 50.086, 14.4245, 50.089);
+        assert_eq!(cadastre_name(&prague), "RÚIAN");
+        let line = |bbox: &BoundingBox| {
+            note!(
+                "progress-alkis-buildings",
+                cadastre = cadastre_name(bbox),
+                count = 3
+            )
+            .to_string()
+        };
+        assert_eq!(line(&berlin), "3 ALKIS buildings");
+        assert_eq!(line(&lodz), "3 EGiB buildings");
+    }
+
+    /// Offline, the lines about a stored file name the cadastre of the region and follow what
+    /// is stored: no file, a file without a record, and a file with a record that covers the area.
+    #[test]
+    fn offline_cadastre_lines_follow_the_stored_file() {
+        let cases = [
+            // (area, the cadastre named in the lines)
+            (
+                FetchArea::new(
+                    BoundingBox {
+                        min_e: 806_500.0,
+                        min_n: 5_737_500.0,
+                        max_e: 807_500.0,
+                        max_n: 5_738_500.0,
+                    },
+                    Crs::Utm34,
+                ),
+                "EGiB",
+            ),
+            (
+                FetchArea::new(lon_lat_box(13.370, 52.510, 13.380, 52.516), Crs::Utm33),
+                "ALKIS",
+            ),
+        ];
+        for (area, cadastre) in cases {
+            let covering = AlkisRecord {
+                bbox: [
+                    area.bbox.min_e.floor() - 10.0,
+                    area.bbox.min_n.floor() - 10.0,
+                    area.bbox.max_e.ceil() + 10.0,
+                    area.bbox.max_n.ceil() + 10.0,
+                ],
+                fetched: NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+                latest_update: None,
+                count: 0,
+                regions: Vec::new(),
+            };
+            let fetcher = MapFetcher::default();
+            let cache_dir = tempfile::tempdir().unwrap();
+            let cache = CacheDir::new(cache_dir.path().to_path_buf());
+            let unknown = format!("{cadastre} buildings coverage unknown");
+            let no_land_use = format!("no {cadastre} land use stored");
+            // (file stored, record) -> (coverage warning, land use line)
+            for (stored, record, warns, says) in [
+                (false, None, false, true),
+                (true, None, true, true),
+                (true, Some(&covering), false, false),
+            ] {
+                let dir = tempfile::tempdir().unwrap();
+                if stored {
+                    for relpath in [BUILDINGS_RELPATH, LAND_USE_RELPATH] {
+                        let file = dir.path().join(relpath);
+                        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+                        std::fs::write(file, r#"{"features":[],"type":"FeatureCollection"}"#)
+                            .unwrap();
+                    }
+                }
+                let mut lines = Vec::new();
+                let mut progress = |note: Note| lines.push(note.to_string());
+                let _ = fetch_buildings_into(
+                    dir.path(),
+                    &fetcher,
+                    &cache,
+                    &area,
+                    FetchMode::Offline,
+                    record,
+                    &mut progress,
+                );
+                let _ = fetch_land_use_into(
+                    dir.path(),
+                    &fetcher,
+                    &cache,
+                    &area,
+                    FetchMode::Offline,
+                    record,
+                    &mut progress,
+                );
+                let case = format!(
+                    "{cadastre} stored={stored} record={}: {lines:?}",
+                    record.is_some()
+                );
+                assert_eq!(lines.iter().any(|l| l.contains(&unknown)), warns, "{case}");
+                assert_eq!(
+                    lines.iter().any(|l| l.contains(&no_land_use)),
+                    says,
+                    "{case}"
+                );
+            }
+        }
+    }
+
+    /// The projected box (EPSG:25833) of a lon/lat rectangle, as `check_area` gets it.
+    fn lon_lat_box(west: f64, south: f64, east: f64, north: f64) -> BoundingBox {
+        let text = format!(
+            r#"{{"type":"Feature","properties":{{}},"geometry":{{"type":"Polygon","coordinates":[[[{west},{south}],[{east},{south}],[{east},{north}],[{west},{north}],[{west},{south}]]]}}}}"#
+        );
+        MapArea::from_geojson(&text).unwrap().projected_bbox()
+    }
+
+    /// An area wholly in Poland is accepted: Poland's own adapter overlaps it, and neighbours do
+    /// not count against it (ADR 0164).
+    #[test]
+    fn check_area_accepts_an_area_wholly_in_poland() {
+        assert!(check_area(&lon_lat_box(19.450, 51.760, 19.460, 51.766)).is_ok());
+        assert!(check_area(&lon_lat_box(14.566, 52.346, 14.580, 52.352)).is_ok());
+    }
+
+    /// Over the Olza at Cieszyn the box reaches into Czechia, which no adapter covers: refused,
+    /// and so is the strip of Frankfurt (Oder) beside Słubice, which another country's adapter
+    /// covers.
+    #[test]
+    fn check_area_refuses_an_area_over_a_border_of_poland() {
+        for (west, south, east, north) in [
+            (18.620, 49.746, 18.650, 49.752),
+            (14.550, 52.346, 14.580, 52.352),
+        ] {
+            let result = check_area(&lon_lat_box(west, south, east, north));
+            assert!(
+                matches!(result, Err(ProjectError::AreaCrossesCountry)),
+                "{result:?}"
+            );
+        }
+    }
+
+    /// A map centred in Germany with a strip of Poland is beside a region of another country; one
+    /// in Poland, or far from it, is not.
+    #[test]
+    fn beside_another_country_tells_the_strip_of_a_neighbour() {
+        assert!(beside_another_country(&lon_lat_box(
+            14.520, 52.340, 14.570, 52.346
+        )));
+        assert!(!beside_another_country(&lon_lat_box(
+            19.450, 51.760, 19.460, 51.766
+        )));
+        assert!(!beside_another_country(&lon_lat_box(
+            13.370, 52.510, 13.380, 52.516
+        )));
+    }
+
     /// The Sanssouci area (Potsdam) as a fetch area, where the tree fixture stands.
     fn sanssouci_area() -> FetchArea {
         FetchArea::new(
@@ -12762,6 +13289,130 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 );
             std::fs::write(dir.path().join(PROJECT_FILE_NAME), text).unwrap();
         }
+    }
+
+    #[test]
+    fn the_steepness_threshold_is_read_checked_and_set() {
+        assert_eq!(parse_steep_slope("auto").unwrap(), None);
+        assert_eq!(parse_steep_slope(" 55,5 ").unwrap(), Some(55.5));
+        assert_eq!(parse_steep_slope("60").unwrap(), Some(60.0));
+        for bad in ["0", "14.9", "80.1", "-5", "steep", "nan", ""] {
+            assert!(parse_steep_slope(bad).is_err(), "{bad}");
+        }
+        assert!(check_steep_slope(15.0).is_ok() && check_steep_slope(80.0).is_ok());
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let project = set_steep_slope(dir.path(), Some(55.0)).unwrap();
+        assert_eq!(project.steep_slope_deg, Some(55.0));
+        assert_eq!(
+            ProjectFile::load(dir.path()).unwrap().steep_slope_deg,
+            Some(55.0)
+        );
+        assert!(matches!(
+            set_steep_slope(dir.path(), Some(5.0)),
+            Err(ProjectError::InvalidSteepSlope(_))
+        ));
+        // A bad value in the file is refused on load.
+        let file = dir.path().join(PROJECT_FILE_NAME);
+        let text = std::fs::read_to_string(&file).unwrap();
+        std::fs::write(
+            &file,
+            text.replace("steep_slope_deg = 55.0", "steep_slope_deg = 5.0"),
+        )
+        .unwrap();
+        assert!(matches!(
+            ProjectFile::load(dir.path()).unwrap_err(),
+            ProjectError::InvalidSteepSlope(_)
+        ));
+        std::fs::write(&file, text).unwrap();
+        set_steep_slope(dir.path(), None).unwrap();
+        assert_eq!(ProjectFile::load(dir.path()).unwrap().steep_slope_deg, None);
+        assert!(
+            !std::fs::read_to_string(&file)
+                .unwrap()
+                .contains("steep_slope_deg")
+        );
+    }
+
+    #[test]
+    fn the_face_threshold_is_read_checked_and_set() {
+        assert_eq!(parse_face_slope("auto").unwrap(), None);
+        assert_eq!(parse_face_slope(" AUTO ").unwrap(), None);
+        assert_eq!(parse_face_slope(" 72,5 ").unwrap(), Some(72.5));
+        assert_eq!(parse_face_slope("75").unwrap(), Some(75.0));
+        for bad in ["0", "54.9", "85.1", "-5", "steep", "nan", ""] {
+            assert!(parse_face_slope(bad).is_err(), "{bad}");
+        }
+        assert_eq!(parse_face_slope("55").unwrap(), Some(55.0));
+        assert_eq!(parse_face_slope("85").unwrap(), Some(85.0));
+        assert!(check_face_slope(55.0).is_ok() && check_face_slope(85.0).is_ok());
+        assert!(check_face_slope(54.99).is_err() && check_face_slope(85.01).is_err());
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let project = set_face_slope(dir.path(), Some(75.0)).unwrap();
+        assert_eq!(project.face_slope_deg, Some(75.0));
+        assert_eq!(
+            ProjectFile::load(dir.path()).unwrap().face_slope_deg,
+            Some(75.0)
+        );
+        assert!(matches!(
+            set_face_slope(dir.path(), Some(5.0)),
+            Err(ProjectError::InvalidFaceSlope(_))
+        ));
+        assert!(matches!(
+            set_face_slope(dir.path(), Some(90.0)),
+            Err(ProjectError::InvalidFaceSlope(_))
+        ));
+        // A bad value in the file is refused on load.
+        let file = dir.path().join(PROJECT_FILE_NAME);
+        let text = std::fs::read_to_string(&file).unwrap();
+        std::fs::write(
+            &file,
+            text.replace("face_slope_deg = 75.0", "face_slope_deg = 5.0"),
+        )
+        .unwrap();
+        assert!(matches!(
+            ProjectFile::load(dir.path()).unwrap_err(),
+            ProjectError::InvalidFaceSlope(_)
+        ));
+        std::fs::write(&file, text).unwrap();
+        set_face_slope(dir.path(), None).unwrap();
+        assert_eq!(ProjectFile::load(dir.path()).unwrap().face_slope_deg, None);
+        assert!(
+            !std::fs::read_to_string(&file)
+                .unwrap()
+                .contains("face_slope_deg")
+        );
+    }
+
+    #[test]
+    fn the_face_threshold_counts_for_the_fingerprint() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let project = ProjectFile::load(dir.path()).unwrap();
+        let other = ProjectFile {
+            face_slope_deg: Some(75.0),
+            ..project.clone()
+        };
+        assert_ne!(
+            project_fingerprint(&project).unwrap(),
+            project_fingerprint(&other).unwrap()
+        );
+    }
+
+    #[test]
+    fn the_steepness_threshold_counts_for_the_fingerprint() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let project = ProjectFile::load(dir.path()).unwrap();
+        let steeper = ProjectFile {
+            steep_slope_deg: Some(55.0),
+            ..project.clone()
+        };
+        assert_ne!(
+            project_fingerprint(&project).unwrap(),
+            project_fingerprint(&steeper).unwrap()
+        );
     }
 
     /// Lines without a stored interval were traced at the kind's: the margin names that, also

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Measures of the symbols as the norm draws them at 100 %, shared by the rules of the build.
 //!
 //! A rule that needs the width of a line or the size of a point symbol takes it from here, so
@@ -39,9 +41,12 @@ pub const CLIFF_TICK_MM: SymbolMm = SymbolMm(0.575);
 /// of the norm's outer measure and the drawn extent (the larger side of its box) of the bundled
 /// symbol. `true`: a native
 /// school symbol, whose size is already the school size and is not enlarged.
-pub const POINT_SIZES_MM: [(&str, f64, bool); 15] = [
+pub const POINT_SIZES_MM: [(&str, f64, bool); 18] = [
     // Rocky pit or cave: drawn 1.25.
     ("203", 1.25, false),
+    // Cave with a distinct entrance (ISSprOM 203.1, ISOM 203.2).
+    ("203.1", 1.25, false),
+    ("203.2", 1.25, false),
     // Large boulder: OM 0.9.
     ("205", 0.90, false),
     // Small fountain or well: OM 0.9.
@@ -50,6 +55,8 @@ pub const POINT_SIZES_MM: [(&str, f64, bool); 15] = [
     ("312", 1.20, false),
     // Prominent water feature: OM 1.2, drawn 1.45.
     ("313", 1.45, false),
+    // Fodder rack: drawn 1.72.
+    ("527", 1.72, false),
     // Hydrant (school set).
     ("321", 1.30, true),
     // Prominent large tree: the white mask of the 2022 errata (1.4), the bundled set draws 1.2.

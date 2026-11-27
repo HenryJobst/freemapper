@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The generic readers of freemapper (ADR 0082): what reads a standard service or a common file
 //! format and knows no state. A region adapter is built from them, by a manifest that names a
 //! service or by code that calls them.
@@ -6,6 +8,7 @@
 
 pub mod aaa;
 pub mod alkis_source;
+pub mod asc;
 pub mod bfn;
 pub mod citygml;
 pub mod dates;
@@ -16,6 +19,7 @@ pub mod layer_file;
 pub mod metalink;
 pub mod nas;
 pub mod ogc_api;
+pub mod orto;
 #[cfg(test)]
 mod permits_test_support;
 pub mod raster;
@@ -27,6 +31,7 @@ pub mod testing;
 pub mod tiff_range;
 pub mod trees;
 pub mod vg250;
+pub mod warp;
 pub mod wcs;
 pub mod wfs;
 pub mod wms;

@@ -1,6 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Landform candidates from the landforms of `derive` (ADR 0104).
 
-use geo::{Contains as _, Distance as _, InterpolateLine as _, Length as _};
+use geo::{Contains as _, Distance as _, InterpolateLine as _, Length as _, MapCoords as _};
 use geo_types::{MultiPolygon, Polygon};
 
 use crate::build::content::LANDFORM_KEY;
@@ -8,17 +10,31 @@ use crate::crs::ProjectedPoint;
 use crate::derive::landforms::{Landform, LandformKind};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::omap::coord::MapCoord;
-use crate::omap::{MapObject, MapObjectKind, SymbolSet};
+use crate::omap::{MapObject, MapObjectKind, SymbolSet, closed_ring};
 use crate::sources::alkis::LandUse;
 
 /// ISSprOM symbols of the landform candidates (`derive/landforms.rs`).
-const LANDFORM_CODES: [(LandformKind, &str); 5] = [
+const LANDFORM_CODES: [(LandformKind, &str); 6] = [
     (LandformKind::Knoll, "109"),
     (LandformKind::ElongatedKnoll, "110"),
     (LandformKind::Depression, "111"),
     (LandformKind::Bank, "104"),
     (LandformKind::Cliff, "201"),
+    (LandformKind::RockFace, "206"),
 ];
+/// A knoll on bare rock is a rock tower or a block, not a knoll of the ground: a boulder (204) from 1 m
+/// on, a large boulder (205) from 2 m on (ISOM 2017-2). Bare rock is the symbol 214 of the
+/// objects drawn so far, which OpenStreetMap gives as `natural=bare_rock` (ADR 0199).
+const BARE_ROCK_CODE: &str = "214";
+const BOULDER_CODE: &str = "204";
+const LARGE_BOULDER_CODE: &str = "205";
+/// Boulders closer than their symbols allow (0.4 mm wide and 0.15 mm between symbols, centre to
+/// centre) cannot be drawn singly: three or more in a chain are a boulder cluster (207).
+const BOULDER_CLUSTER_CODE: &str = "207";
+const BOULDER_GAP_MM: f64 = 0.55;
+const BOULDER_CLUSTER_MIN: usize = 3;
+const BOULDER_MIN_HEIGHT_M: f64 = 1.0;
+const LARGE_BOULDER_MIN_HEIGHT_M: f64 = 2.0;
 /// Lines already drawn that a bank or cliff from the terrain would only repeat: earth banks and
 /// walls, cliffs, walls and fences.
 const DRAWN_JUMP_CODES: [&str; 9] = [
@@ -103,6 +119,26 @@ pub fn landform_objects(
                 .into()
         })
         .collect();
+    // The bare rock drawn so far, in projected metres.
+    let rock: Vec<Polygon<f64>> = symbol_set
+        .id_for_code(BARE_ROCK_CODE)
+        .map(|id| {
+            drawn
+                .iter()
+                .filter(|o| o.symbol_id == id)
+                .filter_map(|o| crate::build::geometry::object_polygon(o))
+                .map(|polygon| {
+                    polygon.map_coords(|c| {
+                        let p = georef.map_to_projected(MapCoord::new(c.x as i32, c.y as i32));
+                        geo_types::Coord {
+                            x: p.easting,
+                            y: p.northing,
+                        }
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
     let near_building = |p: &geo_types::Point<f64>| {
         footprints
             .iter()
@@ -152,7 +188,22 @@ pub fn landform_objects(
                     .any(|f| geo::Euclidean.distance(p, f) <= CLIFF_BUILDING_M)
         })
     };
+    // The rock faces: a bank or cliff that runs along them is the edge of the black area.
+    let faces: Vec<Polygon<f64>> = forms
+        .iter()
+        .filter(|f| f.kind.is_area())
+        .map(|f| Polygon::new(f.points.clone().into(), vec![]))
+        .collect();
+    let in_a_face = |line: &geo_types::LineString<f64>| {
+        mostly(line, &|p| {
+            faces
+                .iter()
+                .any(|f| geo::Euclidean.distance(p, f) <= LANDFORM_CLEARANCE_M)
+        })
+    };
     let mut objects = Vec::new();
+    // The boulders of bare rock, as (point, height, object): they may become clusters.
+    let mut boulders: Vec<((f64, f64), f64, MapObject)> = Vec::new();
     for form in forms {
         let landform = form.kind;
         let Some(mut code) = LANDFORM_CODES
@@ -167,11 +218,29 @@ pub fn landform_objects(
         {
             code = RETAINING_WALL_CODE;
         }
+        // A knoll on bare rock is a block or a tower of rock.
+        if matches!(landform, LandformKind::Knoll | LandformKind::ElongatedKnoll)
+            && form.height_m >= BOULDER_MIN_HEIGHT_M
+            && rock
+                .iter()
+                .any(|r| r.contains(&geo_types::Point::from(form.points[0])))
+        {
+            let boulder = if form.height_m >= LARGE_BOULDER_MIN_HEIGHT_M {
+                LARGE_BOULDER_CODE
+            } else {
+                BOULDER_CODE
+            };
+            if symbol_set.id_for_code(boulder).is_some() {
+                code = boulder;
+            }
+        }
         let Some(symbol_id) = symbol_set.id_for_code(code) else {
             continue;
         };
         let geometry: geo_types::Geometry<f64> = if form.kind.is_point() {
             geo_types::Point::from(form.points[0]).into()
+        } else if form.kind.is_area() {
+            geo_types::Polygon::new(form.points.clone().into(), vec![]).into()
         } else {
             geo_types::LineString::from(form.points.clone()).into()
         };
@@ -192,7 +261,7 @@ pub fn landform_objects(
             {
                 continue;
             }
-            geo_types::Geometry::LineString(l) if repeats(l) => continue,
+            geo_types::Geometry::LineString(l) if repeats(l) || in_a_face(l) => continue,
             _ => {}
         }
         let coords: Vec<MapCoord> = form
@@ -207,6 +276,12 @@ pub fn landform_objects(
                     .map(|c| MapCoord::new(c.x, c.y))
             })
             .collect::<Result<_, _>>()?;
+        let coords = if form.kind.is_area() {
+            let ring: Vec<(i32, i32)> = coords.iter().map(|c| (c.x, c.y)).collect();
+            closed_ring(&ring)
+        } else {
+            coords
+        };
         let kind = if form.kind.is_point() {
             // The rotation on paper: the direction of the knoll, turned by the grivation.
             let (e, n) = form.points[0];
@@ -216,7 +291,7 @@ pub fn landform_objects(
                 northing: n + r.sin(),
             })?;
             // Symbol 110 is long along its own y axis, so it turns a quarter less than its axis.
-            let rotation_rad = if form.kind == LandformKind::ElongatedKnoll {
+            let rotation_rad = if form.kind == LandformKind::ElongatedKnoll && code == "110" {
                 f64::from(coords[0].y - ahead.y).atan2(f64::from(ahead.x - coords[0].x))
                     - std::f64::consts::FRAC_PI_2
             } else {
@@ -237,12 +312,98 @@ pub fn landform_objects(
         if let Some(currency) = currency {
             tags.push(("freemapper:currency".to_string(), currency.clone()));
         }
-        objects.push(MapObject {
+        let object = MapObject {
             symbol_id,
             kind,
             coords,
             tags,
+        };
+        if code == BOULDER_CODE || code == LARGE_BOULDER_CODE {
+            boulders.push((form.points[0], form.height_m, object));
+        } else {
+            objects.push(object);
+        }
+    }
+    objects.extend(boulders_and_clusters(
+        boulders,
+        georef,
+        symbol_set,
+        source,
+        currency.as_deref(),
+    )?);
+    Ok(objects)
+}
+
+/// The boulders as they are, except that boulders closer together than their symbols allow
+/// ([`BOULDER_GAP_MM`] on paper), three or more in a chain, become one boulder cluster (207) at
+/// their centre, as high as the highest of them. Without the symbol they stay single.
+fn boulders_and_clusters(
+    boulders: Vec<((f64, f64), f64, MapObject)>,
+    georef: &Georeferencing,
+    symbol_set: &SymbolSet,
+    source: &str,
+    currency: Option<&str>,
+) -> Result<Vec<MapObject>, GeorefError> {
+    let Some(cluster_id) = symbol_set.id_for_code(BOULDER_CLUSTER_CODE) else {
+        return Ok(boulders.into_iter().map(|(_, _, o)| o).collect());
+    };
+    let gap_m = BOULDER_GAP_MM * georef.metres_per_map_mm();
+    // The chains of boulders: each boulder joins the group of every one within `gap_m`.
+    let mut group: Vec<usize> = (0..boulders.len()).collect();
+    for i in 0..boulders.len() {
+        for j in 0..i {
+            let ((e1, n1), (e2, n2)) = (boulders[i].0, boulders[j].0);
+            if (e1 - e2).hypot(n1 - n2) <= gap_m {
+                let (from, to) = (group[i], group[j]);
+                for g in group.iter_mut().filter(|g| **g == from) {
+                    *g = to;
+                }
+            }
+        }
+    }
+    let mut out = Vec::new();
+    let mut done = vec![false; boulders.len()];
+    for first in 0..boulders.len() {
+        if done[first] {
+            continue;
+        }
+        let members: Vec<usize> = (first..boulders.len())
+            .filter(|&k| group[k] == group[first])
+            .collect();
+        for &k in &members {
+            done[k] = true;
+        }
+        if members.len() < BOULDER_CLUSTER_MIN {
+            out.extend(members.iter().map(|&k| boulders[k].2.clone()));
+            continue;
+        }
+        let count = members.len() as f64;
+        let (e, n) = members.iter().fold((0.0, 0.0), |(e, n), &k| {
+            (e + boulders[k].0.0 / count, n + boulders[k].0.1 / count)
+        });
+        let height = members.iter().map(|&k| boulders[k].1).fold(0.0, f64::max);
+        let at = georef.projected_to_map(ProjectedPoint {
+            easting: e,
+            northing: n,
+        })?;
+        let mut tags = vec![
+            ("freemapper:source".to_string(), source.to_string()),
+            ("freemapper:height".to_string(), format!("{height:.1}")),
+            (
+                LANDFORM_KEY.to_string(),
+                LandformKind::Knoll.name().to_string(),
+            ),
+            ("freemapper:boulders".to_string(), members.len().to_string()),
+        ];
+        if let Some(currency) = currency {
+            tags.push(("freemapper:currency".to_string(), currency.to_string()));
+        }
+        out.push(MapObject {
+            symbol_id: cluster_id,
+            kind: MapObjectKind::Point { rotation_rad: 0.0 },
+            coords: vec![MapCoord::new(at.x, at.y)],
+            tags,
         });
     }
-    Ok(objects)
+    Ok(out)
 }

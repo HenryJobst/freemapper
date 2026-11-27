@@ -40,6 +40,10 @@ ignore = [
     # Only at build time: askama reads its templates with it when world_magnetic_model is compiled; nothing of it is
     # in the program. Look again when world_magnetic_model moves to a newer askama.
     { id = "RUSTSEC-2026-0374", reason = "basic-toml is unmaintained, build dependency of askama only" },
+        # `chrono`: freemapper uses it directly, for the dates of the sidecar and the cache. The advisory names
+    # missing maintenance, not a vulnerability, and no release replaces it; moving to `jiff` or `time` is a
+    # decision of its own (ADR 0154, amendment 2026-11-19).
+    { id = "RUSTSEC-2026-0543", reason = "chrono is unmaintained, and freemapper uses it directly; migrating is a separate decision" },
 ]
 
 [bans]

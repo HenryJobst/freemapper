@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! LAiV Mecklenburg-Vorpommern open data (CC BY 4.0, "©GeoBasis-DE/MV"), all in EPSG:25833:
 //! DGM1 and DOM1 from the MapServer WCS, masked to the 2 km tiles that the Downloadportal's
 //! `overview.php` lists.
@@ -9,7 +11,7 @@
 use freemapper_adapter_api::env::AdapterEnv;
 use freemapper_adapter_api::error::AdapterError;
 use freemapper_adapter_api::project::RasterProject;
-use freemapper_adapter_api::rasters::{ProviderInfo, RasterBackend, RasterKind};
+use freemapper_adapter_api::rasters::{ProviderInfo, RasterBackend, RasterConfig, RasterKind};
 use freemapper_adapter_api::records::AdapterId;
 use freemapper_sources::raster_fetch::{
     fetch_area_heights, fetch_wms_orthophoto, warn_beyond_state,
@@ -35,7 +37,9 @@ use crate::sources::region::{MECKLENBURG_VORPOMMERN, contains_point};
 use crate::sources::wcs::{WcsOrthophoto, WcsService};
 use crate::tiles::{TileId, tiles_covering_grid};
 
-/// The Downloadportal's AJAX tile index.
+/// The Downloadportal's AJAX tile index, as the manifest of Mecklenburg-Vorpommern declares it
+/// (`overview` of its `endpoints`); the tests are held to these values.
+#[cfg(any(test, feature = "testing"))]
 pub const OVERVIEW: &str = "https://laiv.geodaten-mv.de/afgvk/_apps/dladownload/_ajax/overview.php";
 
 /// The extent of `mv_dgm` and `mv_dom1` (DescribeCoverage: 265,000 x 189,000 cells of 1 m).
@@ -54,13 +58,99 @@ const OVERVIEW_ATTEMPTS: u32 = 5;
 const WCS_MAX_M: f64 = 4000.0;
 
 /// The orthophoto (DOP20 RGB, a 256-colour dithered palette) from the WCS: the WMS stamps a
-/// watermark into every image, the WCS gives JPEG pieces on the exact 0.2 m grid.
+/// watermark into every image, the WCS gives JPEG pieces on the exact 0.2 m grid. This one
+/// has the address of the manifest of Mecklenburg-Vorpommern (`dop-wcs`).
+#[cfg(any(test, feature = "testing"))]
 pub const DOP: WcsOrthophoto = WcsOrthophoto {
     url: Cow::Borrowed("https://www.geodaten-mv.de/dienste/inspire_oi_dop_wcs"),
     coverage: Cow::Borrowed("mv_dop20"),
     crs: Crs::Utm33,
     max_px: 4000,
 };
+
+/// The coverage of the orthophoto on its WCS.
+const DOP_COVERAGE: &str = "mv_dop20";
+/// The largest side of one orthophoto request in pixels.
+const DOP_MAX_PX: u32 = 4000;
+
+/// The addresses of the services of the LAiV M-V: the tile index of the Downloadportal and the
+/// WCS of the orthophoto and of the two height models. The coverages, the extent and the piece
+/// sizes are code.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Addresses {
+    /// `overview.php` of the Downloadportal.
+    pub overview: String,
+    /// The WCS of the orthophoto.
+    pub dop_wcs: String,
+    /// The WCS of DGM1.
+    pub dgm_wcs: String,
+    /// The WCS of DOM1.
+    pub dom_wcs: String,
+}
+
+impl Addresses {
+    /// The addresses `config` states.
+    pub fn of(config: &RasterConfig) -> Result<Self, String> {
+        Ok(Self {
+            overview: config.require("laiv-mv", "overview")?,
+            dop_wcs: config.require("laiv-mv", "dop-wcs")?,
+            dgm_wcs: config.require("laiv-mv", "dgm-wcs")?,
+            dom_wcs: config.require("laiv-mv", "dom-wcs")?,
+        })
+    }
+
+    /// The addresses the manifest of Mecklenburg-Vorpommern declares.
+    #[cfg(any(test, feature = "testing"))]
+    pub fn builtin() -> Self {
+        Self {
+            overview: OVERVIEW.to_string(),
+            dop_wcs: DOP.url.to_string(),
+            dgm_wcs: "https://www.geodaten-mv.de/dienste/dgm_wcs".to_string(),
+            dom_wcs: "https://www.geodaten-mv.de/dienste/dom_wcs".to_string(),
+        }
+    }
+
+    /// The orthophoto WCS.
+    fn dop(&self) -> WcsOrthophoto {
+        WcsOrthophoto {
+            url: Cow::Owned(self.dop_wcs.clone()),
+            coverage: Cow::Borrowed(DOP_COVERAGE),
+            crs: Crs::Utm33,
+            max_px: DOP_MAX_PX,
+        }
+    }
+
+    /// The WCS of `model`: a plain LZW TIFF, cut to [`ENVELOPE`].
+    fn wcs(&self, model: Model) -> WcsService {
+        let (url, coverage) = match model {
+            Model::Dgm1 => (&self.dgm_wcs, "mv_dgm"),
+            Model::Dom1 => (&self.dom_wcs, "mv_dom1"),
+        };
+        WcsService {
+            url: Cow::Owned(url.clone()),
+            coverage: Cow::Borrowed(coverage),
+            extra: Cow::Borrowed("&GEOTIFF:COMPRESSION=LZW"),
+            multipart: false,
+            envelope: ENVELOPE,
+            max_m: WCS_MAX_M,
+        }
+    }
+
+    /// The tile lookup of `model` over `bbox` (EPSG:25833), rounded outward to whole metres. The
+    /// type comes first, so a test server can answer each product by URL prefix.
+    pub(crate) fn overview_url(&self, bbox: &BoundingBox, model: Model) -> String {
+        format!(
+            "{}{}&crs=EPSG:25833",
+            self.overview_prefix(model),
+            bbox_key(bbox).replace('_', ",")
+        )
+    }
+
+    /// The start of every `overview_url` of `model`, up to the bbox.
+    pub fn overview_prefix(&self, model: Model) -> String {
+        format!("{}?type[]={}&bbox=", self.overview, model.overview_type())
+    }
+}
 
 /// A height model served by the WCS at 1 m.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -72,20 +162,10 @@ pub enum Model {
 }
 
 impl Model {
-    /// The WCS of `self`: a plain LZW TIFF, cut to [`ENVELOPE`].
+    /// The WCS of `self` at the address of the manifest of Mecklenburg-Vorpommern.
+    #[cfg(any(test, feature = "testing"))]
     pub fn wcs(self) -> WcsService {
-        let (url, coverage) = match self {
-            Self::Dgm1 => ("https://www.geodaten-mv.de/dienste/dgm_wcs", "mv_dgm"),
-            Self::Dom1 => ("https://www.geodaten-mv.de/dienste/dom_wcs", "mv_dom1"),
-        };
-        WcsService {
-            url: Cow::Borrowed(url),
-            coverage: Cow::Borrowed(coverage),
-            extra: Cow::Borrowed("&GEOTIFF:COMPRESSION=LZW"),
-            multipart: false,
-            envelope: ENVELOPE,
-            max_m: WCS_MAX_M,
-        }
+        Addresses::builtin().wcs(self)
     }
 
     /// The `type[]` of `overview.php` (`dom1` is an "Interner Fehler" there).
@@ -113,19 +193,16 @@ pub struct ListedTile {
     pub date: Option<String>,
 }
 
-/// The tile lookup of `model` over `bbox` (EPSG:25833), rounded outward to whole metres. The
-/// type comes first, so a test server can answer each product by URL prefix.
+/// [`Addresses::overview_url`] at the address of the manifest.
+#[cfg(test)]
 pub(crate) fn overview_url(bbox: &BoundingBox, model: Model) -> String {
-    format!(
-        "{}{}&crs=EPSG:25833",
-        overview_prefix(model),
-        bbox_key(bbox).replace('_', ",")
-    )
+    Addresses::builtin().overview_url(bbox, model)
 }
 
-/// The start of every [`overview_url`] of `model`, up to the bbox.
+/// [`Addresses::overview_prefix`] at the address of the manifest.
+#[cfg(any(test, feature = "testing"))]
 pub fn overview_prefix(model: Model) -> String {
-    format!("{OVERVIEW}?type[]={}&bbox=", model.overview_type())
+    Addresses::builtin().overview_prefix(model)
 }
 
 /// `min_e_min_n_max_e_max_n`, rounded outward to whole metres.
@@ -237,13 +314,12 @@ fn excerpt(text: &str) -> String {
 /// up to [`OVERVIEW_ATTEMPTS`] times; a refusal by the portal (`success: false`) is not.
 fn tile_list(
     fetcher: &dyn Fetcher,
-    dir: &Path,
-    mode: FetchMode,
-    bbox: &BoundingBox,
-    model: Model,
+    addresses: &Addresses,
+    (dir, mode): (&Path, FetchMode),
+    (bbox, model): (&BoundingBox, Model),
     warnings: &mut Vec<Note>,
 ) -> Result<Vec<ListedTile>, FetchError> {
-    let url = overview_url(bbox, model);
+    let url = addresses.overview_url(bbox, model);
     let path =
         dir.join("overview")
             .join(format!("{}_{}.json", model.overview_type(), bbox_key(bbox)));
@@ -296,14 +372,20 @@ fn tile_list(
 /// The flight date (`DD.MM.YYYY`) of the orthophoto at the centre of `bbox` (EPSG:25833), from
 /// the portal's `dop20` overview; `None` when the portal does not tell it. The overview is asked
 /// again when it comes back empty (a failed one costs a re-download of the orthophoto).
+#[cfg(any(test, feature = "testing"))]
 pub fn flight_date(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Option<String> {
+    flight_date_at(fetcher, OVERVIEW, bbox)
+}
+
+/// `flight_date` with the tile index at `overview`.
+pub fn flight_date_at(fetcher: &dyn Fetcher, overview: &str, bbox: &BoundingBox) -> Option<String> {
     let (e, n) = (
         (bbox.min_e + bbox.max_e) / 2.0,
         (bbox.min_n + bbox.max_n) / 2.0,
     );
     let centre = tile_at(e, n);
     let url = format!(
-        "{OVERVIEW}?type[]=dop20&bbox={},{},{},{}&crs=EPSG:25833",
+        "{overview}?type[]=dop20&bbox={},{},{},{}&crs=EPSG:25833",
         (e - 10.0).floor(),
         (n - 10.0).floor(),
         (e + 10.0).ceil(),
@@ -354,6 +436,7 @@ fn tile_at(e: f64, n: f64) -> TileId {
 ///
 /// Offline, the model stored at `out` is kept when it covers the area (the caller checks its
 /// record too, as for Saxony-Anhalt); the kept tile list gives the missing tiles and the date.
+#[cfg(any(test, feature = "testing"))]
 pub fn fetch_model(
     fetcher: &dyn Fetcher,
     cache: &CacheDir,
@@ -363,13 +446,34 @@ pub fn fetch_model(
     root: &Path,
     out: &Path,
 ) -> Result<HeightModel, FetchError> {
+    fetch_model_at(
+        &Addresses::builtin(),
+        (fetcher, cache, mode),
+        (model, bbox),
+        (root, out),
+    )
+}
+
+/// `fetch_model` with the services at `addresses`.
+pub fn fetch_model_at(
+    addresses: &Addresses,
+    (fetcher, cache, mode): (&dyn Fetcher, &CacheDir, FetchMode),
+    (model, bbox): (Model, &BoundingBox),
+    (root, out): (&Path, &Path),
+) -> Result<HeightModel, FetchError> {
     let dir = cache.provider_dir("laiv_mv");
     let mut warnings = Vec::new();
     let grid = GridSpec::covering(bbox, 1.0);
     let area = grid.bounds();
     if mode == FetchMode::Offline {
         require_stored(out, &area, model.label())?;
-        let set = match tile_list(fetcher, &dir, mode, bbox, model, &mut warnings) {
+        let set = match tile_list(
+            fetcher,
+            addresses,
+            (&dir, mode),
+            (bbox, model),
+            &mut warnings,
+        ) {
             Ok(listed) => tile_set(listed, &area),
             Err(e) => {
                 warnings.push(note!(
@@ -384,7 +488,13 @@ pub fn fetch_model(
         };
         return Ok(summary(&set, &area, bbox, model, warnings));
     }
-    let listed = tile_list(fetcher, &dir, mode, bbox, model, &mut warnings)?;
+    let listed = tile_list(
+        fetcher,
+        addresses,
+        (&dir, mode),
+        (bbox, model),
+        &mut warnings,
+    )?;
     let set = tile_set(listed, &area);
     // The WCS is asked for the listed tiles' part of the area only.
     let Some(within) = set
@@ -398,7 +508,7 @@ pub fn fetch_model(
         })
     else {
         return Err(FetchError::Http {
-            url: overview_url(bbox, model),
+            url: addresses.overview_url(bbox, model),
             message: format!(
                 "no tile of the {} covers the map area; the Downloadportal may have changed",
                 model.label()
@@ -406,7 +516,7 @@ pub fn fetch_model(
         });
     };
     let mut raster = Raster::filled(grid, f32::NAN);
-    model.wcs().fill(fetcher, &mut raster, &within)?;
+    addresses.wcs(model).fill(fetcher, &mut raster, &within)?;
     let column_tiles: Vec<u32> = (0..grid.width)
         .map(|x| tile_at(grid.west + f64::from(x) + 0.5, area.min_n).east_km)
         .collect();
@@ -429,7 +539,7 @@ pub fn fetch_model(
             count = empty
         ));
     }
-    write_float_raster(&raster, root, out, &model.wcs().url)?;
+    write_float_raster(&raster, root, out, &addresses.wcs(model).url)?;
     Ok(summary(&set, &area, bbox, model, warnings))
 }
 
@@ -487,11 +597,15 @@ const PROVIDER: &str = "laivmv";
 /// The rasters of LAiV M-V (Mecklenburg-Vorpommern): requested for the area and stored in the project folder.
 pub struct LaivMvBackend {
     info: ProviderInfo,
+    /// The services, as the manifest says them.
+    addresses: Addresses,
 }
 
 impl LaivMvBackend {
-    pub fn new() -> Self {
+    /// The backend that asks the services at `addresses`.
+    pub fn with_addresses(addresses: Addresses) -> Self {
         Self {
+            addresses,
             info: ProviderInfo {
                 id: AdapterId::built_in(PROVIDER),
                 cache_dir: Some("laiv_mv".to_string()),
@@ -502,6 +616,15 @@ impl LaivMvBackend {
     }
 }
 
+#[cfg(any(test, feature = "testing"))]
+impl LaivMvBackend {
+    /// The backend with the addresses the manifest of the state declares.
+    pub fn new() -> Self {
+        Self::with_addresses(Addresses::builtin())
+    }
+}
+
+#[cfg(any(test, feature = "testing"))]
 impl Default for LaivMvBackend {
     fn default() -> Self {
         Self::new()
@@ -519,7 +642,7 @@ impl RasterBackend for LaivMvBackend {
         project: &mut dyn RasterProject,
         bbox: &BoundingBox,
     ) -> Result<(), AdapterError> {
-        fetch_rasters(env, project, bbox)
+        fetch_rasters(env, project, bbox, &self.addresses)
     }
 }
 
@@ -530,6 +653,7 @@ fn fetch_rasters(
     env: &mut AdapterEnv<'_>,
     project: &mut dyn RasterProject,
     bbox: &BoundingBox,
+    addresses: &Addresses,
 ) -> Result<(), AdapterError> {
     let (fetcher, mode) = (env.fetcher, env.mode);
     let cache = env.cache;
@@ -537,12 +661,17 @@ fn fetch_rasters(
     project.records().tiles.clear();
     project.records().ndsm_tiles.clear();
     warn_beyond_state(env, project, PROVIDER, "LAiV M-V");
-    let flight = || flight_date(fetcher, bbox);
+    let flight = || flight_date_at(fetcher, &addresses.overview, bbox);
     fetch_wms_orthophoto(
         env,
         project,
         bbox,
-        (&OrthophotoSource::Wcs(DOP), "LAiV M-V", &flight, None),
+        (
+            &OrthophotoSource::Wcs(addresses.dop()),
+            "LAiV M-V",
+            &flight,
+            None,
+        ),
     )?;
     fetch_area_heights(
         env,
@@ -552,7 +681,7 @@ fn fetch_rasters(
         (Model::Dgm1.label(), Model::Dom1.label()),
         &mut |surface, out, _| {
             let model = if surface { Model::Dom1 } else { Model::Dgm1 };
-            fetch_model(fetcher, cache, mode, model, bbox, dir, out)
+            fetch_model_at(addresses, (fetcher, cache, mode), (model, bbox), (dir, out))
         },
         &mut |_, found, _, progress| {
             for warning in &found.warnings {
@@ -1372,6 +1501,106 @@ mod tests {
         assert_eq!(
             found.warnings,
             ["terrain model (LAiV M-V DGM1): no date for the centre tile 33_314_5996"]
+        );
+    }
+
+    fn elsewhere() -> Addresses {
+        Addresses {
+            overview: "https://portal.example.org/overview.php".to_string(),
+            dop_wcs: "https://wcs.example.org/dop".to_string(),
+            dgm_wcs: "https://wcs.example.org/dgm".to_string(),
+            dom_wcs: "https://wcs.example.org/dom".to_string(),
+        }
+    }
+
+    /// The tile index, the date and both height models are asked at the addresses the backend
+    /// is given, and nowhere else.
+    #[test]
+    fn the_services_are_asked_at_the_addresses_the_backend_is_given() {
+        let addresses = elsewhere();
+        for model in [Model::Dgm1, Model::Dom1] {
+            let fetcher = MapFetcher::default();
+            fetcher.insert_prefix(
+                &addresses.overview_prefix(model),
+                overview_answer(model, &[SCHOOL_TILE, EAST_TILE], "2024-03-01"),
+            );
+            let grid = GridSpec::covering(&ACROSS, 1.0);
+            let values = vec![7.0_f32; (grid.width * grid.height) as usize];
+            fetcher.insert_prefix(&addresses.wcs(model).url, plain_answer(&grid, &values));
+            let (_dir, cache) = cache();
+            let out = _dir.path().join("m.tif");
+            let found = fetch_model_at(
+                &addresses,
+                (&fetcher, &cache, FetchMode::Online),
+                (model, &ACROSS),
+                (_dir.path(), &out),
+            )
+            .unwrap();
+            assert_eq!(found.date.as_deref(), Some("2024-03-01"));
+            let log = fetcher.log.borrow();
+            assert_eq!(log.len(), 2, "{log:?}");
+            assert!(
+                log[0].starts_with("https://portal.example.org/overview.php?type[]="),
+                "{log:?}"
+            );
+            assert!(
+                log[1].starts_with(&addresses.wcs(model).url.to_string()),
+                "{log:?}"
+            );
+        }
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(
+            "https://portal.example.org/overview.php?type[]=dop20&bbox=",
+            OVERVIEW_DOP20.as_bytes().to_vec(),
+        );
+        let school = BoundingBox {
+            min_e: 312_057.0,
+            min_n: 5_996_217.0,
+            max_e: 312_257.0,
+            max_n: 5_996_417.0,
+        };
+        assert_eq!(
+            flight_date_at(&fetcher, &addresses.overview, &school).as_deref(),
+            Some("14.08.2024")
+        );
+        // The coverage, the size and the CRS of the orthophoto are code.
+        let dop = addresses.dop();
+        assert_eq!(dop.url, "https://wcs.example.org/dop");
+        assert_eq!(
+            (dop.coverage.as_ref(), dop.max_px, dop.crs),
+            ("mv_dop20", 4000, Crs::Utm33)
+        );
+        assert_eq!(addresses.wcs(Model::Dgm1).coverage, "mv_dgm");
+        assert_eq!(addresses.wcs(Model::Dom1).coverage, "mv_dom1");
+    }
+
+    #[test]
+    fn the_config_must_name_all_four_addresses() {
+        let names = ["overview", "dop-wcs", "dgm-wcs", "dom-wcs"];
+        for missing in names {
+            let config = RasterConfig {
+                endpoints: names
+                    .iter()
+                    .filter(|n| **n != missing)
+                    .map(|n| (n.to_string(), format!("https://{n}.example.org")))
+                    .collect(),
+                ..RasterConfig::default()
+            };
+            let err = Addresses::of(&config).unwrap_err();
+            assert!(err.contains(&format!("`{missing}`")), "{err}");
+        }
+    }
+
+    /// The built-in addresses are those the manifest declares and the code held before.
+    #[test]
+    fn the_built_in_addresses_are_the_ones_of_the_services() {
+        let built = Addresses::builtin();
+        assert_eq!(built.overview, OVERVIEW);
+        assert_eq!(built.dop(), DOP);
+        assert_eq!(Model::Dgm1.wcs().coverage, "mv_dgm");
+        assert_eq!(
+            Model::Dom1.wcs().url,
+            "https://www.geodaten-mv.de/dienste/dom_wcs"
         );
     }
 }

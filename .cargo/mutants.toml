@@ -1,0 +1,11 @@
+# The test doubles are the tools of the tests, not the code they check: a double that returns an
+# empty list has no test that tells `Vec::new()` from `vec![]`. The same holds for the methods of
+# the adapter of Poland that return an empty list because it has no ALKIS and no raster
+# estimate yet (ADR 0165).
+exclude_globs = ["crates/freemapper-adapter-api/src/testing.rs"]
+exclude_re = [
+    "<impl RegionAdapter for Polska>::(attribution|estimate)",
+    # The arithmetic of Newton's method: a changed slope or step still converges to the same point
+    # within the rounds, so no test can tell the mutant from the original (ADR 0173).
+    " in pl1992_inverse$",
+]

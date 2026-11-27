@@ -21,6 +21,6 @@ GET https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_ATKIS_W
 GET https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_ATKIS_WFS_BDLM_OpenData/guest?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_DammWallDeich&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=647400,5739493,647657,5739754,urn:ogc:def:crs:EPSG::25832&COUNT=100000&NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1) [to file]
 GET https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_ATKIS_WFS_BDLM_OpenData/guest?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_Turm&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=647400,5739493,647657,5739754,urn:ogc:def:crs:EPSG::25832&COUNT=100000&NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1) [to file]
 GET https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_ATKIS_WFS_BDLM_OpenData/guest?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_Gewaesserachse&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=647400,5739493,647657,5739754,urn:ogc:def:crs:EPSG::25832&COUNT=100000&NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1) [to file]
-GET https://download.geofabrik.de/europe/germany/sachsen-anhalt-updates/state.txt
-GET https://download.geofabrik.de/europe/germany/sachsen-anhalt-latest.osm.pbf [to file]
+GET https://download.geofabrik.de/europe/germany/sachsen-anhalt/updates/state.txt
+GET https://download.geofabrik.de/europe/germany/sachsen-anhalt/sachsen-anhalt-latest.osm.pbf [to file]
 result: fetched

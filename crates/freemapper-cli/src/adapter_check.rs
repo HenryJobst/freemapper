@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! `freemapper adapters check <dir>`: whether the folder of an adapter would load from the
 //! adapter folder of a person, what its author should know before passing it on, and with
 //! `--live` what its services deliver for a box inside its boundary (ADR 0082, spec 3.14).
@@ -233,7 +235,7 @@ impl Report {
 }
 
 /// The static part of the check: the report, and the adapter with its registry if it loads.
-fn check(dir: &Path, today: NaiveDate, german: bool) -> (Report, Option<Checked>) {
+fn check(dir: &Path, today: NaiveDate, lang: &str) -> (Report, Option<Checked>) {
     // The folder as it was named, without following a link: the name is the id.
     let folder = std::path::absolute(dir).unwrap_or_else(|_| dir.to_path_buf());
     let mut report = Report {
@@ -253,7 +255,7 @@ fn check(dir: &Path, today: NaiveDate, german: bool) -> (Report, Option<Checked>
     ) {
         Ok(checked) => {
             let names = &checked.adapter().info().names;
-            report.name = if german { &names.de } else { &names.en }.clone();
+            report.name = names.in_lang(lang).to_string();
             report.adapter = Some(checked.loaded.clone());
             report.warnings = checked.warnings.clone();
             (report, Some(checked))
@@ -508,8 +510,7 @@ pub fn run(
         )));
     }
     let today = chrono::Local::now().date_naive();
-    let german = crate::text::lang().code() == "de";
-    let (mut report, checked) = check(dir, today, german);
+    let (mut report, checked) = check(dir, today, &crate::text::lang().code());
     if let (Some(checked), Some(live_box)) = (checked, live_box) {
         match live(checked, &live_box, &cache()?) {
             Ok(live) => report.live = Some(live),
@@ -568,7 +569,7 @@ mod tests {
     /// program. That its id is built in is a warning, since from a folder it would not load.
     #[test]
     fn check_passes_the_hamburg_folder() {
-        let (report, checked) = check(&manifests().join("hamburg"), today(), false);
+        let (report, checked) = check(&manifests().join("hamburg"), today(), "en");
         assert!(report.errors.is_empty(), "{:?}", report.errors);
         assert!(report.passed());
         let codes: Vec<&str> = report.warnings.iter().map(|w| w.code).collect();
@@ -600,7 +601,7 @@ mod tests {
             if !folder.is_dir() {
                 continue;
             }
-            let (report, _) = check(&folder, today(), false);
+            let (report, _) = check(&folder, today(), "en");
             assert!(report.errors.is_empty(), "{:?}", report.errors);
             ids.push(report.adapter.unwrap().id);
         }
@@ -617,7 +618,7 @@ mod tests {
             [[[9.7,53.4],[10.3,53.4],[10.3,53.7],[9.7,53.7],[9.7,53.4]]]}}"#,
         )
         .unwrap();
-        let (report, checked) = check(&folder, today(), false);
+        let (report, checked) = check(&folder, today(), "en");
         assert!(checked.is_none() && !report.passed());
         assert_eq!(report.errors[0].code, "boundary.crs");
         let lines = report.lines();
@@ -634,7 +635,7 @@ mod tests {
         let link = dir.path().join("links").join("mine");
         std::fs::create_dir_all(link.parent().unwrap()).unwrap();
         std::os::unix::fs::symlink(&real, &link).unwrap();
-        let (report, _) = check(&link, today(), false);
+        let (report, _) = check(&link, today(), "en");
         assert_eq!(report.errors[0].code, "adapter.folder");
         assert!(!report.passed());
     }
@@ -643,7 +644,7 @@ mod tests {
     fn check_json_output_lists_codes() {
         let dir = tempfile::tempdir().unwrap();
         let folder = write(dir.path());
-        let (report, _) = check(&folder, today(), true);
+        let (report, _) = check(&folder, today(), "de");
         assert_eq!(report.name, "Meins");
         let json: serde_json::Value = serde_json::from_str(&report.json()).unwrap();
         assert_eq!(json["passed"], true);
@@ -662,7 +663,7 @@ mod tests {
                 .replace("revision = 2", "revision = 2\ncolour = \"red\""),
         )
         .unwrap();
-        let (report, _) = check(&folder, today(), false);
+        let (report, _) = check(&folder, today(), "en");
         let json: serde_json::Value = serde_json::from_str(&report.json()).unwrap();
         assert_eq!(json["passed"], false);
         assert_eq!(json["adapter"], serde_json::Value::Null);
@@ -682,7 +683,7 @@ mod tests {
     fn live_box_outside_the_boundary_is_refused() {
         let dir = tempfile::tempdir().unwrap();
         let folder = write(dir.path());
-        let (_, checked) = check(&folder, today(), false);
+        let (_, checked) = check(&folder, today(), "en");
         // Strausberg, far from the square of the adapter.
         let strausberg: LiveBox = "13.84,52.53,13.85,52.54".parse().unwrap();
         let cache = Cache::new(dir.path().join("cache"));
@@ -729,7 +730,7 @@ mod tests {
     fn live_rows_say_what_arrived_and_what_the_stop_left_out() {
         let dir = tempfile::tempdir().unwrap();
         let folder = write(dir.path());
-        let (_, checked) = check(&folder, today(), false);
+        let (_, checked) = check(&folder, today(), "en");
         let checked = checked.unwrap();
         let adapter = checked.adapter();
         let line = |row: &Row| format!("{} {} {}", row.capability, row.state.name(), row.detail);
@@ -767,5 +768,86 @@ mod tests {
         let json: serde_json::Value = serde_json::from_str(&report.json()).unwrap();
         assert_eq!(json["live"][1]["state"], "failed");
         assert_eq!(json["live_warnings"][0], "warning: slow");
+    }
+
+    /// What a live check of the Brandenburg adapter reports for the stored fetch of the offline
+    /// school: the rasters by product, the ALKIS counts, the NAS layers, and for each tree
+    /// cadastre whether it was asked, arrived or is missing.
+    #[test]
+    fn live_rows_report_the_parts_of_a_stored_fetch() {
+        let (_, checked) = check(&manifests().join("brandenburg"), today(), "en");
+        let checked = checked.unwrap();
+        let adapter = checked.adapter();
+        let project = ProjectFile::load(
+            &Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/offline-school/project"),
+        )
+        .unwrap();
+        let line = |row: &Row| format!("{} {}: {}", row.capability, row.state.name(), row.detail);
+        let all = |rows: Vec<Row>| rows.iter().map(line).collect::<Vec<_>>();
+
+        let lines = all(rows(adapter, Some(&project), None, &[]));
+        assert_eq!(
+            lines[0],
+            "rasters ok: orthophoto (DOP20): one tile, terrain model (DGM1): one tile"
+        );
+        assert_eq!(lines[1], "alkis-buildings ok: one object");
+        assert_eq!(lines[2], "alkis-land-use ok: 2 objects");
+        assert_eq!(lines[3], "nas ok: 4 layers, 0 objects");
+        // The tree cadastres of the adapter, none of them asked: outside their datasets.
+        let trees: Vec<&String> = lines[4..].iter().collect();
+        assert!(!trees.is_empty());
+        assert!(
+            trees.iter().all(|l| l.starts_with("trees/")
+                && l.ends_with("not-asked: the box lies outside the dataset")),
+            "{trees:?}"
+        );
+
+        // Asked and not arrived: failed, with the error of the stop on the first one only.
+        let asked: Vec<String> = adapter
+            .tree_datasets()
+            .iter()
+            .map(|dataset| dataset.id.to_string())
+            .collect();
+        let stopped = all(rows(
+            adapter,
+            Some(&project),
+            Some("HTTP 503".into()),
+            &asked,
+        ));
+        let failed: Vec<&String> = stopped.iter().filter(|l| l.contains(" failed: ")).collect();
+        assert_eq!(failed.len(), 1, "{stopped:?}");
+        assert!(
+            failed[0].starts_with("trees/") && failed[0].ends_with("HTTP 503"),
+            "{failed:?}"
+        );
+        assert!(
+            stopped
+                .iter()
+                .any(|l| l.contains("not-asked: an earlier part failed"))
+        );
+        // The stop no capability stands for is a line of its own.
+        let area = all(rows(adapter, Some(&project), Some("no space".into()), &[]));
+        assert_eq!(area.last().unwrap(), "fetch failed: no space");
+
+        // A tree cadastre that arrived says how many trees.
+        let mut project = project;
+        let first = asked[0].clone();
+        project.tree_layers.insert(
+            first.clone(),
+            freemapper::project::AlkisRecord {
+                bbox: [0.0; 4],
+                fetched: today(),
+                latest_update: None,
+                count: 7,
+                regions: Vec::new(),
+            },
+        );
+        let lines = all(rows(adapter, Some(&project), None, &[]));
+        assert!(
+            lines
+                .iter()
+                .any(|l| l == &format!("trees/{first} ok: 7 trees")),
+            "{lines:?}"
+        );
     }
 }

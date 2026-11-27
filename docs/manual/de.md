@@ -61,7 +61,7 @@ Auf Wunsch erzeugt freemapper zusätzlich die **druckfertige Karte als PDF**, ei
     wenn schon ein älterer OSM-Auszug da ist, auch dessen Aktualisierung. Für jeden ausgelassenen Teil
     warnt es. Kartendaten, Geländemodell und Luftbild braucht jede Karte. Passen sie nicht, bricht
     freemapper ab, bevor es etwas lädt.
-- Ein Gebiet in **Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen, Rheinland-Pfalz, dem Saarland, Baden-Württemberg, Bremen oder Bayern**. Thüringen fehlt noch.
+- Ein Gebiet in **Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen, Rheinland-Pfalz, dem Saarland, Baden-Württemberg, Bremen oder Bayern**. Thüringen fehlt noch. Polen ist nutzbar: Die Karte dort kombiniert OpenStreetMap mit dem Kataster EGiB, Orthofoto und Gelände von GUGiK, und das Gebiet muss ganz in Polen liegen. Gebäude und Landnutzung kommen in Polen aus dem Kataster EGiB; wo er nichts liefert (Gemeinden ohne Katasterdienst, Städte mit leeren Nutzungsklassen), füllt BDOT10k auf, wofür das GML-Archiv des Powiats (7 bis 89 MB) in den Cache geladen wird. Eine Waldkarte in Polen übernimmt außerdem die Straßen und Wege aus BDOT10k als Kandidaten, wo OpenStreetMap im Umkreis von 10 m keinen hat; dafür liest freemapper nur zwei Dateien des Archivs (etwa 2 MB). Tschechien ist als Vorschau nutzbar: Die Karte dort kombiniert OpenStreetMap mit Gelände-, Oberflächenmodell und Luftbild des ČÚZK, den Gebäuden aus dem Register RÚIAN und der Landnutzung aus ZABAGED; das Gebiet muss ganz in Tschechien liegen, und der OSM-Auszug des ganzen Landes (etwa 910 MB) wird einmal geladen. Alle Dienste sind offen unter CC BY 4.0 und brauchen keinen Schlüssel. Die Höhenlinien schlängeln sich in dicht bebauten Altstädten, weil das Geländemodell dort ein interpolierter Erdboden ist; die Parzellen des RÚIAN sind seit Dezember 2021 veraltet und werden nicht verwendet. Die Hinweise zu Genehmigungen kommen von AOPK, RÚIAN und NPÚ (ADR 0201).
 - Optional einen KI-Assistenten, z. B. Claude. Dann müssen Sie keine Befehle tippen.
 
 ## 3. Installation
@@ -83,6 +83,12 @@ freemapper ist ein einzelnes Programm ohne Installer.
      *Trotzdem ausführen*.
    - **macOS:** „kann nicht geöffnet werden …“ → *Systemeinstellungen › Datenschutz & Sicherheit* →
      *Trotzdem öffnen*.
+
+**Doppelklick unter Windows:** Ein Doppelklick auf `freemapper.exe` öffnet die Gebietsseite im Browser (wie `freemapper select`)
+und legt den Projektordner unter `Dokumente\freemapper\karte-<Datum>` an; das Konsolenfenster bleibt offen, solange
+das Programm läuft, und das Schließen beendet es. Alles andere, etwa `run`, `permits` oder `update`, geben Sie in der PowerShell
+ein: Startmenü › „PowerShell“, mit `cd` in den Ordner mit `freemapper.exe` wechseln (oder im Explorer in der Adresszeile
+`powershell` tippen) und dort z. B. `.\freemapper.exe run <Ordner>` aufrufen.
 
 Merken Sie sich den **vollständigen Pfad** zum Programm, z. B. `C:\Users\Anna\Documents\freemapper\freemapper.exe`
 oder `/Users/anna/Documents/freemapper/freemapper`. Der Assistent braucht ihn.
@@ -706,6 +712,34 @@ Aus dem Geländemodell kommen weitere Kandidaten, die die Höhenlinien nicht zei
   (auf Schulhofkarten 0,5 m), schmaler als 5 mm auf dem Papier und mindestens 10 m, der sich deutlich aus
   seinem Fuß hebt. Eine längliche Kuppe ist in ihre Längsrichtung gedreht.
 - **Kleine Senken** (111): dasselbe als Mulde.
+- **Blöcke** (204) und **große Blöcke** (205): Eine Kuppe, die auf einer Felsfläche liegt (OpenStreetMap
+  `natural=bare_rock`, Symbol 214), ist ein Felsturm oder ein Block, keine Kuppe des Bodens. Ab 1 m Höhe zeichnet
+  freemapper sie als Block (204), ab 2 m als großen Block (205), ohne Drehung. Die Höhe wird bei 6 m abgeschnitten.
+  Das Gelände einer Felsenstadt wie Adršpach (520 von 522 Kuppen im Fels, die meisten über 4 m) wird so zu einem
+  Feld aus schwarzen Punkten, wie echte Karten es zeigen. Eine Felsfläche, die OpenStreetMap nicht hat, bleibt
+  bei braunen Kuppen.   Stehen drei oder mehr Blöcke so dicht, dass ihre Symbole die Mindestlücke von 0,15 mm unterschreiten (0,55 mm von
+  Mitte zu Mitte, bei 1:10 000 also 5,5 m), werden sie zu einem Blockhaufen (207) in ihrer Mitte zusammengefasst. Mit dem Geländemodell von heute passiert das
+  fast nie: Die Kuppen stehen mindestens 5,4 m auseinander.
+- **Felswandflächen** (206): Ein zusammenhängender Fleck, der mindestens 70° steil ist, zeichnet freemapper als
+  schwarze Fläche in Grundrissform, wenn er mindestens 0,3 mm² groß und 0,25 mm breit ist (Mindestmaße von 206).
+  Das ist die Darstellung einer Felsenstadt in Sprintkarten wie der von Adršpach 2009. Eine Wandfläche, die über den
+  Rand des Geländemodells hinausreicht, fehlt, eine Lücke in ihrem Inneren (Spalte, ebener Absatz) wird gefüllt.
+  Eine Böschung oder Felswand, die an einer Wandfläche entlangläuft, entfällt, denn die Fläche zeigt sie schon. Höhenlinien enden an der Fläche und laufen nicht durch das Schwarz.
+  Die Fläche ist ein Kandidat der Ebene „Gelände“. Der Grenzwinkel (die Wandschwelle) ist einstellbar: `--face-slope <Grad>` bei
+  `init`, `derive` oder `run`, auf der Gebietsseite im Feld „Wandschwelle“ oder als `face_slope_deg = 75` in der
+  `freemapper.toml`; `auto` gibt den Standard von 70° zurück, erlaubt sind 55° bis 85°. Eine Karte, die schon gebaut
+  ist, braucht danach `derive` und `export --force`. Auf Adršpach ergibt der Standard 310 Flächen.
+
+  | Wert | Wann | Was passiert |
+  |---|---|---|
+  | 65° | Felsenstädte mit abgeschrägten Wänden, wenn die Standardflächen zu klein wirken | Mehr und größere Flächen (Adršpach: 8,4 % der Fläche), auch steile Hänge werden schwarz. |
+  | `auto` (70°) | Felsenstädte wie Adršpach, Steinbrüche, Felsabbrüche | Standard (Adršpach: 5,2 % der Fläche). |
+  | 75° | Nur echte Wände | Weniger Flächen (Adršpach: 2,5 %) mit lückigen Rändern. |
+  | über 80° | (nicht sinnvoll) | Kaum noch Flächen. |
+
+  Wo kaum Fels liegt (Mittelgebirge, Parks), ändert die Schwelle wenig: Es gibt dort ohnehin kaum Flächen. Gemessen
+  ist das nur auf Adršpach, die Werte für andere Gebiete sind Schätzungen; sehen Sie sich im Zweifel die Kandidaten
+  im Layer „Gelände“ an.
 - **Erdböschungen** (104) und ab 3 m Höhe **nicht begehbare Felswände** (201): ein schmaler, steiler
   Streifen, der den größten Teil seines Höhenunterschieds auf wenigen Metern abbaut. Ein gleichmäßiger Hang
   zählt nicht. Die Striche zeigen bergab.
@@ -722,6 +756,31 @@ Mauer herausstellen, eine Felswand als Treppe. Alles aus dem Geländemodell geh�
 (siehe unten), auch Böschungen, Felswände und Stützmauern: Mit `full` oder `--content-set landforms=map`
 kommen sie direkt auf die Karte. `slopes=map` holt nur die Böschungen aus ALKIS und OpenStreetMap, in Bayern
 auch die Wälle, Felsen und Höhleneingänge aus dem Landschaftsmodell.
+
+**Steilheitsschwelle.** Ab welcher Hangneigung ein Stück Gelände als steil gilt, wenn freemapper nach Böschungen und
+Felswänden sucht, ist einstellbar: `--steep-slope <Grad>` bei `init`, `derive` oder `run`, auf der Gebietsseite im Feld
+„Steilheitsschwelle“ oder als `steep_slope_deg = 55` in der `freemapper.toml`; `auto` gibt den Standard zurück (etwa
+27°). Erlaubt sind 15° bis 80°. Eine Karte, die schon gebaut ist, braucht danach `derive` und `export --force`. Die Schwelle
+ändert nur, was aus dem Geländemodell kommt (Böschungen und Felswände der Gruppe `landforms`), nicht die Wände aus
+OpenStreetMap. Sie gilt für Böschungen und Felswände zugleich: Eine Böschung ist weniger steil als eine Wand, deshalb
+verschwinden bei hoher Schwelle die Böschungen (Nikolsdorfer Wände: 16 Böschungen beim Standard, keine bei 55°).
+
+| Wert | Wann | Was passiert |
+|---|---|---|
+| `auto` (27°) | Hügelland, Parks, Städte, normale Wälder | Jeder Streifen, der steiler ist, kann eine Böschung oder Felswand sein. |
+| 40° bis 50° | Steile Täler und Hänge mit vielen Felsbändern (nicht geprüft) | Weniger Böschungen an gewöhnlichen Steilhängen. |
+| 55° bis 60° | Felsenstädte und Schluchten, in denen fast jeder Hang steil ist | Die steilen Stücke trennen sich, und mehr Wände werden einzeln gefunden. |
+| 65° bis 70° | Nur die steilsten Wände | Es bleiben wenige, sehr hohe Wände übrig. |
+
+Warum das nötig ist: Wo fast jeder Hang steil ist, hängen die steilen Zellen zu einer einzigen Fläche zusammen, und eine
+Fläche, die nicht lang und schmal ist, gilt als Hang, nicht als Wand. Gemessen ist das an einem Gebiet, der
+Felsenstadt Adršpach mit dem 2-m-Modell des tschechischen ČÚZK: Beim Standard waren 47 % der Fläche steil und hingen zu 92 %
+zusammen; es blieb 1 Felswand-Kandidat mit 30 m Länge. Bei 50° waren es 6 mit 230 m, bei 55° 11 mit 610 m, bei 60° 11
+mit 470 m, bei 65° 11 mit 430 m und bei 70° 4 mit 170 m. Das ist wenig für ein Gelände aus hunderten einzelner Türme: Die
+Suche findet lange, schmale Wände, keine Türme, die das 2-m-Modell nur als Kuppen zeigt. Die Werte für andere Gebiete sind
+Schätzungen; probieren Sie im Zweifel 55° und sehen Sie sich die Kandidaten im Layer „Gelände“ an. Eine Linie, die bergab
+läuft statt an den Höhenlinien entlang, ist die Mittellinie einer steilen Fläche und keine Wand; freemapper verwirft
+sie bei jeder Schwelle.
 
 ### Vegetation aus Laserpunktwolken
 
@@ -1045,10 +1104,18 @@ Was die Trainingskarte anders macht als die Karte, Schritt für Schritt:
    zum Zeichnen ist, wird zwischen zwei Wegen als Weg gezeichnet (sie trägt `freemapper:generalized`); an einem
    Wegende entfällt sie.
 
+   Ein kurzes Wegstück, das vor Schritt 5 Wege verband, bleibt, solange diese Wege bleiben, auch wo Schritt 6 oder
+   8 seine Enden von ihnen weggerückt hat; ein kleiner Ring bleibt, wenn er zwei Wege verbindet.
+
    Zum Schluss wird ein Linienende, das vor Schritt 5 eine Linie berührte und sie in Schritt 8 oder 9 verlor, an
-   den Rest dieser Linie gezogen, wenn er höchstens 0,5 mm plus den Abstand entfernt liegt. Liegt nichts mehr in
-   Reichweite, bleibt das Ende frei, und die Zusammenfassung zählt es: `3 Linienenden frei`. Lagen zwei Linien
-   aufeinander und wurde eine für die andere geschnitten, ist die Lücke gewollt; dort wird nichts zurückgezogen.
+   den Rest dieser Linie gezogen, wenn er höchstens 0,5 mm plus den Abstand entfernt liegt und die verlegte Linie
+   zu allem den Abstand hält, von dem sie Abstand halten muss. Ein Pfad, der an einem Gehweg endete, der neben einer
+   Straße entfiel, wird an die Straße gezogen, so weit der Gehweg von ihr lag. Liegt nichts mehr in Reichweite,
+   bleibt das Ende frei, und die Zusammenfassung zählt es: `Freie Linienenden: 1 dort, wo ein Weg auf einen anderen
+   traf, 2 an anderen Linien`. Die erste Zahl zählt Enden von Wegen, die auf einen anderen Weg trafen; jedes
+   unterbricht das Wegenetz. Die zweite zählt den Rest, meist Enden an einem Zaun, Graben oder einer Böschung, die
+   einem dritten Objekt gewichen ist. Lagen zwei Linien aufeinander und wurde eine für die andere geschnitten, ist
+   die Lücke gewollt; dort wird nichts zurückgezogen.
 
 Auf Wald- und Sprintkarten generalisiert die Trainingskarte außerdem die Felswände stärker als die Karte
 (Kapitel 7).
@@ -1071,6 +1138,25 @@ Trainingskarte neu zu schreiben, löschen Sie `<name>-training.omap` (mit `--oca
 und rufen `run --training` ohne `--force` auf; das PDF entsteht dabei neu. `--force` ersetzt auch die Grundkarte. Die
 unsicheren Objekte der Trainingskarte kommen aus den Kandidaten; prüfen Sie die Strecke vor einem Lauf im Gelände, am
 besten mit dem Prüfausdruck.
+
+### Ansichten der Trainingskarte
+
+Für Trainingsformen lässt freemapper aus der fertigen Trainingskarte etwas weg: `freemapper run --training --view <Ansicht>`
+(oder `export`) schreibt neben die volle Karte `<name>-training-<Ansicht>.omap` und ihre PDF, mit `--ocad` auch
+`ocad/<name>-training-<Ansicht>.ocd`. Die Karte wird dafür nicht neu berechnet, die Ansicht ist eine Auswahl aus ihr.
+Die Trainingskarte selbst bleibt unverändert.
+
+| Ansicht | Was bleibt |
+|---|---|
+| `no-paths` | alles außer Straßen, Wegen und Treppen (502 bis 507, 501.6 bis 501.8, 532), für Ultimate-Karten im Wald |
+| `brown-only` | nur braune Symbole (Höhenlinien, Böschungen, Kuppen, Mulden, Löcher), für Isohypsen-OL; die Nordlinien entfallen |
+| `no-north-lines` | alles außer den Nordlinien |
+
+`--view no:505,506` lässt Symbole nach Code weg, `--view only:101,102` behält nur diese; mit `+` lassen sich Ansichten
+verbinden (`no-paths+no-north-lines`), und die Option lässt sich wiederholen. Der Rahmen (Titel, Maßstab, Quellen) und die
+Grundfläche bleiben immer. Ein Lauf behält vorhandene Ansichtsdateien, außer mit `--force`. Der MCP-Befehl `start_pipeline`
+nimmt dieselben Ansichten als `training_views`. Auf der Gebietsseite erscheinen sie unter dem Häkchen „Trainingskarte“ als drei weitere Häkchen und ein Feld für eine eigene Ansicht; „Ohne Wege“ und „Nur braun“ sind nur bei Waldkarten wählbar. freemapper-print wendet dieselben Ansichten auf jede `.omap` an
+(`--view`), wenn Sie nur drucken wollen.
 
 ## 11. OCAD
 
@@ -1413,6 +1499,77 @@ gehen statt des Rechtecks die abgefragten Punkte, an die BfG das Rechteck. Ander
 fragt es für die Hinweise nicht. Die Dienste eines Bundeslandes fragt es nur für ein Kartengebiet, das dort
 liegt, und nur über die Hosts, die der Adapter dieses Bundeslandes nennt. `adapters
 allow-host` gilt für die Dienste des Bundes nicht.
+
+### Hinweise zu Genehmigungen in Polen
+
+Für ein Kartengebiet in Polen kommen die Hinweise aus polnischen Diensten, nicht aus BfN und BKG: den
+Naturschutzschichten der Generaldirektion für Umweltschutz (GDOŚ, `sdi.gdos.gov.pl`: Nationalparks,
+Landschaftsparks, Naturschutzgebiete, Landschaftsschutzgebiete, Natura 2000, Naturdenkmäler und mehr) und, aus dem
+Landesregister der Grenzen (PRG, `mapy.geoportal.gov.pl`), den Forstbezirken der Staatsforsten und den
+Verwaltungseinheiten. Der Abschnitt „Verwaltungseinheiten“ steht vorn. Er nennt die Woiwodschaft (województwo), den
+Powiat und die Gmina, in denen das Kartengebiet liegt, mit ihrem TERYT-Code und ihrem Anteil am Gebiet; ein Gebiet an
+einer Grenze führt jede Einheit auf, die es berührt. Die Hinweise nennen weder Kreis noch Ordnungsamt, weil es sie dort so nicht gibt. Sie sagen, dass die Verwaltung
+eines Parks oder Reservats und die Regionaldirektion für Umweltschutz (RDOŚ) meist sagen können, wer zuständig
+ist, und dass eine Veranstaltung im Wald meist die Zustimmung des Waldeigentümers braucht. Die Gmina steht dort,
+wo das Gesetz sie zur Anlaufstelle macht: Ein Naturdenkmal, eine ökologische Fläche, ein Natur- und
+Landschaftskomplex oder eine Dokumentationsstätte legt der Gemeinderat (rada gminy) fest, und sein Beschluss nennt,
+wer das Objekt beaufsichtigt und welche Verbote gelten; die Hinweise verweisen deshalb für den Beschluss an das Amt
+der Gmina (Naturschutzgesetz, Art. 44). Für eine Veranstaltung auf Straßen sagen sie, dass die Verkehrsgenehmigung
+(Straßenverkehrsgesetz, Art. 65, mindestens 30 Tage vorher) bei Powiat- und Gemeindestraßen der Starost erteilt, in
+einer Stadt mit Powiat-Rechten der Stadtpräsident, sonst der Marschall der Woiwodschaft oder die GDDKiA, und dass der
+Leiter der Gmina (Wójt, Burmistrz, Prezydent miasta) die Gemeindestraßen verwaltet und über die Inanspruchnahme der
+Fahrbahn entscheidet (Gesetz über die öffentlichen Straßen, Art. 19 und 40). Land der Gmina verwaltet derselbe
+Leiter und vertritt die Gmina (Gemeindeselbstverwaltungsgesetz, Art. 30 und 31); welches Land der Gmina gehört,
+wissen die Hinweise nicht und sagen deshalb „falls“. Die Genehmigung für eine Veranstaltung auf einer Straße erteilt
+der Wójt nicht, und für ein Naturdenkmal nennt das Naturschutzgesetz keine Genehmigung: Der Beschluss entscheidet.
+Liegt das Kartengebiet in mehreren Gminas, nennen die Hinweise jede mit ihrem Flächenanteil und sagen, dass bei jeder der Wójt, Burmistrz oder Stadtpräsident für den Teil in seiner Gmina die Stelle ist. Massenveranstaltungen und Versammlungen bekommen keinen Gmina-Hinweis. Die Denkmale kommen aus dem Register der
+unbeweglichen Denkmale des NID (`usluga.zabytek.gov.pl`, eine Anfrage je Kartengebiet): Die Hinweise zählen die
+Denkmale im Rechteck um das Kartengebiet und nennen die häufigsten Namen mit ihrer Anzahl (höchstens zehn). Das
+Register liefert keine Positionen, deshalb steht dort, dass man auf der Karte nachsehen muss, wo sie liegen. Der
+Hinweis nennt die Genehmigung des Woiwodschafts-Denkmalpflegers für Konservierungs-, Restaurierungs- und Bauarbeiten an
+einem Denkmal (Denkmalschutzgesetz, Art. 36 Abs. 1) und sagt, dass seit dem 3. Juni 2026 Bauarbeiten im Umfeld und
+einige andere Handlungen nur eine Meldung brauchen, der der Konservator binnen 60 Tagen widersprechen kann (Art. 36aa);
+einen Lauf nennt das Gesetz nicht. Eine zweite Anfrage fragt das Register der archäologischen Denkmale (Buch C des Registers) genauso ab; der Abschnitt
+hat dieselbe Form, und der Hinweis sagt, dass archäologische Forschungen und die Suche mit Metallsonden die
+Genehmigung des Konservators brauchen (Art. 36 Abs. 1 Pkt 5 und 12), dass die Genehmigung für die Suche am 1. Januar 2027
+entfällt und durch die Zustimmung des Eigentümers plus eine Meldung in der App des Ministeriums ersetzt wird (Art. 36b)
+und dass eingetragene Denkmale samt einem Streifen von 10 m dann für solche Suchen gesperrt sind (Art. 36c).
+Fundstellen, die nur in der archäologischen Kartei (AZP) stehen und nicht im Register eingetragen sind, sind nicht abgedeckt.
+Die Pomniki historii (Denkmäler der Geschichte) fragt eine dritte Anfrage an denselben Host ab; sie haben wahre Positionen, deshalb
+unterscheidet der Abschnitt Denkmäler im Kartengebiet von solchen, die nur im Rechteck darum liegen, und nennt die Namen (höchstens zehn je
+Liste). In den Daten sind nur die Staatsforsten, kein Privatwald; die Hinweise sagen, dass der
+Starost Wald beaufsichtigt, der nicht dem Staatsschatz gehört. Die Hinweistexte hat noch kein Polnischsprecher gelesen. Die Hinweise sind
+ein Hinweis, keine Rechtsberatung. `--offline` liest, was ein früherer Lauf gespeichert hat, wie in Deutschland.
+
+### Hinweise zu Genehmigungen in Tschechien
+
+Für ein Kartengebiet in Tschechien stammen die Hinweise aus tschechischen Diensten, nicht von BfN und BKG
+(ADR 0201). Die Agentur für Natur- und Landschaftsschutz (AOPK ČR, `gis.nature.cz`) liefert die Schutzgebiete und
+Schutzobjekte: Nationalparks (NP), Landschaftsschutzgebiete (CHKO) mit ihren Schutzzonen, nationale
+Naturreservate und Naturdenkmale (NPR, NPP), Naturreservate und Naturdenkmale (PR, PP) mit ihren Schutzzonen, die
+Natura-2000-Gebiete für Lebensräume (EVL) und für Vögel (PO) und die geschützten Bäume. RÚIAN des ČÚZK
+(`ags.cuzk.gov.cz`) liefert die Verwaltungseinheiten: Der Abschnitt „Verwaltungseinheiten“ nennt die Region
+(kraj), den Bezirk (okres), die Gemeinde mit erweiterter Zuständigkeit (obec s rozšířenou působností, ORP) und
+die Gemeinde (obec), in denen das Kartengebiet liegt, jeweils mit RÚIAN-Code und Anteil; ein Kartengebiet an einer
+Grenze führt jede Einheit auf, die es berührt. Das Nationale Denkmalinstitut (NPÚ, `geoportal.npu.cz`) liefert die
+Kulturdenkmale und Denkmalgebiete der staatlichen Liste mit ihren Positionen; die Hinweise zählen sie nach Art.
+Wo ein Hinweis auf einem Gesetz beruht, nennt er die Vorschrift: In einem Nationalpark sind organisierte
+Veranstaltungen außerhalb der von der Naturschutzbehörde bestimmten Orte verboten (Gesetz 114/1992 Sb., § 16
+Abs. 1 Buchst. q), in dessen Schutzzone brauchen Massenveranstaltungen die Zustimmung der Behörde (§ 37 Abs. 3
+Buchst. d), und in einem nationalen Naturreservat ist das Betreten außerhalb der markierten Wege verboten (§ 29
+Buchst. d). Eine gesellschaftliche Massenveranstaltung im Wald, etwa eine sportliche oder kulturelle, braucht die
+schriftliche Zustimmung des Waldeigentümers und eine schriftliche Anzeige beim Amt der ORP mindestens 30 Tage
+vorher (Gesetz 289/1995 Sb., § 20 Abs. 5). Arbeiten an einem Denkmal oder an einem Grundstück in einem
+Denkmalreservat, einer Denkmalzone oder einer Schutzzone brauchen eine Entscheidung oder verbindliche Stellungnahme
+des Amts der ORP, bei einem nationalen Denkmal des Kreisamts (Gesetz 20/1987 Sb., § 14 Abs. 1 und 2). Eine
+Veranstaltung, die eine Straße besonders nutzt, braucht die Erlaubnis des Straßenverwaltungsamts (Gesetz 13/1997
+Sb., § 25 Abs. 1 und 6 Buchst. d, § 40). Die Hinweise nennen dafür die ORP und die Gemeinden des Kartengebiets.
+Sie sagen, dass die Gesetze einen Lauf oder einen Posten als solchen nicht nennen, wo das so ist. Die Waldeigentümer
+stehen nicht in den Daten (die Dienste des Forstinstituts ÚHÚL antworten mit einem fehlerhaften Zertifikat);
+die Hinweise bitten daher, sie zu ermitteln. Die Naturparks (přírodní parky) und die Schutzzonen der Denkmale
+sind nicht abgedeckt. Der tschechische Wortlaut der Hinweise wurde von keinem Tschechisch-Sprecher gelesen. Die
+Hinweise sind ein Anhaltspunkt, keine Rechtsberatung. `--offline` liest, was ein früherer Lauf gespeichert hat,
+wie in Deutschland.
 
 ## 13. Regionen und Grenzgebiete
 
@@ -1776,6 +1933,65 @@ Platzhalter oder ein Port werden abgelehnt. Auch für einen freigegebenen Host g
 nur mit Servern im Internet. `freemapper adapters list` zeigt die freigegebenen Hosts je Bundesland, `freemapper
 adapters disallow-host hessen neuer-server.hessen.de` nimmt einen zurück.
 
+### Eine Adresse selbst ändern
+
+`allow-host` fügt nur einen Host hinzu. Ist ein Dienst eines Bundeslands an eine neue Adresse umgezogen, können
+Sie die Adresse auch selbst ändern, ohne auf eine neue Version zu warten: Ein eigener Adapterordner mit der
+Kennung des Bundeslands tritt an die Stelle des eingebauten Adapters. Sie schreiben den Ordner nicht von Grund
+auf; `adapters export` schreibt den eingebauten, und Sie ändern die wenigen Stellen, die umgezogen sind.
+
+Der kurze Weg ist `freemapper sources`: `sources list hessen` zeigt die Adressen des Bundeslands, jede mit ihrem
+Pfad im Manifest (`alkis.url`, `permits.wfs[0].url`, `net.hosts[1]`) und mit der Angabe, ob das gültige Manifest
+das eingebaute oder Ihres ist. `freemapper sources set hessen alkis.url https://neu.example.org/wfs` ändert eine
+Adresse in Ihrem eigenen Adapterordner. Gibt es den Ordner noch nicht, wird er zuerst aus dem eingebauten Manifest
+angelegt, so wie `adapters export` es tut. Das ganze Manifest wird geprüft, bevor etwas geschrieben wird; eine
+Änderung, die nicht bestünde, wird abgelehnt und nichts geschrieben. Auch eine Adresse auf einem Host, den das
+Manifest nicht erklärt, wird abgelehnt, außer Sie geben `--add-host` an: Dann kommt der Host in `[net] hosts`, und
+der Befehl sagt es. `sources diff hessen` zeigt, was Ihr Ordner gegenüber dem eingebauten Manifest ändert,
+`sources check hessen` ist `adapters check` auf Ihrem Ordner, `sources get hessen alkis.url` gibt eine Adresse für
+ein Skript aus, und `sources schema` listet die Schlüssel eines Manifests, die eine Adresse enthalten (`--json`:
+als JSON-Schema). Der Befehl schreibt nur in Ihren eigenen Adapterordner, nie in einen Projektordner. Quellenangabe
+und Lizenz bleiben, wie das Manifest sie nennt; halten Sie sie richtig, wenn der Dienst den Betreiber gewechselt
+hat. Starten Sie danach den MCP-Server oder die Gebietsseite neu. Die folgenden Schritte sind dasselbe von Hand.
+
+1. Exportieren Sie das Bundesland. Die Kennung zeigt `freemapper adapters list`:
+   `freemapper adapters export hessen ~/meine-adapter`. Das schreibt den Ordner `~/meine-adapter/hessen` mit dem
+   Manifest (`manifest.toml`) und den Dateien, die es nennt (die Grenze, bei einigen Bundesländern die Grenzen
+   der OSM-Auszüge). Der Befehl schreibt nie in einen Ordner, in dem Dateien liegen. Sachsen-Anhalt erklärt sein
+   Orthofoto als Dienst, und ein solcher Adapter braucht einen eigenen Anbieter, um als Ersatz zu laden: Sein
+   Export nennt den Anbieter `saxonyanhalt`, und seine Downloads landen dann in einem eigenen Cache-Ordner.
+2. Ändern Sie die Adresse in `manifest.toml`: die `url` des umgezogenen Dienstes und, wenn der Host neu ist, den
+   Host in `[net] hosts`. Erhöhen Sie `revision`, wenn sich die Daten einer Karte ändern. Rühren Sie nichts an,
+   was Sie nicht brauchen.
+3. Prüfen Sie den Ordner: `freemapper adapters check ~/meine-adapter/hessen`. Er nennt die eine Warnung
+   `check.built-in-id` (die Kennung ist eingebaut, der Ordner ersetzt sie also); jeden anderen Befund beheben
+   Sie. Mit `--live --bbox minLon,minLat,maxLon,maxLat` fragt er auch die Dienste an.
+4. Legen Sie den Ordner in Ihren Adapterordner (`freemapper adapters list` nennt, wo er liegt, oder setzen Sie
+   `FREEMAPPER_ADAPTER_DIR` auf einen absoluten Pfad). Ab dem nächsten Start ersetzt der Ordner den eingebauten
+   Adapter.
+5. Sehen Sie nach, dass es gewirkt hat: Jeder Start des Programms gibt die Warnung `adapter.replaces-built-in`
+   aus, `freemapper adapters list` zeigt das Bundesland als `aus Ihrem Ordner`, und `adapters list --json` hat
+   `"replaces_built_in": true`.
+6. Zum Zurückgehen löschen Sie den Ordner. Beim nächsten Start ist der eingebaute Adapter wieder da.
+
+Woran sich der Ersatz hält: Er fragt nur die Hosts an, die sein eigenes Manifest nennt; Hosts, die Sie mit
+`allow-host` für den eingebauten Adapter freigegeben haben, gelten nicht mit. Quellenangabe und Lizenz sind die
+des Manifests; halten Sie `[credit]` und die Lizenz richtig, wenn der Dienst die Lizenz wechselt. Eine neuere
+Version von freemapper, die das eingebaute Bundesland ändert, erreicht kein Gebiet, dessen Ordner es ersetzt:
+Hat der eingebaute Adapter eine höhere `revision`, sagen es `adapters check` (`check.built-in-newer`) und jeder
+Start (`adapter.replacement-outdated`); exportieren Sie dann neu und übernehmen Sie Ihre Änderungen. Ein Ordner
+in einem Projekt (`--adapters-from-project`) ersetzt nie einen eingebauten Adapter, und die Gebietsseite und der
+KI-Assistent über MCP lesen nur Ihren eigenen Ordner.
+
+Was ein Ordner nicht ersetzen kann: Im Export steht nur, was das Manifest beschreibt. Adressen, die noch im Code
+eines Bundeslands stehen, bleiben, wie sie sind: die Schichten Berlins, die das Programm mit Code abruft, die
+Baumkataster, die Punktwolken und die Quellen der Genehmigungshinweise, die keine Manifesttabelle beschreibt. Der
+Adapter Polens ist Code und hat kein Manifest zum Exportieren. Ist der umgezogene Dienst einer davon, melden
+Sie ihn (Kapitel 17) und helfen Sie sich bis zur nächsten Version mit `allow-host`.
+
+Ein Assistent, der für Sie einen Dienst nachgetragen hat, schlägt die Änderung vor, zeigt sie und schreibt sie
+erst, wenn Sie zugestimmt haben.
+
 ## 14. Später weiterarbeiten
 
 - **Ihre Karte ist sicher:** Ein erneutes `run` (oder „bitte neu laden“) ändert eine vorhandene Karte
@@ -1799,9 +2015,16 @@ adapters disallow-host hessen neuer-server.hessen.de` nimmt einen zurück.
 
 ## 15. Meldungen und was zu tun ist
 
-freemapper kennt Deutsch und Englisch. Die Sprache kommt aus `--lang de` oder `--lang en`, sonst aus der
+freemapper kennt Deutsch und Englisch und 19 weitere Sprachen (siehe unten). Die Sprache kommt aus `--lang de` oder `--lang en`, sonst aus der
 Umgebungsvariable `FREEMAPPER_LANG`, sonst aus der Sprache des Systems (`LANG`), sonst ist sie Englisch. Unter
 Windows ist `LANG` meist nicht gesetzt; dort hilft `--lang de`.
+
+Das Programm spricht außerdem Polnisch, Tschechisch, Dänisch, Spanisch, Estnisch, Finnisch, Französisch, Ungarisch,
+Italienisch, Litauisch, Lettisch, Norwegisch (Bokmål), Niederländisch, Portugiesisch, Russisch, Slowakisch,
+Slowenisch, Schwedisch und Ukrainisch (`--lang pl`, `--lang cs` und so weiter). Diese Texte sind maschinell
+entworfen, kein Muttersprachler hat sie gelesen, und Fehler sind möglich. Korrekturen sind willkommen, als Issue oder
+als Pull Request: Die Texte liegen je Sprache in `crates/freemapper-cli/i18n/<Sprache>/freemapper.ftl` und
+`crates/freemapper-adapter-api/i18n/<Sprache>/notes.ftl`, die Anleitung steht in `crates/freemapper-cli/i18n/README.md`.
 
 Übersetzt sind die Zeilen, die das Programm am Ende eines Schritts ausgibt, etwa „… geschrieben“ und die Hinweise
 nach `run` und `export`, und die Fehlermeldungen. Eine Fehlermeldung beginnt mit `Fehler:` (englisch `error:`),
@@ -1836,7 +2059,7 @@ Sprachen so: Das sind Einzelheiten zu Servern und Dateiformaten. Die wichtigsten
 | `Das Herunterladen von … ist gescheitert` / `ungültige ALKIS-Daten` (englisch: `download of … failed` oder `invalid ALKIS data`) | Ein Server war nicht erreichbar oder hat Unsinn geschickt. | Später erneut versuchen. Bereits geladene Daten bleiben erhalten. |
 | Gebietsauswahl: „access blocked“ / 403 von OpenStreetMap, oder die Hintergrundkarte bleibt grau | Die Hintergrundkarte kommt von `tile.openstreetmap.org`. Dessen Kachelrichtlinie verlangt eine erkennbare Anwendung (`User-Agent`) oder ein gültiges `Referer`; der Browser schickt hier keinen `Referer`. Bis 0.9.1 lud der Browser die Kacheln selbst und bekam deshalb 403. Seit 0.9.2 holt der lokale Server die Kacheln mit `User-Agent: freemapper/<Version> (+https://github.com/HenryJobst/freemapper)` und gibt sie an den Browser weiter. | freemapper aktualisieren. Der Rechner braucht Internet. Antwortet der Server mit 502, steht der Grund in der Antwort (z. B. HTTP 403 oder keine Verbindung). Die Luftbilder der Bundesländer sind nicht betroffen. |
 | `…: Der Server hat die Anfrage abgelehnt (HTTP 400)` (englisch: `… refused the request (HTTP 400)`) | Ein Dienst lehnt die Anfrage ab. | Erneut versuchen. Bleibt es dabei, einen Fehler melden. |
-| `…: freemapper sendet keine Anfragen an diese Adresse: Der Adapter für … nennt den Host … nicht` (englisch: `… freemapper does not send requests to this address: the adapter of … does not name the host …`) | freemapper fragt für ein Bundesland nur die Server an, die dessen Adapter nennt. Ein Dienst ist auf einen anderen Server umgezogen, hat dorthin weitergeleitet oder in seiner Antwort dorthin verwiesen. Die Meldung beginnt mit der abgelehnten Adresse und endet mit dem Kommando, das den Host freigibt. | Wenn Sie dem Server vertrauen (er gehört erkennbar zum Amt des Bundeslands): das Kommando aus der Meldung ausführen, `freemapper adapters allow-host <Adapter> <Host>`, den Lauf wiederholen und den Umzug melden (Kapitel 17). Siehe „Wenn ein Dienst umzieht“ in Kapitel 13. Bei einem eigenen Adapter den Host in `[net] hosts` des Manifests eintragen. |
+| `…: freemapper sendet keine Anfragen an diese Adresse: Der Adapter für … nennt den Host … nicht` (englisch: `… freemapper does not send requests to this address: the adapter of … does not name the host …`) | freemapper fragt für ein Bundesland nur die Server an, die dessen Adapter nennt. Ein Dienst ist auf einen anderen Server umgezogen, hat dorthin weitergeleitet oder in seiner Antwort dorthin verwiesen. Die Meldung beginnt mit der abgelehnten Adresse und endet mit dem Kommando, das den Host freigibt. | Wenn Sie dem Server vertrauen (er gehört erkennbar zum Amt des Bundeslands): das Kommando aus der Meldung ausführen, `freemapper adapters allow-host <Adapter> <Host>`, den Lauf wiederholen und den Umzug melden (Kapitel 17). Siehe „Wenn ein Dienst umzieht“ in Kapitel 13. Hat sich die Adresse selbst geändert, können Sie sie ohne neue Version berichtigen („Eine Adresse selbst ändern“, Kapitel 13). Bei einem eigenen Adapter den Host in `[net] hosts` des Manifests eintragen. |
 | `…: freemapper sendet keine Anfragen an diese Adresse: …` mit einem anderen Grund (englisch: `… freemapper does not send requests to this address: …`) | freemapper verbindet sich nie mit einer Adresse dieses Rechners oder des lokalen Netzes, folgt höchstens drei Weiterleitungen in Folge und keiner Weiterleitung auf `http`. | Nichts freizugeben. Bei einem eingebauten Bundesland einen Fehler melden. |
 | `…: Der Server hat den Bytebereich … nicht beachtet` (englisch: `… ignored the byte range`) | Der Server (Höhenmodelle von Hamburg oder Hessen) schickt das ganze Archiv statt der Kachel; freemapper bricht ab, statt über 1 GB zu laden. | Später erneut versuchen, sonst einen Fehler melden. |
 | `Die Datei von … ist größer als … MB; abgebrochen` (englisch: `download of … is larger than … MB; stopped`) | Ein Server (OSM-Auszug, Downloadportal Schleswig-Holstein, vollständiges ALKIS oder Potsdamer Baumkataster) schickt weit mehr, als die Datei groß sein kann; freemapper bricht ab und löscht den Teil-Download. Bei den Bäumen steht die Meldung in den Klammern von `warning: potsdam tree cadastre unavailable`. | Später erneut versuchen, sonst einen Fehler melden. |

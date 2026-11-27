@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! `freemapper update` (spec 3.4 to 3.6): check for a newer release, install it after asking, go
 //! back to the previous version, or store the mode of the daily check.
 //!
@@ -268,7 +270,31 @@ fn ask() -> anyhow::Result<bool> {
 fn is_yes(answer: &str) -> bool {
     matches!(
         answer.trim().to_lowercase().as_str(),
-        "y" | "yes" | "j" | "ja"
+        "y" | "yes"
+            | "j"
+            | "ja"
+            | "t"
+            | "tak"
+            | "o"
+            | "oui"
+            | "s"
+            | "si"
+            | "sí"
+            | "sì"
+            | "sim"
+            | "d"
+            | "da"
+            | "i"
+            | "igen"
+            | "ano"
+            | "áno"
+            | "jah"
+            | "jā"
+            | "kyllä"
+            | "taip"
+            | "так"
+            | "д"
+            | "да"
     )
 }
 
@@ -329,10 +355,37 @@ mod tests {
 
     #[test]
     fn only_yes_installs() {
-        for yes in ["y\n", "Y", " yes \r\n", "j", "Ja"] {
+        for yes in [
+            "y\n",
+            "Y",
+            " yes \r\n",
+            "j",
+            "Ja",
+            "t",
+            "TAK",
+            "o",
+            "Oui",
+            "s",
+            "Sí",
+            "sim",
+            "d",
+            "i",
+            "igen",
+            "ANO",
+            "Áno",
+            "jah",
+            "Jā",
+            "kyllä",
+            "taip",
+            "Так",
+            "д",
+            "Да",
+        ] {
             assert!(is_yes(yes), "{yes:?}");
         }
-        for no in ["", "\n", "n", "no", "nein", "yess", "maybe"] {
+        for no in [
+            "", "\n", "n", "no", "nein", "nie", "ne", "nej", "ei", "нет", "ні", "yess", "maybe",
+        ] {
             assert!(!is_yes(no), "{no:?}");
         }
     }

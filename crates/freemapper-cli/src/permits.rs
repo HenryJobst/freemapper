@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The permit notes as Markdown (`permits.md`, ADR 0117), and the command that fetches and
 //! writes them: `freemapper permits`, `run --permits` and, later, the MCP tool.
 //!
@@ -16,9 +18,9 @@ use freemapper::permits::notes::{
     ProtectedEntry, Share, SourceStatus, hint_key,
 };
 use freemapper::permits::regional::{
-    ForestFunctionEntry, ForestUnitEntry, GreenSpaceEntry, PermitSection, ProtectedObjectEntry,
-    ProtectedObjectKind, RegionalNotes, RegionalStatus, StateForestEntry, WaterProtectionEntry,
-    Words,
+    AdminUnitEntry, ForestFunctionEntry, ForestUnitEntry, GreenSpaceEntry, PermitSection,
+    ProtectedObjectEntry, ProtectedObjectKind, RegionalNotes, RegionalStatus, RegisterMonuments,
+    StateForestEntry, WaterProtectionEntry, Words,
 };
 use freemapper::permits::store::{PERMITS_JSON, PERMITS_MD, write_permit_notes};
 use freemapper::project::{MapKind, ProjectFile};
@@ -158,10 +160,10 @@ fn link(url: &str) -> String {
     if plain { format!("<{url}>") } else { md(url) }
 }
 
-/// A number with `decimals` decimals in the way of `lang` (a decimal comma in German).
+/// A number with `decimals` decimals in the way of `lang` (a decimal comma in German and Polish).
 fn decimal(lang: &Lang, value: f64, decimals: usize) -> String {
     let text = format!("{value:.decimals$}");
-    if lang.code() == "de" {
+    if matches!(lang.code().as_str(), "de" | "pl") {
         text.replace('.', ",")
     } else {
         text
@@ -432,8 +434,18 @@ fn hint_text(lang: &Lang, notes: &PermitNotes, hint: &Hint) -> String {
     if hint.key == hint_key::FOREST_OFFICE && !has(&args, "units") {
         args.push(("units".into(), "none".into()));
     }
-    if hint.key == hint_key::FOREST_OWNER && !has(&args, "office") {
+    if (hint.key == hint_key::FOREST_OWNER || hint.key == hint_key::FOREST_OWNER_PL)
+        && !has(&args, "office")
+    {
         args.push(("office".into(), "unknown".into()));
+    }
+    if (hint.key == hint_key::FOREST_OWNER_CZ || hint.key == hint_key::MONUMENTS_CZ)
+        && !has(&args, "orp")
+    {
+        args.push(("orp".into(), "none".into()));
+    }
+    if hint.key == hint_key::GMINA_NATURE_PL && !has(&args, "gmina") {
+        args.push(("gmina".into(), "none".into()));
     }
     if hint.key == hint_key::STATE_FOREST && !has(&args, "office") {
         args.push(("office".into(), "none".into()));
@@ -446,8 +458,66 @@ fn hint_text(lang: &Lang, notes: &PermitNotes, hint: &Hint) -> String {
         args.retain(|(k, _)| k != "percent");
         args.push(("share".into(), share_text(lang, percent.unwrap_or(0.0))));
     }
-    let args: Vec<(&str, FluentValue)> = args.iter().map(|(k, v)| (k.as_str(), arg(v))).collect();
+    let count = if GMINA_HINTS.contains(&hint.key.as_str()) {
+        gmina_list(lang, &mut args)
+    } else {
+        None
+    };
+    let args: Vec<(&str, FluentValue)> = args
+        .iter()
+        .map(|(k, v)| match count {
+            Some(n) if k == "count" => (k.as_str(), FluentValue::from(n)),
+            _ => (k.as_str(), arg(v)),
+        })
+        .collect();
     t(lang, &hint.key, &args)
+}
+
+/// The hints that name the municipalities of the map area: the Polish gminas (ADR 0183, 0193)
+/// and the Czech obce (ADR 0201).
+const GMINA_HINTS: [&str; 4] = [
+    hint_key::GMINA_NATURE_PL,
+    hint_key::GMINA_ROADS_PL,
+    hint_key::GMINA_LAND_PL,
+    hint_key::ROADS_CZ,
+];
+
+/// Writes the list of gminas of a Polish hint into its `gmina` arg: each name with its share
+/// where the notes hold one share per name. Sets `count` to the number of gminas of the map
+/// area (also for notes files from before ADR 0193, which hold the names only) and returns it as a number for the
+/// plural selector; `None` where the hint names no gmina.
+fn gmina_list(lang: &Lang, args: &mut Vec<(String, String)>) -> Option<i64> {
+    let value = |args: &[(String, String)], name: &str| -> Option<String> {
+        args.iter().find(|(k, _)| k == name).map(|(_, v)| v.clone())
+    };
+    let names = value(args, "gmina").filter(|g| g != "none")?;
+    let names: Vec<&str> = names.split(", ").collect();
+    let shares: Vec<f64> = value(args, "shares")
+        .map(|s| s.split(',').filter_map(|p| p.trim().parse().ok()).collect())
+        .unwrap_or_default();
+    let list: Vec<String> = names
+        .iter()
+        .enumerate()
+        .map(|(i, name)| match shares.get(i) {
+            Some(percent) if shares.len() == names.len() => {
+                format!("{name} ({})", share_text(lang, *percent))
+            }
+            _ => (*name).to_string(),
+        })
+        .collect();
+    let count = names.len() as i64;
+    set_arg(args, "gmina", list.join(", "));
+    set_arg(args, "count", count.to_string());
+    Some(count)
+}
+
+/// Sets the arg `name` in place, or appends it where it is missing, so a name never occurs twice.
+/// The other args stay as they are.
+fn set_arg(args: &mut Vec<(String, String)>, name: &str, value: String) {
+    match args.iter_mut().find(|(k, _)| k == name) {
+        Some((_, v)) => *v = value,
+        None => args.push((name.into(), value)),
+    }
 }
 
 fn sources_table(lang: &Lang, notes: &PermitNotes) -> String {
@@ -648,6 +718,33 @@ fn green_space_line(lang: &Lang, s: &Share<GreenSpaceEntry>) -> String {
     )
 }
 
+/// "województwo lubuskie (TERYT 08): 100 %" (ADR 0181).
+fn admin_unit_line(lang: &Lang, adapter: &str, s: &Share<AdminUnitEntry>) -> String {
+    let u = &s.item;
+    // The code is that of RÚIAN in Czechia (ADR 0201), else the Polish TERYT.
+    let code_text = if adapter == "cesko" {
+        "permits-admin-unit-code-ruian"
+    } else {
+        "permits-admin-unit-code"
+    };
+    let name = t(
+        lang,
+        code_text,
+        &[("name", arg(md(&u.name))), ("code", arg(md(&u.code)))],
+    );
+    format!(
+        "- {}",
+        t(
+            lang,
+            "permits-share-line",
+            &[
+                ("name", arg(name)),
+                ("share", arg(share_text(lang, s.percent)))
+            ],
+        )
+    )
+}
+
 /// "Oberförsterei Barnim, Revier Werneuchen (Landesbetrieb Forst Brandenburg): 60 %".
 fn forest_unit_line(lang: &Lang, s: &Share<ForestUnitEntry>) -> String {
     let u = &s.item;
@@ -782,6 +879,55 @@ fn object_line(lang: &Lang, o: &ProtectedObjectEntry) -> String {
 }
 
 /// The sections of one regional part; a section whose source was not read is left out.
+/// The texts of a register of monuments without positions (ADR 0184, ADR 0190).
+struct RegisterIds {
+    heading: &'static str,
+    none: &'static str,
+    total: &'static str,
+    left: &'static str,
+}
+
+const REGISTER_MONUMENT_IDS: RegisterIds = RegisterIds {
+    heading: "permits-section-register-monuments",
+    none: "permits-none-register-monuments",
+    total: "permits-register-monuments-total",
+    left: "permits-register-monuments-left",
+};
+
+const REGISTER_ARCHAEOLOGY_IDS: RegisterIds = RegisterIds {
+    heading: "permits-section-register-archaeology",
+    none: "permits-none-register-archaeology",
+    total: "permits-register-archaeology-total",
+    left: "permits-register-archaeology-left",
+};
+
+/// The list of the names of a register and the sentence on the monuments left without a name
+/// line, each when there is something to say.
+fn register_names(lang: &Lang, register: &RegisterMonuments, left_id: &str) -> Vec<String> {
+    let mut blocks = Vec::new();
+    let lines: Vec<String> = register
+        .names
+        .iter()
+        .map(|n| {
+            format!(
+                "- {}",
+                t(
+                    lang,
+                    "permits-count-line",
+                    &[("name", arg(md(&n.name))), ("count", arg(n.count))],
+                )
+            )
+        })
+        .collect();
+    if !lines.is_empty() {
+        blocks.push(lines.join("\n"));
+    }
+    if register.left > 0 {
+        blocks.push(t(lang, left_id, &[("count", arg(register.left))]));
+    }
+    blocks
+}
+
 fn regional_blocks(lang: &Lang, part: &RegionalNotes) -> Vec<String> {
     // The sources that fill a section, by their labels in order; the first source of the
     // adapter when none names it.
@@ -826,6 +972,22 @@ fn regional_blocks(lang: &Lang, part: &RegionalNotes) -> Vec<String> {
         t(lang, id, &[("source", arg(section_label(section)))])
     };
     let mut blocks = Vec::new();
+    if let Some(units) = &part.admin_units {
+        blocks.push(heading(
+            PermitSection::AdminUnits,
+            "permits-section-admin-units",
+        ));
+        if units.is_empty() {
+            blocks.push(none(PermitSection::AdminUnits, "permits-none-admin-units"));
+        } else {
+            blocks.extend(with_edge(
+                lang,
+                units,
+                |s| admin_unit_line(lang, &part.adapter, s),
+                None,
+            ));
+        }
+    }
     if let Some(districts) = &part.districts {
         blocks.push(heading(
             PermitSection::Districts,
@@ -944,6 +1106,47 @@ fn regional_blocks(lang: &Lang, part: &RegionalNotes) -> Vec<String> {
                     lang,
                     "permits-monuments-links-left",
                     &[("count", arg(monuments.links_left))],
+                ));
+            }
+        }
+    }
+    for (register, section, ids) in [
+        (
+            &part.register_monuments,
+            PermitSection::MonumentRegister,
+            REGISTER_MONUMENT_IDS,
+        ),
+        (
+            &part.register_archaeology,
+            PermitSection::ArchaeologyRegister,
+            REGISTER_ARCHAEOLOGY_IDS,
+        ),
+    ] {
+        let Some(register) = register else { continue };
+        blocks.push(heading(section, ids.heading));
+        if register.total == 0 {
+            blocks.push(none(section, ids.none));
+        } else {
+            blocks.push(t(lang, ids.total, &[("count", arg(register.total))]));
+            blocks.extend(register_names(lang, register, ids.left));
+        }
+    }
+    if let Some(history) = &part.register_history {
+        let section = PermitSection::HistoryRegister;
+        blocks.push(heading(section, "permits-section-register-history"));
+        if history.in_area.total == 0 && history.nearby.total == 0 {
+            blocks.push(none(section, "permits-none-register-history"));
+        }
+        for (register, total) in [
+            (&history.in_area, "permits-register-history-in-area"),
+            (&history.nearby, "permits-register-history-nearby"),
+        ] {
+            if register.total > 0 {
+                blocks.push(t(lang, total, &[("count", arg(register.total))]));
+                blocks.extend(register_names(
+                    lang,
+                    register,
+                    "permits-register-history-left",
                 ));
             }
         }
@@ -1073,70 +1276,97 @@ pub fn render_markdown(notes: &PermitNotes, lang: &Lang) -> String {
         MapKind::Sprint => "sprint",
         MapKind::Forest => "forest",
     };
+    // Notes of a region without the German national sources (Poland, ADR 0175) have no status
+    // for VG250 and the BfN: they name neither, nor the German units, authorities and roads.
+    let national = status(notes, "vg250").is_some();
     let mut blocks = vec![
         format!("# {}", t(lang, "permits-title", &[])),
-        t(lang, "permits-disclaimer", &[]),
-        t(lang, "permits-bfn-merge", &[]),
         t(
             lang,
-            "permits-created",
-            &[
-                ("date", arg(notes.created)),
-                ("kind", arg(kind)),
-                ("area", arg(decimal(lang, notes.area_m2 / 10_000.0, 1))),
-            ],
+            if national {
+                "permits-disclaimer"
+            } else {
+                "permits-disclaimer-regional"
+            },
+            &[],
         ),
     ];
+    if national {
+        blocks.push(t(lang, "permits-bfn-merge", &[]));
+    }
+    blocks.push(t(
+        lang,
+        "permits-created",
+        &[
+            ("date", arg(notes.created)),
+            ("kind", arg(kind)),
+            ("area", arg(decimal(lang, notes.area_m2 / 10_000.0, 1))),
+        ],
+    ));
 
-    blocks.push(heading("permits-section-admin"));
-    if !was_read(notes, "vg250") {
-        blocks.push(not_read(lang, "vg250"));
-    } else if notes.admin.is_empty() {
-        blocks.push(t(lang, "permits-none-admin", &[]));
-    } else {
-        blocks.extend(with_edge(
-            lang,
-            &notes.admin,
-            |s| admin_line(lang, s),
-            Some(t(lang, "permits-at-edge-generalised", &[])),
-        ));
+    if national {
+        blocks.push(heading("permits-section-admin"));
+        if !was_read(notes, "vg250") {
+            blocks.push(not_read(lang, "vg250"));
+        } else if notes.admin.is_empty() {
+            blocks.push(t(lang, "permits-none-admin", &[]));
+        } else {
+            blocks.extend(with_edge(
+                lang,
+                &notes.admin,
+                |s| admin_line(lang, s),
+                Some(t(lang, "permits-at-edge-generalised", &[])),
+            ));
+        }
     }
 
     for part in &notes.regional {
         blocks.extend(regional_blocks(lang, part));
     }
 
-    blocks.push(heading("permits-section-protected"));
-    if !was_read(notes, "bfn") {
-        blocks.push(not_read(lang, "bfn"));
-    } else if notes.protected.is_empty() {
-        blocks.push(t(lang, "permits-none-protected", &[]));
-    } else {
-        blocks.extend(with_edge(
-            lang,
-            &notes.protected,
-            |s| protected_lines(lang, s),
-            None,
-        ));
-    }
-
-    let osm = was_read(notes, "osm");
-    let gap = t(lang, "permits-osm-enclosing-gap", &[]);
-    blocks.push(heading("permits-section-osm-protected"));
-    if !osm {
-        blocks.push(not_read(lang, "osm"));
-    } else {
-        if notes.osm_protected.is_empty() {
-            blocks.push(t(lang, "permits-none-osm-protected", &[]));
+    if national {
+        blocks.push(heading("permits-section-protected"));
+        if !was_read(notes, "bfn") {
+            blocks.push(not_read(lang, "bfn"));
+        } else if notes.protected.is_empty() {
+            blocks.push(t(lang, "permits-none-protected", &[]));
         } else {
             blocks.extend(with_edge(
                 lang,
-                &notes.osm_protected,
-                |s| osm_lines(lang, s),
+                &notes.protected,
+                |s| protected_lines(lang, s),
                 None,
             ));
         }
-        blocks.push(gap.clone());
+    }
+
+    let osm = was_read(notes, "osm");
+    let gap = t(
+        lang,
+        if national {
+            "permits-osm-enclosing-gap"
+        } else {
+            "permits-osm-enclosing-gap-short"
+        },
+        &[],
+    );
+    if national {
+        blocks.push(heading("permits-section-osm-protected"));
+        if !osm {
+            blocks.push(not_read(lang, "osm"));
+        } else {
+            if notes.osm_protected.is_empty() {
+                blocks.push(t(lang, "permits-none-osm-protected", &[]));
+            } else {
+                blocks.extend(with_edge(
+                    lang,
+                    &notes.osm_protected,
+                    |s| osm_lines(lang, s),
+                    None,
+                ));
+            }
+            blocks.push(gap.clone());
+        }
     }
 
     blocks.push(heading("permits-section-operators"));
@@ -1156,31 +1386,33 @@ pub fn render_markdown(notes: &PermitNotes, lang: &Lang) -> String {
         blocks.push(gap);
     }
 
-    // The classified roads (ADR 0133), from the same extract.
-    blocks.push(heading("permits-section-roads"));
-    if !osm {
-        blocks.push(not_read(lang, "osm"));
-    } else if notes.roads.is_empty() {
-        blocks.push(t(lang, "permits-none-roads", &[]));
-    } else {
-        let lines: Vec<String> = notes
-            .roads
-            .iter()
-            .map(|r| {
-                format!(
-                    "- {}",
-                    t(
-                        lang,
-                        "permits-road-line",
-                        &[
-                            ("class", arg(serde_name(r.class))),
-                            ("refs", arg(md(&r.refs.join(", ")))),
-                        ],
+    // The classified roads (ADR 0133), from the same extract; their classes are German.
+    if national {
+        blocks.push(heading("permits-section-roads"));
+        if !osm {
+            blocks.push(not_read(lang, "osm"));
+        } else if notes.roads.is_empty() {
+            blocks.push(t(lang, "permits-none-roads", &[]));
+        } else {
+            let lines: Vec<String> = notes
+                .roads
+                .iter()
+                .map(|r| {
+                    format!(
+                        "- {}",
+                        t(
+                            lang,
+                            "permits-road-line",
+                            &[
+                                ("class", arg(serde_name(r.class))),
+                                ("refs", arg(md(&r.refs.join(", ")))),
+                            ],
+                        )
                     )
-                )
-            })
-            .collect();
-        blocks.push(lines.join("\n"));
+                })
+                .collect();
+            blocks.push(lines.join("\n"));
+        }
     }
 
     blocks.push(heading("permits-section-hints"));
@@ -1234,6 +1466,18 @@ fn used_ids() -> Vec<String> {
             hint_key::WATER_PROTECTION,
             hint_key::FOREST_FUNCTION,
             hint_key::ROAD_CLASS,
+            hint_key::PROTECTED_AREAS_PL,
+            hint_key::FOREST_OWNER_PL,
+            hint_key::GMINA_NATURE_PL,
+            hint_key::GMINA_ROADS_PL,
+            hint_key::GMINA_LAND_PL,
+            hint_key::MONUMENT_REGISTER_PL,
+            hint_key::ARCHAEOLOGY_REGISTER_PL,
+            hint_key::HISTORY_REGISTER_PL,
+            hint_key::PROTECTED_AREAS_CZ,
+            hint_key::MONUMENTS_CZ,
+            hint_key::FOREST_OWNER_CZ,
+            hint_key::ROADS_CZ,
         ]
         .map(String::from),
     );
@@ -1243,6 +1487,14 @@ fn used_ids() -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_decimal_comma_holds_for_german_and_polish_only() {
+        let lang = |code| TEXTS.parse_lang_arg(code).unwrap();
+        assert_eq!(decimal(&lang("de"), 1.25, 1), "1,2");
+        assert_eq!(decimal(&lang("pl"), 1.26, 1), "1,3");
+        assert_eq!(decimal(&lang("en"), 1.26, 1), "1.3");
+    }
     use crate::text::TEXTS;
     use chrono::NaiveDate;
     use freemapper::permits::notes::{
@@ -1474,6 +1726,7 @@ mod tests {
                 gaps: None,
                 sections: Vec::new(),
                 offices: None,
+                country: None,
             },
             status: SourceStatus {
                 id: key.into(),
@@ -1642,6 +1895,10 @@ mod tests {
                 state_forest: None,
                 water_protection: None,
                 forest_functions: None,
+                admin_units: None,
+                register_monuments: None,
+                register_archaeology: None,
+                register_history: None,
                 sources: vec![
                     regional_status("bezirke", "Bezirksgrenzen (ALKIS Berlin)", None),
                     regional_status("gruenanlagen", "Grünanlagenbestand", None),
@@ -1655,6 +1912,389 @@ mod tests {
                 ],
             }],
         }
+    }
+
+    /// A forest hint without its `office` falls back to the text for an unknown office, and no
+    /// other hint takes that fallback: a state forest without an office reads "none".
+    #[test]
+    fn the_office_of_a_forest_hint_falls_back_per_key() {
+        let notes = viktoriapark();
+        let en = Lang::english();
+        let text = |key: &str, args: &[(&str, &str)]| hint_text(&en, &notes, &hint(key, args));
+        for key in [hint_key::FOREST_OWNER, hint_key::FOREST_OWNER_PL] {
+            let unknown = text(key, &[]);
+            assert!(
+                unknown.contains("not name the forest office")
+                    || unknown.contains("name no forest"),
+                "{key}: {unknown}"
+            );
+            assert_eq!(unknown, text(key, &[("office", "unknown")]));
+            assert_ne!(unknown, text(key, &[("office", "known")]));
+        }
+        let state = text(
+            hint_key::STATE_FOREST,
+            &[("owner", "Land X"), ("percent", "12")],
+        );
+        assert!(!state.contains("In charge"), "{state}");
+        assert!(!state.contains("unknown"), "{state}");
+        assert_eq!(
+            state,
+            text(
+                hint_key::STATE_FOREST,
+                &[("owner", "Land X"), ("percent", "12"), ("office", "none")]
+            )
+        );
+    }
+
+    /// A nature hint of a gmina without the gmina reads the text for "none" and leaves no
+    /// placeholder behind; a hint that names its gmina does not.
+    #[test]
+    fn the_nature_hint_of_a_gmina_without_one_falls_back_to_none() {
+        let notes = viktoriapark();
+        for code in ["en", "de", "pl"] {
+            let lang = TEXTS.parse_lang_arg(code).unwrap();
+            let text = |args: &[(&str, &str)]| {
+                hint_text(&lang, &notes, &hint(hint_key::GMINA_NATURE_PL, args))
+            };
+            let bare = text(&[]);
+            assert_eq!(bare, text(&[("gmina", "none")]), "{code}");
+            assert!(!bare.contains("$gmina"), "{code}: {bare}");
+            assert_ne!(bare, text(&[("gmina", "Słubice")]), "{code}");
+        }
+    }
+
+    #[test]
+    fn polish_notes_leave_out_the_german_sections_and_names() {
+        let mut notes = viktoriapark();
+        notes.admin.clear();
+        notes.regional.clear();
+        notes.sources.retain(|s| s.id == "osm");
+        notes.hints = vec![
+            hint(hint_key::PROTECTED_AREAS_PL, &[]),
+            hint(hint_key::FOREST_OWNER_PL, &[("office", "unknown")]),
+        ];
+        for lang in [de(), Lang::english()] {
+            let text = render_markdown(&notes, &lang);
+            for forbidden in [
+                "VG250",
+                "BfN",
+                "Bundesamt für Naturschutz",
+                "Bezirk",
+                "Gemeinde",
+                "Kreis",
+                "Grundbuchamt",
+                "Ordnungsamt",
+            ] {
+                assert!(!text.contains(forbidden), "{forbidden}\n{text}");
+            }
+        }
+        let text = render_markdown(&notes, &Lang::english());
+        assert!(text.contains("Regional Directorate for Environmental Protection"));
+        assert!(text.contains("State Forests"), "{text}");
+    }
+
+    /// The hints that name the gmina fill its name in every language, and the nature hint reads
+    /// on without one (ADR 0183).
+    #[test]
+    fn the_gmina_hints_name_the_gmina_in_every_language() {
+        let mut notes = viktoriapark();
+        notes.admin.clear();
+        notes.regional.clear();
+        notes.sources.retain(|s| s.id == "osm");
+        let gmina = [("gmina", "gmina miejska Słubice")];
+        for code in [
+            "en", "de", "pl", "cs", "da", "es", "et", "fi", "fr", "hu", "it", "lt", "lv", "nb",
+            "nl", "pt", "ru", "sk", "sl", "sv", "uk",
+        ] {
+            let lang = TEXTS.parse_lang_arg(code).unwrap();
+            for key in [
+                hint_key::GMINA_NATURE_PL,
+                hint_key::GMINA_ROADS_PL,
+                hint_key::GMINA_LAND_PL,
+            ] {
+                notes.hints = vec![hint(key, &gmina)];
+                let text = render_markdown(&notes, &lang);
+                assert!(text.contains("Słubice"), "{code} {key}\n{text}");
+                assert!(!text.contains("{ $"), "{code} {key}\n{text}");
+            }
+            notes.hints = vec![hint(hint_key::MONUMENT_REGISTER_PL, &[])];
+            let text = render_markdown(&notes, &lang);
+            assert!(
+                !text.contains("{ $") && text.contains("36"),
+                "{code}\n{text}"
+            );
+            notes.hints = vec![hint(hint_key::ARCHAEOLOGY_REGISTER_PL, &[])];
+            let text = render_markdown(&notes, &lang);
+            assert!(
+                !text.contains("{ $") && text.contains("36") && text.contains("zabytk"),
+                "{code}\n{text}"
+            );
+            notes.hints = vec![hint(hint_key::HISTORY_REGISTER_PL, &[])];
+            let text = render_markdown(&notes, &lang);
+            assert!(
+                !text.contains("{ $")
+                    && text.contains("Pomnik")
+                    && text.contains("15")
+                    && text.contains("36"),
+                "{code}\n{text}"
+            );
+            notes.hints = vec![hint(hint_key::GMINA_NATURE_PL, &[])];
+            let text = render_markdown(&notes, &lang);
+            assert!(
+                !text.contains("{ $") && !text.contains("none"),
+                "{code}\n{text}"
+            );
+        }
+        notes.hints = vec![hint(hint_key::GMINA_ROADS_PL, &gmina)];
+        let text = render_markdown(&notes, &Lang::english());
+        assert!(text.contains("art. 65 of the Road Traffic Act"), "{text}");
+        assert!(
+            text.contains("starosta for powiat and gmina roads"),
+            "{text}"
+        );
+    }
+
+    const ALL_LANGUAGES: [&str; 21] = [
+        "en", "de", "pl", "cs", "da", "es", "et", "fi", "fr", "hu", "it", "lt", "lv", "nb", "nl",
+        "pt", "ru", "sk", "sl", "sv", "uk",
+    ];
+
+    /// The Czech hints quote their law in every language, fill the districts and the
+    /// municipalities and read on without the districts (ADR 0201).
+    #[test]
+    fn the_czech_hints_quote_their_law_and_name_the_districts_in_every_language() {
+        let mut notes = viktoriapark();
+        notes.admin.clear();
+        notes.regional.clear();
+        notes.sources.retain(|s| s.id == "osm");
+        let orp = [("orp", "ORP Broumov, ORP Náchod")];
+        let roads = [
+            ("gmina", "obec Adršpach, obec Teplice nad Metují"),
+            ("shares", "70.0,30.0"),
+            ("count", "2"),
+        ];
+        type Case<'a> = (&'a str, &'a [(&'a str, &'a str)], &'a str);
+        let cases: [Case; 4] = [
+            (hint_key::PROTECTED_AREAS_CZ, &[], "114/1992"),
+            (hint_key::MONUMENTS_CZ, &orp, "20/1987"),
+            (hint_key::FOREST_OWNER_CZ, &orp, "289/1995"),
+            (hint_key::ROADS_CZ, &roads, "13/1997"),
+        ];
+        for code in ALL_LANGUAGES {
+            let lang = TEXTS.parse_lang_arg(code).unwrap();
+            for (key, args, law) in cases {
+                notes.hints = vec![hint(key, args)];
+                let text = render_markdown(&notes, &lang);
+                assert!(text.contains(law), "{code} {key}\n{text}");
+                assert!(
+                    !text.contains("{ $") && !text.contains('$'),
+                    "{code} {key}\n{text}"
+                );
+                assert!(text.contains("§"), "{code} {key}\n{text}");
+            }
+            // The districts are named where the hint has them, and the hint reads on without.
+            for key in [hint_key::MONUMENTS_CZ, hint_key::FOREST_OWNER_CZ] {
+                notes.hints = vec![hint(key, &orp)];
+                let with = render_markdown(&notes, &lang);
+                assert!(
+                    with.contains("ORP Broumov, ORP Náchod"),
+                    "{code} {key}\n{with}"
+                );
+                notes.hints = vec![hint(key, &[])];
+                let without = render_markdown(&notes, &lang);
+                assert!(!without.contains("ORP"), "{code} {key}\n{without}");
+                assert!(!without.contains("none"), "{code} {key}\n{without}");
+                // No placeholder is left over where the districts are missing.
+                assert!(
+                    !without.contains('$') && !without.contains("()"),
+                    "{code} {key}\n{without}"
+                );
+                assert_ne!(with, without, "{code} {key}");
+            }
+            // Both municipalities come with their share.
+            notes.hints = vec![hint(hint_key::ROADS_CZ, &roads)];
+            let text = render_markdown(&notes, &lang);
+            let first = format!("obec Adršpach ({})", share_text(&lang, 70.0));
+            let second = format!("obec Teplice nad Metují ({})", share_text(&lang, 30.0));
+            assert!(
+                text.contains(&first) && text.contains(&second),
+                "{code}\n{text}"
+            );
+        }
+        notes.hints = vec![hint(hint_key::FOREST_OWNER_CZ, &orp)];
+        let text = render_markdown(&notes, &Lang::english());
+        assert!(text.contains("§ 20 odst. 5"), "{text}");
+        assert!(text.contains("30 days"), "{text}");
+    }
+
+    /// Each kind of protected object of Czechia has a label of its own in every language, with
+    /// the Czech term; none falls through to the label of an area with special rules.
+    #[test]
+    fn every_czech_kind_has_a_label_in_every_language() {
+        let terms = [
+            (ProtectedObjectKind::NationalParkCz, "národní park"),
+            (
+                ProtectedObjectKind::ProtectedLandscapeAreaCz,
+                "chráněná krajinná oblast",
+            ),
+            (
+                ProtectedObjectKind::NationalNatureReserve,
+                "národní přírodní rezervace",
+            ),
+            (
+                ProtectedObjectKind::NationalNatureMonument,
+                "národní přírodní památka",
+            ),
+            (ProtectedObjectKind::NatureReserveCz, "přírodní rezervace"),
+            (ProtectedObjectKind::NatureMonumentCz, "přírodní památka"),
+            (ProtectedObjectKind::ProtectiveZoneCz, "ochranné pásmo"),
+            (ProtectedObjectKind::NatureZoneCz, "zóna ochrany přírody"),
+            (
+                ProtectedObjectKind::Natura2000HabitatsCz,
+                "evropsky významná lokalita",
+            ),
+            (ProtectedObjectKind::Natura2000BirdsCz, "ptačí oblast"),
+            (ProtectedObjectKind::MemorialTree, "památný strom"),
+        ];
+        for code in ALL_LANGUAGES {
+            let lang = TEXTS.parse_lang_arg(code).unwrap();
+            let fallback = object_kind(&lang, ProtectedObjectKind::SpecialRules);
+            let mut seen = vec![fallback.clone()];
+            for (kind, term) in terms {
+                let label = object_kind(&lang, kind);
+                // Czech writes its own term without a bracket, so the term is only in the
+                // other languages' labels.
+                if code != "cs" {
+                    assert!(
+                        label.to_lowercase().contains(term),
+                        "{code} {kind:?}: {label}"
+                    );
+                }
+                assert!(!seen.contains(&label), "{code} {kind:?}: {label}");
+                seen.push(label);
+            }
+        }
+    }
+
+    /// The code of an administrative unit is that of RÚIAN in Czechia and the TERYT elsewhere.
+    #[test]
+    fn the_code_of_an_administrative_unit_names_its_register() {
+        let unit = share(
+            AdminUnitEntry {
+                level: freemapper::permits::regional::AdminUnitLevel::Municipality,
+                name: "obec Adršpach".into(),
+                code: "547786".into(),
+            },
+            100.0,
+        );
+        for code in ALL_LANGUAGES {
+            let lang = TEXTS.parse_lang_arg(code).unwrap();
+            let czech = admin_unit_line(&lang, "cesko", &unit);
+            assert!(
+                czech.contains("obec Adršpach (RÚIAN 547786)"),
+                "{code}: {czech}"
+            );
+            let polish = admin_unit_line(&lang, "polska", &unit);
+            assert!(polish.contains("(TERYT 547786)"), "{code}: {polish}");
+        }
+    }
+
+    /// Several gminas (ADR 0193): every language has its own plural wording, every gmina is
+    /// named with its share, and a notes file from before the shares (names only) still reads.
+    #[test]
+    fn the_gmina_hints_read_in_the_plural_for_several_gminas_in_every_language() {
+        let mut notes = viktoriapark();
+        notes.admin.clear();
+        notes.regional.clear();
+        notes.sources.retain(|s| s.id == "osm");
+        let one = [("gmina", "gmina A"), ("shares", "100.0"), ("count", "1")];
+        let two = [
+            ("gmina", "gmina A, gmina B"),
+            ("shares", "70.0,0.4"),
+            ("count", "2"),
+        ];
+        let names: Vec<String> = (1..=12).map(|i| format!("gmina {i:02}")).collect();
+        let joined = names.join(", ");
+        let shares = ["8.0"; 12].join(",");
+        let twelve = [
+            ("gmina", joined.as_str()),
+            ("shares", shares.as_str()),
+            ("count", "12"),
+        ];
+        for code in [
+            "en", "de", "pl", "cs", "da", "es", "et", "fi", "fr", "hu", "it", "lt", "lv", "nb",
+            "nl", "pt", "ru", "sk", "sl", "sv", "uk",
+        ] {
+            let lang = TEXTS.parse_lang_arg(code).unwrap();
+            for key in [
+                hint_key::GMINA_NATURE_PL,
+                hint_key::GMINA_ROADS_PL,
+                hint_key::GMINA_LAND_PL,
+            ] {
+                let render = |args: &[(&str, &str)]| hint_text(&lang, &notes, &hint(key, args));
+                let single = render(&one);
+                let several = render(&two);
+                assert_ne!(single, several, "{code} {key}");
+                assert!(single.contains("gmina A"), "{code} {key}");
+                assert!(!single.contains("gmina B"), "{code} {key}");
+                let listed = format!(
+                    "gmina A ({}), gmina B ({})",
+                    share_text(&lang, 70.0),
+                    share_text(&lang, 0.4)
+                );
+                assert!(several.contains(&listed), "{code} {key}\n{several}");
+                for text in [&single, &several] {
+                    assert!(
+                        !text.contains("{ $") && !text.contains("$count"),
+                        "{code} {key}"
+                    );
+                }
+                // Names only, as the notes of before: the singular text, no shares.
+                let old = render(&[("gmina", "gmina A")]);
+                assert!(
+                    old.contains("gmina A") && !old.contains('%'),
+                    "{code} {key}"
+                );
+                let full = format!("gmina A ({})", share_text(&lang, 100.0));
+                assert_eq!(old.replace("gmina A", ""), single.replace(&full, ""));
+                let all = render(&twelve);
+                for name in &names {
+                    assert!(
+                        all.contains(&format!("{name} ({})", share_text(&lang, 8.0))),
+                        "{code} {key} {name}"
+                    );
+                }
+                assert!(all.find("gmina 01").unwrap() < all.find("gmina 12").unwrap());
+            }
+        }
+        let en = Lang::english();
+        // The singular wording needs the number: one gmina reads "the gmina", not "each".
+        notes.hints = vec![hint(hint_key::GMINA_ROADS_PL, &one)];
+        let text = render_markdown(&notes, &en);
+        assert!(
+            text.contains("of the gmina (gmina A (100%)); the manager decides"),
+            "{text}"
+        );
+        // Shares that do not fit the names (a damaged file) are left out, the names stay.
+        let odd = [
+            ("gmina", "gmina A, gmina B"),
+            ("shares", "70.0"),
+            ("count", "2"),
+        ];
+        notes.hints = vec![hint(hint_key::GMINA_ROADS_PL, &odd)];
+        let text = render_markdown(&notes, &en);
+        assert!(
+            text.contains("each of the gminas (gmina A, gmina B)"),
+            "{text}"
+        );
+        notes.hints = vec![hint(hint_key::GMINA_ROADS_PL, &two)];
+        let text = render_markdown(&notes, &en);
+        assert!(
+            text.contains(
+                "of each of the gminas (gmina A (70%), gmina B (< 1%)); each manager decides"
+            ),
+            "{text}"
+        );
     }
 
     #[test]
@@ -2011,8 +2651,148 @@ mod tests {
             "{text}"
         );
         assert!(!text.contains("Die Links führen"), "{text}");
+        assert!(!text.contains("ohne Link nur gezählt"), "{text}");
         assert!(
             text.contains("Der Bestand von Geoportal Berlin ist nicht vollständig: Die Stadt Potsdam führt ihre Denkmalliste selbst."),
+            "{text}"
+        );
+    }
+
+    /// The two registers without positions (ADR 0184, 0190) say "none" only at a total of zero,
+    /// and name the monuments left without a name line only when there are some.
+    #[test]
+    fn registers_say_none_at_zero_and_the_rest_only_when_there_is_one() {
+        use freemapper::permits::regional::{RegisterMonumentName, RegisterMonuments};
+        let register = |total: usize, left: usize| {
+            Some(RegisterMonuments {
+                total,
+                names: vec![RegisterMonumentName {
+                    name: "Kościół".into(),
+                    count: 1,
+                }],
+                left,
+            })
+        };
+        let render = |monuments, archaeology| {
+            let mut notes = viktoriapark();
+            notes.regional[0].register_monuments = monuments;
+            notes.regional[0].register_archaeology = archaeology;
+            render_markdown(&notes, &Lang::english())
+        };
+        let none_m = "no registered monument lies in the rectangle";
+        let none_a = "no registered archaeological monument lies in the rectangle";
+        let total_m = "Registered monuments in the rectangle around the map area: 7.";
+        let total_a =
+            "Registered archaeological monuments in the rectangle around the map area: 4.";
+        let left = "more are only counted here, without their names.";
+
+        // No total: the "none" sentence, no total, no names, no rest.
+        let text = render(register(0, 0), register(0, 0));
+        assert!(text.contains(none_m), "{text}");
+        assert!(text.contains(none_a), "{text}");
+        assert!(!text.contains("Registered "), "{text}");
+        assert!(!text.contains("Kościół"), "{text}");
+        assert!(!text.contains(left), "{text}");
+
+        // A total with nothing left: total and names, no "none", no rest.
+        let text = render(register(7, 0), register(4, 0));
+        assert!(text.contains(total_m), "{text}");
+        assert!(text.contains(total_a), "{text}");
+        assert!(!text.contains(none_m) && !text.contains(none_a), "{text}");
+        assert!(text.contains("- Kościół"), "{text}");
+        assert!(!text.contains(left), "{text}");
+
+        // The registers do not lean on each other: one with a rest, one without, and back.
+        let text = render(register(7, 1), register(4, 0));
+        assert_eq!(text.matches(left).count(), 1, "{text}");
+        assert!(text.contains("1 more are only counted"), "{text}");
+        let monuments_at = text.find(total_m).unwrap();
+        let archaeology_at = text.find(total_a).unwrap();
+        let left_at = text.find(left).unwrap();
+        assert!(monuments_at < left_at && left_at < archaeology_at, "{text}");
+
+        let text = render(register(7, 0), register(4, 3));
+        assert_eq!(text.matches(left).count(), 1, "{text}");
+        assert!(text.contains("3 more are only counted"), "{text}");
+        assert!(text.find(total_a).unwrap() < text.find(left).unwrap());
+
+        // One register absent leaves the other alone.
+        let text = render(None, register(0, 0));
+        assert!(text.contains(none_a) && !text.contains(none_m), "{text}");
+    }
+
+    /// The monuments of history (ADR 0191): "none" only when both lists are empty, each list with
+    /// its own sentence, names and rest, and the rest sentence only when something is left.
+    #[test]
+    fn monuments_of_history_say_what_lies_in_the_area_and_what_only_near_it() {
+        use freemapper::permits::regional::{
+            RegisterHistory, RegisterMonumentName, RegisterMonuments,
+        };
+        let list = |total: usize, left: usize, name: &str| RegisterMonuments {
+            total,
+            names: if name.is_empty() {
+                Vec::new()
+            } else {
+                vec![RegisterMonumentName {
+                    name: name.into(),
+                    count: total - left,
+                }]
+            },
+            left,
+        };
+        let render = |in_area, nearby| {
+            let mut notes = viktoriapark();
+            notes.regional[0].register_history = Some(RegisterHistory { in_area, nearby });
+            render_markdown(&notes, &Lang::english())
+        };
+        let none = "no monument of history lies in the rectangle";
+        let in_area = "Monuments of history in the map area: ";
+        let nearby = "Further monuments of history in the rectangle around the map area, but not in the map area: ";
+        let left = "more are only counted here, without their names.";
+
+        let text = render(list(0, 0, ""), list(0, 0, ""));
+        assert!(text.contains(none), "{text}");
+        assert!(text.contains("## Monuments of history ("), "{text}");
+        assert!(!text.contains(in_area) && !text.contains(nearby), "{text}");
+
+        // Only the rectangle: its sentence, its names, no "none", no area sentence.
+        let text = render(list(0, 0, ""), list(2, 0, "Kopiec"));
+        assert!(text.contains(&format!("{nearby}2.")), "{text}");
+        assert!(text.contains("- Kopiec"), "{text}");
+        assert!(!text.contains(none) && !text.contains(in_area), "{text}");
+        assert!(!text.contains(left), "{text}");
+
+        // Only the area.
+        let text = render(list(3, 0, "Wawel"), list(0, 0, ""));
+        assert!(text.contains(&format!("{in_area}3.")), "{text}");
+        assert!(!text.contains(none) && !text.contains(nearby), "{text}");
+
+        // Both, each with a rest of its own, in this order.
+        let text = render(list(4, 1, "Wawel"), list(2, 0, "Kopiec"));
+        assert_eq!(text.matches(left).count(), 1, "{text}");
+        assert!(text.contains("1 more are only counted"), "{text}");
+        let (a, w, l, n, k) = (
+            text.find(in_area).unwrap(),
+            text.find("- Wawel").unwrap(),
+            text.find(left).unwrap(),
+            text.find(nearby).unwrap(),
+            text.find("- Kopiec").unwrap(),
+        );
+        assert!(a < w && w < l && l < n && n < k, "{text}");
+        let text = render(list(4, 0, "Wawel"), list(5, 5, ""));
+        assert!(text.contains("5 more are only counted"), "{text}");
+        assert!(!text.contains("- Kopiec"), "{text}");
+        assert_eq!(text.matches(left).count(), 1, "{text}");
+
+        // A Polish and a German text exist for the same sentences.
+        let mut notes = viktoriapark();
+        notes.regional[0].register_history = Some(RegisterHistory {
+            in_area: list(3, 0, "Wawel"),
+            nearby: list(0, 0, ""),
+        });
+        let text = render_markdown(&notes, &de());
+        assert!(
+            text.contains("Denkmäler der Geschichte im Kartengebiet: 3."),
             "{text}"
         );
     }

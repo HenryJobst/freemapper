@@ -1,7 +1,9 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The layers of the sets of extra layers that bring their rules (ADR 0149), drawn without
 //! knowing the region: each feature is tagged `<prefix>:<property>` and `<prefix>:layer=<file>`
 //! and drawn through the set's rules, with the source `<set key>/<file>`. The stair layers of a
-//! set are left to `build/stairs.rs`, which takes their areas through [`stair_areas`].
+//! set are left to `build/stairs.rs`, which takes their areas through `stair_areas`.
 
 use freemapper_adapter_api::extras::{SetDrawing, SetRank};
 use geo_types::Polygon;
@@ -51,6 +53,7 @@ pub(crate) fn rank_of_source(source: &str) -> Option<crate::build::dedup::Rank> 
     let drawing = drawing_of_source(source)?;
     let layer = source.split_once('/').map_or("", |(_, layer)| layer);
     Some(match drawing.rank_of(layer) {
+        SetRank::Landscape => Rank::Landscape,
         SetRank::Survey => Rank::Survey,
         SetRank::Cadastre => Rank::Alkis,
         SetRank::Register => Rank::Register,

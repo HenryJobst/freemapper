@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Trust anchors for a host whose certificate chain the default roots cannot verify.
 
 /// The certificates one host is verified against, in place of the default roots.

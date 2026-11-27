@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Walls, fences and hedges that overlap on paper (ISSprOM 2019-2 §3.3, §521; ADR 0068).
 //!
 //! The full ALKIS, its paired wall edges, OSM and the Berlin survey each give lines for the same

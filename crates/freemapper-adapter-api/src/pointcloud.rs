@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The classified laser point clouds of a region, for the vegetation classes (ADR 0105). A
 //! backend fetches the tiles under an area into the shared cache; `derive` reads them there.
 

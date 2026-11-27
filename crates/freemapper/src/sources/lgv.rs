@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Tests of the building rules of the engine on Hamburg's buildings (LGV), normalised as the
 //! ALKIS source of `freemapper-sources` does.
 

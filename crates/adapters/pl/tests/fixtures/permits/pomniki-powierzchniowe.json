@@ -1,0 +1,95 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "gid": 235340,
+    "kodinspire": "PL.ZIPOP.1393.PP.0614043.1918",
+    "typ": "jednoobiektowy",
+    "podtyp": null,
+    "obiekt": "inne",
+    "nazwa": null,
+    "fop_id": 120849,
+    "gatunek": null,
+    "data_utwor": "1990-07-18Z",
+    "powierzchn": "0.1000",
+    "link": "http://crfop.gdos.gov.pl/CRFOP/widok/viewpomnikprzyrody.jsf?fop=PL.ZIPOP.1393.PP.0614043.1918"
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        21.964984268999668,
+        51.33324166853397
+       ],
+       [
+        21.965464807372378,
+        51.33324166853397
+       ],
+       [
+        21.965464807372378,
+        51.33372703735999
+       ],
+       [
+        21.964984268999668,
+        51.33372703735999
+       ],
+       [
+        21.964984268999668,
+        51.33324166853397
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "gid": 243578,
+    "kodinspire": "PL.ZIPOP.1393.PP.0413043.7551",
+    "typ": "wieloobiektowy",
+    "podtyp": "aleja",
+    "obiekt": "drzewo",
+    "nazwa": "Aleja Lipowa",
+    "fop_id": 122616,
+    "gatunek": "Lipa szerokolistna - Tilia platyphyllos",
+    "data_utwor": "1998-06-09Z",
+    "powierzchn": null,
+    "link": "http://crfop.gdos.gov.pl/CRFOP/widok/viewpomnikprzyrody.jsf?fop=PL.ZIPOP.1393.PP.0413043.7551"
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        17.409807536638546,
+        53.286791369844224
+       ],
+       [
+        17.425416926999315,
+        53.286791369844224
+       ],
+       [
+        17.425416926999315,
+        53.292750515274584
+       ],
+       [
+        17.409807536638546,
+        53.292750515274584
+       ],
+       [
+        17.409807536638546,
+        53.286791369844224
+       ]
+      ]
+     ]
+    ]
+   }
+  }
+ ]
+}

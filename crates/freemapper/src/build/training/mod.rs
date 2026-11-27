@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The training level: the objects of the map and the visible candidates become the objects of
 //! the training map, which is printed and run on without rework, so no drawn symbol may lie on
 //! another or inside its gap (spec 2026-11-14, Part 3).
@@ -6,23 +8,23 @@
 //! 1. lines of one symbol that meet end to end are joined
 //!    ([`join_lines`](crate::build::line_join::join_lines)), and an opening between walls and
 //!    fences narrower than the norm's is widened to it
-//!    ([`widen_openings`](openings::widen_openings)); the carriageways of the street survey are
+//!    (`widen_openings`); the carriageways of the street survey are
 //!    drawn in the street areas and its kerb lines inside them go
-//!    ([`draw_carriageways`](carriageway::draw_carriageways));
+//!    (`draw_carriageways`(carriageway::draw_carriageways));
 //! 2. street furniture (531) on a paved area goes;
 //! 3. open land of a park is reduced to its open ground where the tree cover shows trees
-//!    ([`open_ground`]);
+//!    (`open_ground`);
 //! 4. inside olive green (520) only buildings, water, contours and the ways a runner can cross
-//!    stay ([`clear_olive`](olive::clear_olive));
+//!    stay (`clear_olive`);
 //! 5. what is alike is merged: two roads, railways or paths side by side become their middle,
 //!    and on a forest map a path or tram in the gap zone of a road goes
-//!    ([`merge`](merge::merge)); the line ends that touched a line before touch one after
-//!    ([`Junctions`]), and the lines that meet end to end are joined again;
+//!    (`merge`); the line ends that touched a line before touch one after
+//!    (`Junctions`), and the lines that meet end to end are joined again;
 //! 6. a line that keeps no gap to an object it keeps apart from is shifted off it, by at most
-//!    [`MAX_SHIFT_MM`] and only where that makes no new conflict ([`shift_lines`](shift::shift_lines));
+//!    [`MAX_SHIFT_MM`] and only where that makes no new conflict (`shift_lines`);
 //!    the line ends that touched a line before touch one after;
 //! 7. a point symbol too close to a way, a building, water or another point is moved off
-//!    ([`move_points`](points::move_points));
+//!    (`move_points`);
 //! 8. what keeps no gap to another object ([`conflicts`], the pairs that keep apart) gives way:
 //!    it is cut out there, or dropped when more than half of it is in conflict;
 //! 9. lines and areas below the norm's minimum size go; the ways that meet end to end are
@@ -87,7 +89,7 @@ const FURNITURE_CODE: &str = "531";
 const FOREST_CODE: &str = "405";
 /// The tree symbols (large and small) of the point trees.
 const TREE_CODES: [&str; 2] = ["417", "418"];
-/// Open land, the only symbol [`open_ground`] reduces.
+/// Open land, the only symbol `open_ground` reduces.
 const OPEN_LAND_CODE: &str = "401";
 /// The land use of a park, green space or other recreation ground (`freemapper:nutzart` starts
 /// with it).
@@ -157,8 +159,9 @@ pub struct TrainingReport {
     /// Line ends moved back onto the line they touched, or onto the line that replaced it.
     pub junctions_repaired: usize,
     /// Line ends that touched a line before the merge and touch none on the training map (the
-    /// junctions are repaired once more after give way and the minimum sizes).
-    pub junctions_free: usize,
+    /// junctions are repaired once more after give way and the minimum sizes), in the order of
+    /// the objects. Kept for the report only: nothing of them is written to the map.
+    pub free_ends: Vec<FreeEnd>,
     /// Conflict length left, mm on paper, by grade, of the pairs of one network that the merge
     /// did not settle (lines of different classes side by side, stretches below the minimum).
     pub overlap_left: f64,
@@ -166,6 +169,38 @@ pub struct TrainingReport {
     /// Conflict length of the pairs that keep apart left, mm on paper: 0 unless the give-way
     /// step stopped at its last round.
     pub apart_left: f64,
+}
+
+impl TrainingReport {
+    /// The free ends of ways (roads, paths, railways, stairways) that touched another way: each
+    /// is a break of the way network on print.
+    pub fn free_way_ends(&self) -> usize {
+        self.free_ends.iter().filter(|e| e.between_ways).count()
+    }
+
+    /// The other free ends: of a way that touched only barriers, watercourses or earth banks, or
+    /// of such a line. Mostly fair on print: the line the end touched was cut or dropped for a
+    /// third object.
+    pub fn free_other_ends(&self) -> usize {
+        self.free_ends.len() - self.free_way_ends()
+    }
+}
+
+/// A line end that touched another line before the training level merged, shifted and cut, and
+/// touches none on the training map.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FreeEnd {
+    /// The line's source and id, as `freemapper:also` names them (`osm/way/1`), when it has an id.
+    pub source_id: Option<String>,
+    /// The code of the line's symbol on the training map.
+    pub symbol: String,
+    /// Where the end lies on the training map, mm on paper (x right, y down, as the map
+    /// coordinates).
+    pub at: (PaperMm, PaperMm),
+    /// The source and id of each line it touched when it was recorded, sorted, those with an id.
+    pub touched: Vec<String>,
+    /// Whether it is the end of a way (road, path, railway, stairway) that touched another way.
+    pub between_ways: bool,
 }
 
 /// The objects the training level starts from (spec 2026-11-14, Order): the map before the light
@@ -176,7 +211,7 @@ pub struct TrainingInput {
     pub map: Vec<MapObject>,
     /// The candidates but the outline of the map area (the first candidate) and the hidden ones
     /// (`freemapper:hidden`). The hidden carriageways of the street survey are among them: only
-    /// the training map draws them ([`draw_carriageways`] takes the tag off).
+    /// the training map draws them (`draw_carriageways` takes the tag off).
     pub candidates: Vec<MapObject>,
 }
 
@@ -228,7 +263,7 @@ pub fn train(
     report.inside_olive = clear_olive(&mut objects, &classes, georef, symbol_set);
     let mut junctions = Junctions::record(&mut objects, &classes, georef);
     let merged = merge(&mut objects, &classes, kind, georef, symbol_set);
-    junctions.attach(&merged.attached);
+    junctions.attach(&merged.attached, &objects);
     let reach = MAX_SHIFT_MM.0 + gap(kind, georef.scale_denominator).0;
     // What is still free here is counted by the last repair below, which sees these ends again.
     (report.junctions_repaired, _) =
@@ -241,27 +276,53 @@ pub fn train(
     let (joined, absorbed) = join(&mut objects, &classes, georef, Some(junctions::ASIDE_TAG));
     report.joined += joined;
     junctions.absorb(&absorbed);
-    let shifted = Junctions::record(&mut objects, &classes, georef);
+    // The ends recorded before the merge are followed through every step that moves lines (by
+    // their position, the join moves none), so that the last repair finds each by its key.
+    let touch = junctions::touch_mm(georef);
+    let within = reach + TOLERANCE_MM;
+    junctions.follow(&objects, junctions::ASIDE_TAG, touch);
+    let mut shifted = Junctions::record(&mut objects, &classes, georef);
     report.shifted = shift_lines(&mut objects, kind, georef, symbol_set);
+    junctions.follow(&objects, junctions::ASIDE_TAG, within);
     // Its free ends are among those the last repair counts.
     let (repaired, _) = shifted.repair(&mut objects, &BTreeMap::new(), reach, georef);
     report.junctions_repaired += repaired;
+    junctions.follow(&objects, junctions::ASIDE_TAG, within);
     report.points_moved = move_points(&mut objects, &classes, kind, georef, symbol_set);
-    let (gave_way, cut, cut_for) = give_way(&mut objects, &classes, kind, georef, symbol_set);
+    // The move can put a tree back into the rim of a forest it stood just outside of.
+    report.trees_in_forest += drop_trees_in_forest(&mut objects, symbol_set);
+    let (gave_way, cut, mut cut_for) = give_way(&mut objects, &classes, kind, georef, symbol_set);
     report.gave_way = gave_way;
     report.cut += cut;
-    report.too_small = drop_too_small(&mut objects, &classes, kind, georef, symbol_set);
+    // Give way cuts ends back by up to the gap: the last repair finds them where they lie now.
+    junctions.follow(&objects, junctions::ASIDE_TAG, within);
+    let linked = junctions.links(&objects, junctions::ASIDE_TAG, reach);
+    report.too_small = drop_too_small(&mut objects, &classes, kind, georef, symbol_set, &linked);
     let (joined, absorbed) = join_ways(&mut objects, &classes, georef, junctions::ASIDE_TAG);
     report.joined += joined;
     junctions.absorb(&absorbed);
+    // On real maps (Bautzen, Regensburg) a wall and a way keep too little gap only after the ways
+    // were joined; give way looks once more at what is left.
+    let (gave_way, cut, cut_again) = give_way(&mut objects, &classes, kind, georef, symbol_set);
+    report.gave_way += gave_way;
+    report.cut += cut;
+    for (key, winners) in cut_again {
+        cut_for.entry(key).or_default().extend(winners);
+    }
+    junctions.follow(&objects, junctions::ASIDE_TAG, within);
     // Once more over the ends recorded before the merge, after give way and the minimum sizes
     // have cut or dropped lines they touched: an end in reach of what is left of its line is
     // drawn onto it, and what stays free is counted.
     junctions::bring_back(&mut objects);
+    let after = junctions::After {
+        replaced_by: &merged.replaced_by,
+        cut_for: &cut_for,
+        rider_reach: &merged.rider_reach,
+    };
     let (repaired, free) =
-        junctions.repair_after_cuts(&mut objects, &merged.replaced_by, &cut_for, reach, georef);
+        junctions.repair_after_cuts(&mut objects, &after, reach, georef, kind, symbol_set);
     report.junctions_repaired += repaired;
-    report.junctions_free = free;
+    report.free_ends = free;
     (report.overlap_left, report.gap_left, report.apart_left) =
         left(&objects, kind, georef, symbol_set);
     junctions::forget(&mut objects);
@@ -844,9 +905,17 @@ fn drop_too_small(
     kind: MapKind,
     georef: &Georeferencing,
     symbol_set: &SymbolSet,
+    linked: &[[Vec<usize>; 2]],
 ) -> usize {
-    let TooSmall { gone, as_path } =
-        too_small(objects, classes, kind, georef, symbol_set, &|_| true);
+    let TooSmall { gone, as_path } = too_small(
+        objects,
+        classes,
+        kind,
+        georef,
+        symbol_set,
+        &|_| true,
+        linked,
+    );
     for (i, symbol_id) in as_path {
         let object = &mut objects[i];
         object.symbol_id = symbol_id;
@@ -868,7 +937,10 @@ pub(crate) struct TooSmall {
 
 /// The objects of `objects` below the norm's minimum, by the rules of [`drop_too_small`], which
 /// applies them; only the objects `considered` can be too small, the others are lines and areas
-/// long and large enough.
+/// long and large enough. `linked` (empty, or one entry per object) names, by end, the ways a way
+/// is linked to by a recorded junction (`Junctions::links`): they count as touching that end. A
+/// short closed way linked to ways of at least two keys (`links` names one way per key for a
+/// closed way) counts as touching them at both ends.
 pub(crate) fn too_small(
     objects: &[MapObject],
     classes: &Classes,
@@ -876,6 +948,7 @@ pub(crate) fn too_small(
     georef: &Georeferencing,
     symbol_set: &SymbolSet,
     considered: &dyn Fn(&MapObject) -> bool,
+    linked: &[[Vec<usize>; 2]],
 ) -> TooSmall {
     let scale_denominator = georef.scale_denominator;
     let scale = SymbolScale::drawn_with(symbol_set, scale_denominator);
@@ -898,24 +971,48 @@ pub(crate) fn too_small(
     let touched: Vec<[Vec<usize>; 2]> = (0..objects.len())
         .map(|i| {
             let object = &objects[i];
-            if !short[i] || is_closed(object) {
+            if !short[i] {
                 return [Vec::new(), Vec::new()];
             }
             let class = continues_class(classes.class(object.symbol_id));
-            [object.coords[0], object.coords[object.coords.len() - 1]].map(|end| {
-                let end = xy(&end);
-                (0..objects.len())
+            let alike = |j: usize| {
+                j != i
+                    && is_line(&objects[j])
+                    && continues_class(classes.class(objects[j].symbol_id)) == class
+            };
+            let links = |last: bool| -> Vec<usize> {
+                linked.get(i).map_or(Vec::new(), |l| {
+                    l[usize::from(last)]
+                        .iter()
+                        .copied()
+                        .filter(|&j| alike(j))
+                        .collect()
+                })
+            };
+            if is_closed(object) {
+                // One way per key: two pieces of one line do not keep a ring.
+                let links = links(false);
+                return if links.len() >= 2 {
+                    [links.clone(), links]
+                } else {
+                    [Vec::new(), Vec::new()]
+                };
+            }
+            [false, true].map(|last| {
+                let end = xy(&object.coords[if last { object.coords.len() - 1 } else { 0 }]);
+                let mut near: Vec<usize> = (0..objects.len())
                     .filter(|&j| {
-                        let other = &objects[j];
-                        j != i
-                            && is_line(other)
-                            && continues_class(classes.class(other.symbol_id)) == class
-                            && other
+                        alike(j)
+                            && objects[j]
                                 .coords
                                 .windows(2)
                                 .any(|w| distance_to_segment(end, xy(&w[0]), xy(&w[1])) <= touch)
                     })
-                    .collect()
+                    .collect();
+                near.extend(links(last));
+                near.sort_unstable();
+                near.dedup();
+                near
             })
         })
         .collect();
@@ -1537,6 +1634,23 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn a_tree_moved_into_the_rim_of_a_forest_goes() {
+        let set = SymbolSet::issprom_2019();
+        // The forest ends at x = 10 mm; a path along x = 10.4 mm and a second one 1.6 mm east of
+        // it leave the tree standing on the first only the side of the forest to go to.
+        let forest = area(&set, "405", (0.0, 0.0), (10.0, 10.0));
+        let objects = vec![
+            forest,
+            line(&set, "501.6", &[(10.4, -5.0), (10.4, 15.0)]),
+            line(&set, "501.6", &[(12.0, -5.0), (12.0, 15.0)]),
+            point(&set, "418", (10.4, 5.0)),
+        ];
+        let (out, report) = train(objects, None, MapKind::Sprint, &georef_at(4000), &set);
+        let trees = of_code(&set, &out, "418");
+        assert!(trees.is_empty(), "{trees:?} {report:?}");
+    }
+
+    #[test]
     fn a_patch_of_open_land_below_the_minimum_goes() {
         // ISOM 401: 0.55 mm × 0.55 mm, at 150 % 0.83 mm × 0.83 mm.
         let set = isom();
@@ -1817,7 +1931,7 @@ pub(crate) mod tests {
         );
         assert!(report.cut >= 1, "{report:?}");
         assert!(report.junctions_repaired >= 1, "{report:?}");
-        assert_eq!(report.junctions_free, 0, "{report:?}");
+        assert_eq!(report.free_ends.len(), 0, "{report:?}");
     }
 
     #[test]
@@ -1825,9 +1939,21 @@ pub(crate) mod tests {
         // An earth bank lies on a ditch over more than half its length: give way drops it, and
         // the path that ended on it beyond the ditch is left with a free end.
         let set = isom();
-        let bank = line(&set, "104", &[(0.0, 0.0), (20.0, 0.0)]);
+        let bank = tagged(
+            line(&set, "104", &[(0.0, 0.0), (20.0, 0.0)]),
+            "freemapper:source_id",
+            "bank",
+        );
         let ditch = line(&set, "306", &[(0.0, 0.0), (12.0, 0.0)]);
-        let path = line(&set, "505", &[(18.0, 10.0), (18.0, 0.0)]);
+        let path = tagged(
+            tagged(
+                line(&set, "505", &[(18.0, 10.0), (18.0, 0.0)]),
+                "freemapper:source",
+                "osm",
+            ),
+            "freemapper:source_id",
+            "way/1",
+        );
         let (out, report) = run(&set, vec![bank, ditch, path.clone()]);
         assert_eq!(
             of_code(&set, &out, "104"),
@@ -1836,7 +1962,181 @@ pub(crate) mod tests {
         );
         assert_eq!(of_code(&set, &out, "505"), vec![&path]);
         assert_eq!(report.gave_way, 1, "{report:?}");
-        assert_eq!(report.junctions_free, 1, "{report:?}");
+        // The report names it, and an end on an earth bank is no break of the way network.
+        assert_eq!(
+            report.free_ends,
+            [FreeEnd {
+                source_id: Some("osm/way/1".to_string()),
+                symbol: "505".to_string(),
+                at: (PaperMm(18.0), PaperMm(0.0)),
+                touched: vec!["bank".to_string()],
+                between_ways: false,
+            }]
+        );
+        assert_eq!((report.free_way_ends(), report.free_other_ends()), (0, 1));
+    }
+
+    #[test]
+    fn a_free_end_between_ways_is_counted_apart() {
+        // The path ends on the middle of a path below its minimum length (6.375 mm for 505 at
+        // 1:10 000) whose ends meet nothing: it goes, and the end is a break of the way network.
+        let set = isom();
+        let short = tagged(
+            line(&set, "505", &[(0.0, 0.0), (4.0, 0.0)]),
+            "freemapper:source_id",
+            "t",
+        );
+        let path = line(&set, "505", &[(2.0, 10.0), (2.0, 0.0)]);
+        let (out, report) = run(&set, vec![short, path.clone()]);
+        assert_eq!(of_code(&set, &out, "505"), [&path], "{out:?}");
+        assert_eq!(
+            (report.free_way_ends(), report.free_other_ends()),
+            (1, 0),
+            "{report:?}"
+        );
+        assert_eq!(report.free_ends[0].touched, ["t"]);
+    }
+
+    #[test]
+    fn a_short_piece_that_links_two_ways_stays_and_is_drawn_onto_them() {
+        // A path piece of 2 mm (below 505's 6.375 mm) links two paths. Both are moved 0.3 mm off
+        // its ends, as a shift does: by geometry alone it is a short line that meets nothing and
+        // goes; its recorded junctions keep it, and the last repair draws its ends onto them.
+        let set = isom();
+        let classes = Classes::of(&set);
+        let georef = georef_at(SCALE);
+        let ways = [
+            line(&set, "506", &[(20.0, -20.0), (20.0, 0.0)]),
+            line(&set, "505", &[(20.0, 0.0), (22.0, 0.0)]),
+            line(&set, "506", &[(22.0, 0.0), (22.0, 20.0)]),
+        ];
+        let reach = MAX_SHIFT_MM.0 + gap(MapKind::Forest, SCALE).0;
+        for linked in [false, true] {
+            let mut objects = ways.to_vec();
+            let mut junctions = Junctions::record(&mut objects, &classes, &georef);
+            objects[0].coords = line(&set, "506", &[(19.7, -20.0), (19.7, 0.0)]).coords;
+            objects[2].coords = line(&set, "506", &[(22.3, 0.0), (22.3, 20.0)]).coords;
+            junctions::set_aside(&mut objects);
+            let links = if linked {
+                junctions.links(&objects, junctions::ASIDE_TAG, reach)
+            } else {
+                Vec::new()
+            };
+            let gone = drop_too_small(
+                &mut objects,
+                &classes,
+                MapKind::Forest,
+                &georef,
+                &set,
+                &links,
+            );
+            if !linked {
+                assert_eq!(gone, 1, "{objects:?}");
+                continue;
+            }
+            assert_eq!(gone, 0, "{objects:?}");
+            junctions::bring_back(&mut objects);
+            let cut_for = BTreeMap::new();
+            let none = BTreeMap::new();
+            let after = junctions::After {
+                replaced_by: &none,
+                cut_for: &cut_for,
+                rider_reach: &BTreeMap::new(),
+            };
+            let (repaired, free) = junctions.repair_after_cuts(
+                &mut objects,
+                &after,
+                reach,
+                &georef,
+                MapKind::Forest,
+                &set,
+            );
+            assert_eq!(free, [], "{objects:?}");
+            assert!(repaired >= 2, "{repaired}");
+            // Each junction meets again: the end of one drawn onto the other.
+            assert_eq!(end_mm(&objects[0], true), end_mm(&objects[1], false));
+            assert_eq!(end_mm(&objects[1], true), end_mm(&objects[2], false));
+        }
+    }
+
+    #[test]
+    fn a_ring_that_two_pieces_of_one_path_end_near_goes() {
+        // A path ends on a ring of 0.3 mm; give way cut the path in the middle. Its two pieces
+        // are one line: the ring links one way and goes. The piece far from the ring is no link.
+        let set = isom();
+        let classes = Classes::of(&set);
+        let georef = georef_at(SCALE);
+        let ring = line(
+            &set,
+            "505",
+            &[
+                (10.15, 0.0),
+                (10.3, 0.0),
+                (10.3, 0.3),
+                (10.0, 0.3),
+                (10.0, 0.0),
+                (10.15, 0.0),
+            ],
+        );
+        let mut objects = vec![line(&set, "505", &[(10.0, -20.0), (10.0, 0.0)]), ring];
+        let mut junctions = Junctions::record(&mut objects, &classes, &georef);
+        let path = objects.remove(0);
+        let mut far = path.clone();
+        far.coords = line(&set, "505", &[(10.0, -20.0), (10.0, -10.5)]).coords;
+        let mut near = path;
+        near.coords = line(&set, "505", &[(10.0, -9.5), (10.0, 0.0)]).coords;
+        objects.extend([far, near]);
+        let reach = MAX_SHIFT_MM.0 + gap(MapKind::Forest, SCALE).0;
+        junctions.follow(&objects, junctions::JUNCTION_TAG, reach + TOLERANCE_MM);
+        junctions::set_aside(&mut objects);
+        let links = junctions.links(&objects, junctions::ASIDE_TAG, reach);
+        assert_eq!(links[0], [vec![2], vec![2]], "{links:?}");
+        let gone = drop_too_small(
+            &mut objects,
+            &classes,
+            MapKind::Forest,
+            &georef,
+            &set,
+            &links,
+        );
+        assert_eq!(gone, 1, "{objects:?}");
+    }
+
+    #[test]
+    fn a_small_ring_that_links_two_paths_stays() {
+        // Two paths end on a ring of 0.3 mm (its seam elsewhere, so no join takes it), far below
+        // the minimum length: it stays while it links them, so their ends are not left free.
+        let set = isom();
+        let ring = line(
+            &set,
+            "505",
+            &[
+                (10.15, 0.0),
+                (10.3, 0.0),
+                (10.3, 0.3),
+                (10.0, 0.3),
+                (10.0, 0.0),
+                (10.15, 0.0),
+            ],
+        );
+        let objects = vec![
+            line(&set, "505", &[(10.0, -10.0), (10.0, 0.0)]),
+            ring.clone(),
+            line(&set, "505", &[(10.3, 10.3), (10.3, 0.3)]),
+        ];
+        let xy = |o: &MapObject| o.coords.iter().map(|c| (c.x, c.y)).collect::<Vec<_>>();
+        let has_ring = |out: &[MapObject]| out.iter().any(|o| xy(o) == xy(&ring));
+        let (out, report) = run(&set, objects);
+        assert_eq!(report.free_ends, [], "{report:?}");
+        assert!(has_ring(&out), "{out:?}");
+        // A ring that one path ends on goes, as before.
+        let objects = vec![
+            line(&set, "505", &[(10.0, -10.0), (10.0, 0.0)]),
+            ring.clone(),
+        ];
+        let (out, report) = run(&set, objects);
+        assert!(!has_ring(&out), "{out:?}");
+        assert_eq!(report.too_small, 1, "{report:?}");
     }
 
     pub(super) fn tagged(mut object: MapObject, key: &str, value: &str) -> MapObject {

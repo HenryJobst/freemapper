@@ -1,0 +1,112 @@
+<?xml version='1.0' encoding="UTF-8" ?>
+<wfs:FeatureCollection
+   xmlns:gugik="http://www.gugik.gov.pl"
+   xmlns:gml="http://www.opengis.net/gml/3.2"
+   xmlns:wfs="http://www.opengis.net/wfs/2.0"
+   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+   xsi:schemaLocation="http://www.gugik.gov.pl https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WFS/Skorowidze?SERVICE=WFS&amp;VERSION=2.0.0&amp;REQUEST=DescribeFeatureType&amp;TYPENAME=gugik:SkorowidzOrtofomapy2022&amp;OUTPUTFORMAT=application%2Fgml%2Bxml%3B%20version%3D3.2 http://www.opengis.net/wfs/2.0 http://schemas.opengis.net/wfs/2.0/wfs.xsd http://www.opengis.net/gml/3.2 http://schemas.opengis.net/gml/3.2.1/gml.xsd"
+   timeStamp="2026-11-21T16:57:51" numberMatched="3" numberReturned="3">
+      <wfs:boundedBy>
+      	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::2180">
+      		<gml:lowerCorner>505645.150000 195671.250000</gml:lowerCorner>
+      		<gml:upperCorner>508090.930000 197940.550000</gml:upperCorner>
+      	</gml:Envelope>
+      </wfs:boundedBy>
+    <wfs:member>
+      <gugik:SkorowidzOrtofomapy2022 gml:id="SkorowidzOrtofomapy2022.1074627">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::2180">
+        		<gml:lowerCorner>505645.150000 195671.250000</gml:lowerCorner>
+        		<gml:upperCorner>508090.930000 197940.550000</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <gugik:msGeometry>
+          <gml:Polygon gml:id="SkorowidzOrtofomapy2022.1074627.1" srsName="urn:ogc:def:crs:EPSG::2180">
+            <gml:exterior>
+              <gml:LinearRing>
+                <gml:posList srsDimension="2">507512.380000 195778.660000 508090.930000 195814.460000 508058.070000 196345.980000 508025.270000 196877.500000 507992.520000 197409.020000 507959.830000 197940.550000 507381.270000 197905.000000 506802.490000 197869.440000 506223.720000 197833.880000 505645.150000 197798.340000 505677.850000 197266.560000 505710.600000 196734.790000 505743.410000 196203.020000 505776.280000 195671.250000 506354.840000 195707.040000 506933.610000 195742.850000 507512.380000 195778.660000 </gml:posList>
+              </gml:LinearRing>
+            </gml:exterior>
+          </gml:Polygon>
+        </gugik:msGeometry>
+        <gugik:godlo>N-33-126-C-c-3-4</gugik:godlo>
+        <gugik:akt_rok>2022</gugik:akt_rok>
+        <gugik:piksel>0.05</gugik:piksel>
+        <gugik:kolor>RGB</gugik:kolor>
+        <gugik:zrodlo_danych>Zdj. cyfrowe</gugik:zrodlo_danych>
+        <gugik:uklad_xy>PL-1992</gugik:uklad_xy>
+        <gugik:modul_archiwizacji>1:5000</gugik:modul_archiwizacji>
+        <gugik:nr_zglosz>GI-FOTO.6201.4.2022</gugik:nr_zglosz>
+        <gugik:akt_data gml:id="SkorowidzOrtofomapy2022.1074627.akt_data"><gml:timePosition>2022-03-12</gml:timePosition></gugik:akt_data>
+        <gugik:czy_ark_wypelniony>TAK</gugik:czy_ark_wypelniony>
+        <gugik:url_do_pobrania>https://opendata.geoportal.gov.pl/ortofotomapa/76152/76152_1074627_N-33-126-C-c-3-4.tif</gugik:url_do_pobrania>
+        <gugik:dt_pzgik gml:id="SkorowidzOrtofomapy2022.1074627.dt_pzgik"><gml:timePosition>2022-11-16</gml:timePosition></gugik:dt_pzgik>
+        <gugik:wlk_pliku_mb>243</gugik:wlk_pliku_mb>
+      </gugik:SkorowidzOrtofomapy2022>
+    </wfs:member>
+    <wfs:member>
+      <gugik:SkorowidzOrtofomapy2022 gml:id="SkorowidzOrtofomapy2022.1160663">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::2180">
+        		<gml:lowerCorner>505645.150000 195671.250000</gml:lowerCorner>
+        		<gml:upperCorner>508090.930000 197940.550000</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <gugik:msGeometry>
+          <gml:Polygon gml:id="SkorowidzOrtofomapy2022.1160663.1" srsName="urn:ogc:def:crs:EPSG::2180">
+            <gml:exterior>
+              <gml:LinearRing>
+                <gml:posList srsDimension="2">507512.380000 195778.660000 508090.930000 195814.460000 508058.070000 196345.980000 508025.270000 196877.500000 507992.520000 197409.020000 507959.830000 197940.550000 507381.270000 197905.000000 506802.490000 197869.440000 506223.720000 197833.880000 505645.150000 197798.340000 505677.850000 197266.560000 505710.600000 196734.790000 505743.410000 196203.020000 505776.280000 195671.250000 506354.840000 195707.040000 506933.610000 195742.850000 507512.380000 195778.660000 </gml:posList>
+              </gml:LinearRing>
+            </gml:exterior>
+          </gml:Polygon>
+        </gugik:msGeometry>
+        <gugik:godlo>N-33-126-C-c-3-4</gugik:godlo>
+        <gugik:akt_rok>2022</gugik:akt_rok>
+        <gugik:piksel>0.25</gugik:piksel>
+        <gugik:kolor>CIR</gugik:kolor>
+        <gugik:zrodlo_danych>Zdj. cyfrowe</gugik:zrodlo_danych>
+        <gugik:uklad_xy>PL-1992</gugik:uklad_xy>
+        <gugik:modul_archiwizacji>1:5000</gugik:modul_archiwizacji>
+        <gugik:nr_zglosz>DFT.7201.024.2022</gugik:nr_zglosz>
+        <gugik:akt_data gml:id="SkorowidzOrtofomapy2022.1160663.akt_data"><gml:timePosition>2022-07-24</gml:timePosition></gugik:akt_data>
+        <gugik:czy_ark_wypelniony>TAK</gugik:czy_ark_wypelniony>
+        <gugik:url_do_pobrania>https://opendata.geoportal.gov.pl/ortofotomapa/76965/76965_1160663_N-33-126-C-c-3-4.tif</gugik:url_do_pobrania>
+        <gugik:dt_pzgik gml:id="SkorowidzOrtofomapy2022.1160663.dt_pzgik"><gml:timePosition>2023-04-04</gml:timePosition></gugik:dt_pzgik>
+        <gugik:wlk_pliku_mb>11</gugik:wlk_pliku_mb>
+      </gugik:SkorowidzOrtofomapy2022>
+    </wfs:member>
+    <wfs:member>
+      <gugik:SkorowidzOrtofomapy2022 gml:id="SkorowidzOrtofomapy2022.1160662">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::2180">
+        		<gml:lowerCorner>505645.150000 195671.250000</gml:lowerCorner>
+        		<gml:upperCorner>508090.930000 197940.550000</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <gugik:msGeometry>
+          <gml:Polygon gml:id="SkorowidzOrtofomapy2022.1160662.1" srsName="urn:ogc:def:crs:EPSG::2180">
+            <gml:exterior>
+              <gml:LinearRing>
+                <gml:posList srsDimension="2">507512.380000 195778.660000 508090.930000 195814.460000 508058.070000 196345.980000 508025.270000 196877.500000 507992.520000 197409.020000 507959.830000 197940.550000 507381.270000 197905.000000 506802.490000 197869.440000 506223.720000 197833.880000 505645.150000 197798.340000 505677.850000 197266.560000 505710.600000 196734.790000 505743.410000 196203.020000 505776.280000 195671.250000 506354.840000 195707.040000 506933.610000 195742.850000 507512.380000 195778.660000 </gml:posList>
+              </gml:LinearRing>
+            </gml:exterior>
+          </gml:Polygon>
+        </gugik:msGeometry>
+        <gugik:godlo>N-33-126-C-c-3-4</gugik:godlo>
+        <gugik:akt_rok>2022</gugik:akt_rok>
+        <gugik:piksel>0.25</gugik:piksel>
+        <gugik:kolor>RGB</gugik:kolor>
+        <gugik:zrodlo_danych>Zdj. cyfrowe</gugik:zrodlo_danych>
+        <gugik:uklad_xy>PL-1992</gugik:uklad_xy>
+        <gugik:modul_archiwizacji>1:5000</gugik:modul_archiwizacji>
+        <gugik:nr_zglosz>DFT.7201.024.2022</gugik:nr_zglosz>
+        <gugik:akt_data gml:id="SkorowidzOrtofomapy2022.1160662.akt_data"><gml:timePosition>2022-07-24</gml:timePosition></gugik:akt_data>
+        <gugik:czy_ark_wypelniony>TAK</gugik:czy_ark_wypelniony>
+        <gugik:url_do_pobrania>https://opendata.geoportal.gov.pl/ortofotomapa/76966/76966_1160662_N-33-126-C-c-3-4.tif</gugik:url_do_pobrania>
+        <gugik:dt_pzgik gml:id="SkorowidzOrtofomapy2022.1160662.dt_pzgik"><gml:timePosition>2023-04-04</gml:timePosition></gugik:dt_pzgik>
+        <gugik:wlk_pliku_mb>11</gugik:wlk_pliku_mb>
+      </gugik:SkorowidzOrtofomapy2022>
+    </wfs:member>
+</wfs:FeatureCollection>
+

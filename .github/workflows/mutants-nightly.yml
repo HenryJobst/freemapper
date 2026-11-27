@@ -1,0 +1,74 @@
+name: Mutants nightly
+
+# The mutation tests of a pull request show a surviving mutant but do not stop the merge (ADR 0174).
+# This run takes the lines that main changed in the last day, gives each of twelve runners forty
+# minutes after its baseline and opens an issue when a mutant survived.
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
+  CARGO_MUTANTS_VERSION: "27.1.0"
+  CARGO_NEXTEST_VERSION: "0.9.152"
+
+jobs:
+  mutants:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    env:
+      MUTANTS_SHARD: ${{ matrix.shard }}
+      MUTANTS_SHARDS: 12
+      MUTANTS_BUDGET_SECONDS: 2400
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: The commit before the last day
+        run: |
+          base=$(git rev-list -n 1 --before="24 hours ago" HEAD || true)
+          if [ -z "$base" ] || [ "$base" = "$(git rev-parse HEAD)" ]; then
+            echo "MUTANTS_BASE=HEAD" >>"$GITHUB_ENV"
+          else
+            echo "MUTANTS_BASE=$base" >>"$GITHUB_ENV"
+          fi
+      - run: rustup toolchain install
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - name: Install cargo-mutants
+        run: |
+          cargo mutants --version 2>/dev/null | grep -q "$CARGO_MUTANTS_VERSION" ||
+            cargo install cargo-mutants --locked --version "$CARGO_MUTANTS_VERSION" --force
+      - name: Install cargo-nextest
+        run: |
+          cargo nextest --version 2>/dev/null | grep -q "$CARGO_NEXTEST_VERSION" ||
+            cargo install cargo-nextest --locked --version "$CARGO_NEXTEST_VERSION" --force
+      - run: scripts/check.sh mutants
+      - name: The mutants that survived
+        if: failure()
+        run: cat mutants.out/missed.txt || true
+
+  report:
+    needs: mutants
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Open an issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "Mutationstests: ein Mutant der letzten 24 Stunden überlebt" \
+            --body "Der nächtliche Lauf fand mindestens einen Mutanten, den kein Test fängt. Die Liste steht im Schritt „The mutants that survived“ der fehlgeschlagenen Teile: $RUN_URL
+
+          Mit einem Test beheben, nicht mit einer Ausnahme (ADR 0161, 0174)."

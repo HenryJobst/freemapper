@@ -1,0 +1,75 @@
+# Spelling of the English documents (typos, see `scripts/check.sh typos`).
+#
+# A real misspelling is fixed in the text, not listed here. Everything below is
+# a German word the English documents quote — field names of the source data
+# (`funktion`, `Oder`, `Reviere`, `Forst`, `adresse`, `beginn`, `TITEL`) and
+# German rulings — or an identifier the dictionary splits into something it
+# knows.
+
+[default.extend-words]
+# The International Orienteering Federation, written as IOF in running text and
+# as `iof` in file and element names.
+IOF = "IOF"
+# The class prefix of the BDOT10k layers (`OT_BUBD_A`).
+OT = "OT"
+iof = "iof"
+Iof = "Iof"
+# `deflate` and `inflate` shortened in the names of compression levels.
+flate = "flate"
+# Level of detail: `lod`, `LOD` and `lod2_tiles` in the tile plans.
+lod = "lod"
+LOD = "LOD"
+# The Polish word for yes, accepted by the question of `freemapper update`.
+tak = "tak"
+TAK = "TAK"
+# German field names and values of the state files and the rulings they quote.
+# `StavebniObjekt`, the building layer of RÚIAN.
+Objekt = "Objekt"
+funktion = "funktion"
+FUNKTION = "FUNKTION"
+Oder = "Oder"
+oder = "oder"
+Reviere = "Reviere"
+Forst = "Forst"
+forst = "forst"
+Bund = "Bund"
+Nationales = "Nationales"
+ags = "ags"
+beginn = "beginn"
+adresse = "adresse"
+geometrie = "geometrie"
+modell = "modell"
+lokales = "lokales"
+Ordner = "Ordner"
+Unter = "Unter"
+unter = "unter"
+Offen = "Offen"
+Handel = "Handel"
+Sie = "Sie"
+sie = "sie"
+Deine = "Deine"
+ein = "ein"
+ist = "ist"
+als = "als"
+ALS = "ALS"
+alle = "alle"
+lage = "lage"
+Lage = "Lage"
+TITEL = "TITEL"
+# `CC BY-ND` and `PN` (the image format in running text), and a commit hash that
+# starts with `ba` (`ba618f3`).
+ND = "ND"
+PN = "PN"
+ba = "ba"
+# `ü→ue` in the transliteration rule, and "mis-surveyed", which the dictionary
+# splits into `mis` and `surveyed`.
+ue = "ue"
+mis = "mis"
+# A field mapping in the sidecar: `nam` for `name`.
+nam = "nam"
+# A German field quoted in a plan (`fnd`), and the `nd`/`fnd` fragments of the
+# same quote.
+nd = "nd"
+fnd = "fnd"
+# `ges` inside the German quote of ADR 0146.
+ges = "ges"

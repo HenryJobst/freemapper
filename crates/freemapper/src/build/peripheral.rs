@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Magnetic north lines across the map content and the peripheral information below it.
 
 use crate::crs::{BoundingBox, ProjectedPoint};

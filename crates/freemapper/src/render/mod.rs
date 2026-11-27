@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The training map: OOM symbols drawn the way OOM draws them, written as PDF; the map preview
 //! as a raster image.
 

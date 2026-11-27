@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Progress lines and warnings as values (ADR 0092, stage 3).
 //!
 //! The engine reports what it does through a callback. It hands over a [`Note`]: a message id
@@ -22,6 +24,25 @@ pub use freemapper_text::Lang;
 pub static NOTES: Catalog = Catalog::new(&[
     ("en", include_str!("../i18n/en/notes.ftl")),
     ("de", include_str!("../i18n/de/notes.ftl")),
+    ("pl", include_str!("../i18n/pl/notes.ftl")),
+    ("cs", include_str!("../i18n/cs/notes.ftl")),
+    ("nl", include_str!("../i18n/nl/notes.ftl")),
+    ("da", include_str!("../i18n/da/notes.ftl")),
+    ("fr", include_str!("../i18n/fr/notes.ftl")),
+    ("sv", include_str!("../i18n/sv/notes.ftl")),
+    ("nb", include_str!("../i18n/nb/notes.ftl")),
+    ("fi", include_str!("../i18n/fi/notes.ftl")),
+    ("sk", include_str!("../i18n/sk/notes.ftl")),
+    ("et", include_str!("../i18n/et/notes.ftl")),
+    ("it", include_str!("../i18n/it/notes.ftl")),
+    ("sl", include_str!("../i18n/sl/notes.ftl")),
+    ("hu", include_str!("../i18n/hu/notes.ftl")),
+    ("lt", include_str!("../i18n/lt/notes.ftl")),
+    ("lv", include_str!("../i18n/lv/notes.ftl")),
+    ("es", include_str!("../i18n/es/notes.ftl")),
+    ("pt", include_str!("../i18n/pt/notes.ftl")),
+    ("ru", include_str!("../i18n/ru/notes.ftl")),
+    ("uk", include_str!("../i18n/uk/notes.ftl")),
 ]);
 
 /// What the engine reports while it works: a progress line or a warning.
@@ -268,12 +289,13 @@ mod tests {
     }
 
     /// The `src/` folders of the workspace crates that emit notes, from this crate's folder.
-    const EMITTING_CRATES: [&str; 5] = [
+    const EMITTING_CRATES: [&str; 6] = [
         "src",
         "../freemapper/src",
         "../freemapper-sources/src",
         "../freemapper-manifest/src",
         "../adapters/de/src",
+        "../adapters/pl/src",
     ];
 
     /// The ids every `.rs` file of the emitting crates names, tests included.

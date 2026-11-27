@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! ALKIS buildings and land use: the parts of every region an area touches, from the ALKIS
 //! service of its adapter, merged into one collection in the LGB schema.
 
@@ -6,6 +8,7 @@ use freemapper_adapter_api::env::AdapterEnv;
 use freemapper_adapter_api::error::AdapterError;
 
 use crate::adapters::registry;
+#[cfg(test)]
 use crate::crs::BoundingBox;
 use crate::sources::region::regions_for_in;
 
@@ -13,10 +16,12 @@ use crate::sources::region::regions_for_in;
 // (ADR 0082). Which service serves which state stays here.
 pub use freemapper_sources::ogc_api::*;
 
+#[cfg(test)]
 pub use freemapper_adapters_de::states::alkis::{
     BUILDINGS_ENDPOINT, LAND_USE_ENDPOINT, MV_BUILDINGS_ENDPOINT, MV_LAND_USE_ENDPOINT,
 };
 
+#[cfg(test)]
 /// URL of the first page of buildings in `bbox` (EPSG:25833), rounded outward to whole metres.
 pub fn buildings_url(bbox: &BoundingBox) -> String {
     collection_url(BUILDINGS_ENDPOINT, bbox)

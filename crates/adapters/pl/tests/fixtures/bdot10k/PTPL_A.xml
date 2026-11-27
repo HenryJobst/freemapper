@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gml:FeatureCollection xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:ot="urn:gugik:specyfikacje:gmlas:bazaDanychObiektowTopograficznych10k:2.0" gml:id="GUGiK_OT_PTPL_A" xsi:schemaLocation="urn:gugik:specyfikacje:gmlas:bazaDanychObiektowTopograficznych10k:2.0 ../XSD/BDOT10k_BDOO.xsd">
+	<gml:featureMember>
+		<ot:OT_PTPL_A gml:id="PL.PZGiK.333.BDOT10k_2DDDAEB2-BB07-1ABF-E053-CC2BA8C0C90E_2025-12-16T000000">
+			<ot:lokalnyId>2DDDAEB2-BB07-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:kodKarto10k>0010_140</ot:kodKarto10k>
+			<ot:geometria>
+				<gml:Polygon gml:id="id-f7531e5d-1beb-4bb1-b908-4641a626613f-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:exterior>
+						<gml:LinearRing>
+							<gml:posList>197539.77 507539.34 197540.28 507571.57 197542.78 507575.74 197562.29 507575.20 197562.79 507574.80 197564.04 507574.44 197565.32 507574.67 197566.36 507575.40 197566.97 507576.55 197567.05 507577.86 197566.52 507579.03 197566.69 507586.53 197567.27 507592.32 197592.33 507590.81 197591.95 507587.14 197587.38 507542.71 197557.28 507540.31 197542.66 507539.50 197539.77 507539.34</gml:posList>
+						</gml:LinearRing>
+					</gml:exterior>
+				</gml:Polygon>
+			</ot:geometria>
+			<ot:materialNawierzchni>kostka prefabrykowana</ot:materialNawierzchni>
+		</ot:OT_PTPL_A>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_PTPL_A gml:id="PL.PZGiK.333.BDOT10k_f00a93bf-452f-44f8-9d07-76240a5c59c6_2025-12-16T000000">
+			<ot:lokalnyId>f00a93bf-452f-44f8-9d07-76240a5c59c6</ot:lokalnyId>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:kodKarto10k>0010_140</ot:kodKarto10k>
+			<ot:geometria>
+				<gml:Polygon gml:id="id-6563d63f-1d36-45df-82bb-ff405955343c-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:exterior>
+						<gml:LinearRing>
+							<gml:posList>197787.88 507625.52 197791.67 507638.80 197796.14 507652.62 197879.44 507712.77 197831.07 507759.60 197834.57 507771.46 197875.00 507741.21 197893.98 507723.73 197902.48 507716.01 197893.80 507707.15 197878.77 507694.68 197860.77 507679.75 197855.52 507675.40 197833.59 507659.04 197819.18 507648.30 197806.77 507639.04 197797.83 507632.37 197787.88 507625.52</gml:posList>
+						</gml:LinearRing>
+					</gml:exterior>
+				</gml:Polygon>
+			</ot:geometria>
+			<ot:materialNawierzchni>kostka prefabrykowana</ot:materialNawierzchni>
+		</ot:OT_PTPL_A>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_PTPL_A gml:id="PL.PZGiK.333.BDOT10k_2DDDAEB2-BB14-1ABF-E053-CC2BA8C0C90E_2025-12-16T000000">
+			<ot:lokalnyId>2DDDAEB2-BB14-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:kodKarto10k>0010_140</ot:kodKarto10k>
+			<ot:geometria>
+				<gml:Polygon gml:id="id-84c1933b-4595-4cc0-9ab7-f20469d8144b-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:exterior>
+						<gml:LinearRing>
+							<gml:posList>197871.48 507882.75 197895.66 507876.62 197900.39 507876.93 197895.70 507847.39 197861.29 507848.86 197871.48 507882.75</gml:posList>
+						</gml:LinearRing>
+					</gml:exterior>
+				</gml:Polygon>
+			</ot:geometria>
+			<ot:materialNawierzchni>masa bitumiczna</ot:materialNawierzchni>
+		</ot:OT_PTPL_A>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_PTPL_A gml:id="PL.PZGiK.333.BDOT10k_2DDDAEB2-BB37-1ABF-E053-CC2BA8C0C90E_2025-12-16T000000">
+			<ot:lokalnyId>2DDDAEB2-BB37-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:kodKarto10k>0010_140</ot:kodKarto10k>
+			<ot:geometria>
+				<gml:Polygon gml:id="id-08f86a0e-c36c-4210-b240-9e1de5bc66de-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:exterior>
+						<gml:LinearRing>
+							<gml:posList>197927.09 507326.54 197959.00 507322.11 197969.35 507319.89 197966.62 507310.72 197964.99 507303.57 197963.99 507295.79 197964.32 507290.02 197955.88 507289.03 197950.69 507289.15 197935.24 507289.77 197933.64 507289.84 197927.43 507290.09 197924.34 507290.14 197924.38 507276.93 197917.33 507276.76 197878.07 507275.60 197859.62 507275.05 197854.01 507269.43 197854.32 507237.48 197850.29 507237.38 197823.76 507238.73 197824.02 507243.62 197825.07 507250.15 197824.08 507250.34 197825.69 507260.33 197827.12 507275.43 197845.71 507273.26 197898.54 507313.71 197899.77 507321.09 197925.85 507317.25 197927.09 507326.54</gml:posList>
+						</gml:LinearRing>
+					</gml:exterior>
+				</gml:Polygon>
+			</ot:geometria>
+			<ot:materialNawierzchni>beton</ot:materialNawierzchni>
+		</ot:OT_PTPL_A>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_PTPL_A gml:id="PL.PZGiK.333.BDOT10k_2DDDAEB2-BB4D-1ABF-E053-CC2BA8C0C90E_2023-12-31T120000">
+			<ot:lokalnyId>2DDDAEB2-BB4D-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:zrodloDanychGeometrycznych>pomiar terenowy</ot:zrodloDanychGeometrycznych>
+			<ot:geometria>
+				<gml:Polygon gml:id="id-7b29e6e7-287f-45ed-909a-c83a66e5ae0f-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:exterior>
+						<gml:LinearRing>
+							<gml:posList>211739.05 513481.91 211762.51 513481.17 211763.27 513477.17 211768.42 513437.20 211773.57 513397.23 211774.67 513387.26 211776.19 513373.48 211742.28 513374.15 211739.05 513481.91</gml:posList>
+						</gml:LinearRing>
+					</gml:exterior>
+				</gml:Polygon>
+			</ot:geometria>
+			<ot:materialNawierzchni>grunt naturalny</ot:materialNawierzchni>
+		</ot:OT_PTPL_A>
+	</gml:featureMember>
+</gml:FeatureCollection>

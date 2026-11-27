@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The 3D-Messdaten of Geobasis NRW (dl-de/zero-2-0): one LAZ file per km tile in EPSG:25832,
 //! listed with its size and date in an `index.json` (ADR 0105). The classes follow the AdV scheme:
 //! ground (2), last echoes above ground (20), intermediate echoes (1), and synthetic fill points
@@ -5,7 +7,6 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::LazyLock;
 
 use chrono::NaiveDate;
 use freemapper_adapter_api::cache::{CacheDir, STALE_PART_AGE};
@@ -16,6 +17,7 @@ use freemapper_adapter_api::pointcloud::{
     PointCloudBackend, PointCloudInfo, PointCloudRecord, PointCloudTile,
 };
 use freemapper_adapter_api::records::{AdapterId, EstimateItem, Part, Store};
+use freemapper_manifest::PointCloud;
 
 use crate::crs::BoundingBox;
 use crate::fetch::{FetchError, FetchMode};
@@ -26,9 +28,12 @@ use crate::las_files::{
 use crate::note::{Arg, note};
 use crate::tiles::{TileId, tiles_covering_grid};
 
-/// The folder of the tiles; the product folder appears twice in the path.
-const BASE: &str = "https://www.opengeodata.nrw.de/produkte/geobasis/hm/3dm_l_las/3dm_l_las";
+/// The folder of the tiles; the product folder appears twice in the path. The manifest of the
+/// state holds it (issue #273); here it is what the manifest is held to in tests.
+#[cfg(any(test, feature = "testing"))]
+pub const BASE: &str = "https://www.opengeodata.nrw.de/produkte/geobasis/hm/3dm_l_las/3dm_l_las";
 /// Every tile with its size and the time it was published (about 3 MB for 36 000 tiles, 2026).
+#[cfg(any(test, feature = "testing"))]
 pub const INDEX_URL: &str =
     "https://www.opengeodata.nrw.de/produkte/geobasis/hm/3dm_l_las/3dm_l_las/index.json";
 /// The folder of the point clouds below the NRW folder of the cache.
@@ -38,24 +43,33 @@ const DIR: &str = "3dm";
 pub const MB_PER_TILE: f64 = 120.0;
 
 /// URL of the tile file `name` (from the index).
+#[cfg(any(test, feature = "testing"))]
 pub fn tile_url(name: &str) -> String {
     format!("{BASE}/{name}")
-}
-
-/// The point-cloud backend of North Rhine-Westphalia.
-pub fn backend() -> &'static dyn PointCloudBackend {
-    static NRW: LazyLock<Nrw3dmBackend> = LazyLock::new(Nrw3dmBackend::new);
-    &*NRW
 }
 
 /// The 3D-Messdaten of Geobasis NRW, kept in the cache as LAZ.
 pub struct Nrw3dmBackend {
     info: PointCloudInfo,
+    /// The folder of the tiles, from `[point_cloud] url`.
+    base: String,
+    /// The index of the tiles, from `[point_cloud] index_url`.
+    index_url: String,
 }
 
 impl Nrw3dmBackend {
-    pub fn new() -> Self {
+    /// The backend that reads the addresses of `cloud`, the `[point_cloud]` of the manifest.
+    ///
+    /// # Panics
+    ///
+    /// When `cloud` has no index address; the validator refuses such a table for this kind.
+    pub fn new(cloud: &PointCloud) -> Self {
         Self {
+            base: cloud.url.clone(),
+            index_url: cloud
+                .index_url
+                .clone()
+                .expect("an index-json table has an index_url"),
             info: PointCloudInfo {
                 id: AdapterId::built_in("geobasisnrw"),
                 cache_dir: "geobasis_nrw".to_string(),
@@ -70,11 +84,10 @@ impl Nrw3dmBackend {
     fn dir(&self, cache: &CacheDir) -> PathBuf {
         cache.provider_dir(&self.info.cache_dir).join(DIR)
     }
-}
 
-impl Default for Nrw3dmBackend {
-    fn default() -> Self {
-        Self::new()
+    /// URL of the tile file `name` (from the index).
+    fn tile_url(&self, name: &str) -> String {
+        format!("{}/{name}", self.base)
     }
 }
 
@@ -104,16 +117,16 @@ fn tile_of_name(name: &str) -> Option<TileId> {
 
 /// The tiles of the index, the newest file of each; names, sizes or dates it cannot read are
 /// left out.
-fn parse_index(bytes: &[u8]) -> Result<HashMap<TileId, IndexTile>, FetchError> {
+fn parse_index(bytes: &[u8], index_url: &str) -> Result<HashMap<TileId, IndexTile>, FetchError> {
     let index: serde_json::Value =
         serde_json::from_slice(bytes).map_err(|e| FetchError::CorruptArchive {
-            url: INDEX_URL.to_string(),
+            url: index_url.to_string(),
             message: e.to_string(),
         })?;
     let datasets = index["datasets"]
         .as_array()
         .ok_or_else(|| FetchError::CorruptArchive {
-            url: INDEX_URL.to_string(),
+            url: index_url.to_string(),
             message: "no `datasets`".to_string(),
         })?;
     let mut tiles: HashMap<TileId, IndexTile> = HashMap::new();
@@ -162,11 +175,11 @@ impl PointCloudBackend for Nrw3dmBackend {
         let index = if offline {
             HashMap::new()
         } else {
-            (env.progress)(note!("progress-downloading", url = INDEX_URL));
+            (env.progress)(note!("progress-downloading", url = &self.index_url));
             match env
                 .fetcher
-                .get(INDEX_URL)
-                .and_then(|bytes| parse_index(&bytes))
+                .get(&self.index_url)
+                .and_then(|bytes| parse_index(&bytes, &self.index_url))
             {
                 Ok(index) => index,
                 Err(FetchError::Cancelled) => return Err(FetchError::Cancelled.into()),
@@ -194,7 +207,7 @@ impl PointCloudBackend for Nrw3dmBackend {
             let name = format!("3dm_32_{}_{}_1_nw.laz", tile.east_km, tile.north_km);
             if offline {
                 match cached.into_iter().next() {
-                    Some(newest) => fetched.push(found(tile_url(&name), newest)),
+                    Some(newest) => fetched.push(found(self.tile_url(&name), newest)),
                     None => (env.progress)(note!(
                         "warning-point-cloud-no-cached",
                         tile = tile_name(tile)
@@ -203,11 +216,11 @@ impl PointCloudBackend for Nrw3dmBackend {
                 continue;
             }
             let Some(entry) = index.get(&tile) else {
-                let found = |newest| found(tile_url(&name), newest);
+                let found = |newest| found(self.tile_url(&name), newest);
                 not_published(env, &tile_name(tile), cached, &mut fetched, found);
                 continue;
             };
-            let url = tile_url(&entry.name);
+            let url = self.tile_url(&entry.name);
             let path = las_path(&dir, &tile_name(tile), entry.published);
             if path.exists() {
                 (env.progress)(note!("progress-point-cloud-cached", tile = tile_name(tile)));
@@ -284,6 +297,26 @@ mod tests {
         max_n: 5_644_400.0,
     };
 
+    /// The backend of the manifest of North Rhine-Westphalia.
+    fn backend() -> Nrw3dmBackend {
+        Nrw3dmBackend::new(
+            &crate::states::point_cloud_of(crate::states::State::NordrheinWestfalen)
+                .expect("the manifest has a [point_cloud]"),
+        )
+    }
+
+    /// The manifest holds the addresses the backend used to carry.
+    #[test]
+    fn the_manifest_holds_the_addresses() {
+        let cloud =
+            crate::states::point_cloud_of(crate::states::State::NordrheinWestfalen).unwrap();
+        assert_eq!(cloud.kind, freemapper_manifest::PointCloudKind::IndexJson);
+        assert_eq!(cloud.url, BASE);
+        assert_eq!(cloud.index_url.as_deref(), Some(INDEX_URL));
+        assert_eq!(backend().tile_url(NAME), format!("{BASE}/{NAME}"));
+        assert_eq!(backend().tile_url(NAME), tile_url(NAME));
+    }
+
     fn registry() -> Registry {
         let mut registry = Registry::new();
         for adapter in crate::states::adapters() {
@@ -358,7 +391,7 @@ mod tests {
             skip_surface: false,
             progress: &mut |n| notes.push(n.to_string()),
         };
-        let tiles = Nrw3dmBackend::new().fetch(&mut env, &BBOX).unwrap();
+        let tiles = backend().fetch(&mut env, &BBOX).unwrap();
         (tiles, notes)
     }
 
@@ -399,14 +432,14 @@ mod tests {
             ("3dm_32_357_5644_1_nw.laz", 30, "no date"),
             ("readme.txt", 1, "2024-01-02T00:00:00"),
         ]);
-        let tiles = parse_index(&text).unwrap();
+        let tiles = parse_index(&text, INDEX_URL).unwrap();
         assert_eq!(tiles.len(), 1);
         let entry = &tiles[&parse_tile_name(TILE).unwrap()];
         assert_eq!(
             (entry.bytes, entry.published),
             (20, "2024-01-02".parse().unwrap())
         );
-        assert!(parse_index(b"<html>").is_err());
+        assert!(parse_index(b"<html>", INDEX_URL).is_err());
     }
 
     #[test]
@@ -427,7 +460,7 @@ mod tests {
         );
         assert_eq!(folder(&cache), ["32356-5644_2023-07-19.laz"]);
         assert_eq!(
-            Nrw3dmBackend::new().cached(&cache, &tiles[0].record),
+            backend().cached(&cache, &tiles[0].record),
             Some(tiles[0].path.clone())
         );
         let (again, notes) = fetch(&fetcher, &cache, FetchMode::Online);
@@ -536,7 +569,7 @@ mod tests {
             skip_surface: false,
             progress: &mut |_| {},
         };
-        assert!(Nrw3dmBackend::new().fetch(&mut env, &BBOX).is_err());
+        assert!(backend().fetch(&mut env, &BBOX).is_err());
     }
 
     #[test]
@@ -551,7 +584,7 @@ mod tests {
             },
             today: "2026-11-12".parse().unwrap(),
         };
-        let items = Nrw3dmBackend::new().estimate(&area, &EstimateEnv { cache: &cache });
+        let items = backend().estimate(&area, &EstimateEnv { cache: &cache });
         let what: Vec<(&str, f64, Part)> = items
             .iter()
             .map(|i| (i.what.as_str(), i.megabytes, i.part))
@@ -577,7 +610,7 @@ mod tests {
     #[ignore = "network"]
     fn live_index_names_the_cologne_tile() {
         use crate::fetch::{Fetcher as _, HttpFetcher};
-        let tiles = parse_index(&HttpFetcher::new().get(INDEX_URL).unwrap()).unwrap();
+        let tiles = parse_index(&HttpFetcher::new().get(INDEX_URL).unwrap(), INDEX_URL).unwrap();
         assert!(tiles.len() > 30_000, "{}", tiles.len());
         assert!(tiles.contains_key(&parse_tile_name(TILE).unwrap()));
     }

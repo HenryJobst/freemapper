@@ -164,6 +164,10 @@ let previewRequest = 0;
 let savedHere = false;
 /** The contour interval chosen on the page in metres; `null` is the automatic choice. */
 let contourInterval = null;
+/** The steep slope chosen on the page in degrees; `null` is the default (about 27°). */
+let steepSlope = null;
+/** The face slope chosen on the page in degrees; `null` is the default (70°). */
+let faceSlope = null;
 // True while a run goes on: the area, the settings and "Save" are locked.
 let busy = false;
 // The area and source as last saved or loaded; a different one needs a save before a run.
@@ -173,7 +177,7 @@ let savedSignature = null;
 let conflict = false;
 
 function signature() {
-  return JSON.stringify({ area, sourceId, content: contentKey(content), contour: contourInterval });
+  return JSON.stringify({ area, sourceId, content: contentKey(content), contour: contourInterval, steep: steepSlope, face: faceSlope });
 }
 
 /** The signature of the area that `project` holds, as `signature()` gives it once shown. */
@@ -184,6 +188,8 @@ function savedSignatureOf(project) {
     sourceId: saved ? project.source_id : null,
     content: contentKey(contentOf(project)),
     contour: project ? (project.contour_interval_m ?? null) : null,
+    steep: project ? (project.steep_slope_deg ?? null) : null,
+    face: project ? (project.face_slope_deg ?? null) : null,
   });
 }
 
@@ -207,6 +213,8 @@ function updateControls() {
   $("search").querySelector("button").disabled = busy;
   for (const id of ["kind", "scale", "title"]) $(id).disabled = busy || (project && project.exists);
   $("contour").disabled = busy;
+  $("steep").disabled = busy;
+  $("face").disabled = busy;
   for (const control of $("content-section").querySelectorAll("input, select")) {
     control.disabled = busy;
   }
@@ -588,10 +596,56 @@ $("contour").addEventListener("change", () => {
   notifyRun();
 });
 
+// The steep slopes offered on the page (ADR 0198); a stored other one stays selectable.
+const STEEP_SLOPES = [45, 55, 65];
+
+/** Fills the steep slope list and selects `current` (`null`: the default). */
+function fillSteepSlopes(current) {
+  const list = [...STEEP_SLOPES];
+  if (current != null && !list.includes(current)) list.push(current);
+  list.sort((a, b) => a - b);
+  const degrees = (d) => `${d.toLocaleString(language())}°`;
+  $("steep").replaceChildren(
+    new Option(t("page-steep-slope-auto"), "auto"),
+    ...list.map((d) => new Option(degrees(d), String(d))),
+  );
+  $("steep").value = current == null ? "auto" : String(current);
+  steepSlope = current ?? null;
+}
+
+$("steep").addEventListener("change", () => {
+  steepSlope = $("steep").value === "auto" ? null : Number($("steep").value);
+  notifyRun();
+});
+
+// The face slopes offered on the page besides the default of 70° (ADR 0200); a stored other
+// one stays selectable.
+const FACE_SLOPES = [65, 75];
+
+/** Fills the face slope list and selects `current` (`null`: the default). */
+function fillFaceSlopes(current) {
+  const list = [...FACE_SLOPES];
+  if (current != null && !list.includes(current)) list.push(current);
+  list.sort((a, b) => a - b);
+  const degrees = (d) => `${d.toLocaleString(language())}°`;
+  $("face").replaceChildren(
+    new Option(t("page-face-slope-auto"), "auto"),
+    ...list.map((d) => new Option(degrees(d), String(d))),
+  );
+  $("face").value = current == null ? "auto" : String(current);
+  faceSlope = current ?? null;
+}
+
+$("face").addEventListener("change", () => {
+  faceSlope = $("face").value === "auto" ? null : Number($("face").value);
+  notifyRun();
+});
+
 $("kind").addEventListener("change", () => {
   fillScales($("kind").value);
   // The buffer depends on the map kind.
   updatePreview();
+  notifyRun();
 });
 
 $("save").addEventListener("click", () => saveArea(true));
@@ -634,6 +688,8 @@ async function saveArea(explicit = false) {
     // Only a choice that differs from the file; without one the stored settings stay as they are.
     if (contentKey(content) !== contentKey(contentOf(project))) body.content = contentBody(content);
     if (contourInterval !== (project.contour_interval_m ?? null)) body.contour_interval_m = contourInterval;
+    if (steepSlope !== (project.steep_slope_deg ?? null)) body.steep_slope_deg = steepSlope;
+    if (faceSlope !== (project.face_slope_deg ?? null)) body.face_slope_deg = faceSlope;
     if (!project.exists) {
       body.kind = $("kind").value;
       body.scale = Number($("scale").value) || undefined;
@@ -645,6 +701,8 @@ async function saveArea(explicit = false) {
     savedSignature = signature();
     loadedContent = contentOf({ content_options: project.content_options, content: contentBody(content) });
     project.contour_interval_m = contourInterval;
+    project.steep_slope_deg = steepSlope;
+    project.face_slope_deg = faceSlope;
     setMessage(
       t(
         answer.zone_changed
@@ -727,6 +785,8 @@ function showSettings() {
   fillScales(project.kind, project.scale);
   $("title").value = project.title || "";
   fillContours(project.contour_interval_m ?? null);
+  fillSteepSlopes(project.steep_slope_deg ?? null);
+  fillFaceSlopes(project.face_slope_deg ?? null);
   updateControls();
   $("settings-fixed").hidden = !project.exists;
 }

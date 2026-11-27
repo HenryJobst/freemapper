@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The laser points of Berlin (Geoportal Berlin, "Airborne Laserscanning (ALS) Primäre 3D
 //! Laserscan-Daten", dl-de/zero-2-0, scan of 2021): one LAS file per km tile in EPSG:25833,
 //! packed into nine zip64 archives of 1 to 51 GB by part of the city (ADR 0105). A tile is read
@@ -8,7 +10,6 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::LazyLock;
 
 use chrono::NaiveDate;
 use freemapper_adapter_api::cache::{CacheDir, STALE_PART_AGE};
@@ -19,6 +20,7 @@ use freemapper_adapter_api::pointcloud::{
     PointCloudBackend, PointCloudInfo, PointCloudRecord, PointCloudTile,
 };
 use freemapper_adapter_api::records::{AdapterId, EstimateItem, Part, Store};
+use freemapper_manifest::PointCloud;
 
 use crate::crs::BoundingBox;
 use crate::fetch::{FetchError, FetchMode};
@@ -29,7 +31,10 @@ use crate::note::note;
 use crate::sources::zip_range::{Member, find_member, read_members, stream_member};
 use crate::tiles::{TileId, tiles_covering_grid};
 
-const BASE: &str = "https://gdi.berlin.de/data/a_als/atom";
+/// The folder of the archives; the manifest of the state holds it (issue #273), here it is what
+/// the manifest is held to in tests.
+#[cfg(any(test, feature = "testing"))]
+pub const BASE: &str = "https://gdi.berlin.de/data/a_als/atom";
 /// The folder of the point clouds below the Berlin folder of the cache.
 const DIR: &str = "als";
 /// A tile is about 240 MB to download (packed LAS) and 100 MB as LAZ in the cache (2021 scan);
@@ -56,30 +61,23 @@ fn archive_of(tile: TileId) -> &'static str {
     ][column][row]
 }
 
-/// URL of the archive `name`.
-pub fn archive_url(name: &str) -> String {
-    format!("{BASE}/{name}.zip")
-}
-
 /// The name of the LAS file of `tile` in its archive.
 fn member_name(tile: TileId) -> String {
     format!("3dm_33_{}_{}_1_be.las", tile.east_km, tile.north_km)
 }
 
-/// The point-cloud backend of Berlin.
-pub fn backend() -> &'static dyn PointCloudBackend {
-    static BERLIN: LazyLock<BerlinAlsBackend> = LazyLock::new(BerlinAlsBackend::new);
-    &*BERLIN
-}
-
 /// The laser points of Berlin, kept in the cache as LAZ.
 pub struct BerlinAlsBackend {
     info: PointCloudInfo,
+    /// The folder of the archives, from `[point_cloud] url`.
+    base: String,
 }
 
 impl BerlinAlsBackend {
-    pub fn new() -> Self {
+    /// The backend that reads the addresses of `cloud`, the `[point_cloud]` of the manifest.
+    pub fn new(cloud: &PointCloud) -> Self {
         Self {
+            base: cloud.url.clone(),
             info: PointCloudInfo {
                 id: AdapterId::built_in("berlin"),
                 cache_dir: "berlin".to_string(),
@@ -94,11 +92,10 @@ impl BerlinAlsBackend {
     fn dir(&self, cache: &CacheDir) -> PathBuf {
         cache.provider_dir(&self.info.cache_dir).join(DIR)
     }
-}
 
-impl Default for BerlinAlsBackend {
-    fn default() -> Self {
-        Self::new()
+    /// URL of the archive `name`.
+    fn archive_url(&self, name: &str) -> String {
+        format!("{}/{name}.zip", self.base)
     }
 }
 
@@ -135,7 +132,7 @@ impl PointCloudBackend for BerlinAlsBackend {
         for tile in tiles_covering_grid(bbox, self.info.grid_km) {
             let name = tile.name();
             let archive = archive_of(tile);
-            let url = archive_url(archive);
+            let url = self.archive_url(archive);
             let cached = cached_las(&dir, &name);
             let found = |(published, path): (NaiveDate, PathBuf)| PointCloudTile {
                 record: PointCloudRecord {
@@ -284,6 +281,28 @@ mod tests {
         max_n: 5_818_400.0,
     };
 
+    /// The backend of the manifest of Berlin.
+    fn backend() -> BerlinAlsBackend {
+        BerlinAlsBackend::new(
+            &crate::states::point_cloud_of(crate::states::State::Berlin)
+                .expect("the manifest has a [point_cloud]"),
+        )
+    }
+
+    fn archive_url(name: &str) -> String {
+        backend().archive_url(name)
+    }
+
+    /// The manifest holds the folder the backend used to carry.
+    #[test]
+    fn the_manifest_holds_the_addresses() {
+        let cloud = crate::states::point_cloud_of(crate::states::State::Berlin).unwrap();
+        assert_eq!(cloud.kind, freemapper_manifest::PointCloudKind::ZipArchives);
+        assert_eq!(cloud.url, BASE);
+        assert_eq!(cloud.index_url, None);
+        assert_eq!(backend().archive_url("Mitte"), format!("{BASE}/Mitte.zip"));
+    }
+
     fn registry() -> Registry {
         let mut registry = Registry::new();
         for adapter in crate::states::adapters() {
@@ -356,7 +375,7 @@ mod tests {
             skip_surface: false,
             progress: &mut |n| notes.push(n.to_string()),
         };
-        let tiles = BerlinAlsBackend::new().fetch(&mut env, &BBOX)?;
+        let tiles = backend().fetch(&mut env, &BBOX)?;
         Ok((tiles, notes))
     }
 
@@ -409,7 +428,7 @@ mod tests {
         let mut reader = las::Reader::from_path(&tiles[0].path).unwrap();
         assert_eq!(reader.read_points(100).unwrap().len(), 40);
         assert_eq!(
-            BerlinAlsBackend::new().cached(&cache, &tiles[0].record),
+            backend().cached(&cache, &tiles[0].record),
             Some(tiles[0].path.clone())
         );
         // The second fetch asks only the date of the archive.
@@ -529,7 +548,7 @@ mod tests {
             max_e: 392_100.0,
             ..BBOX
         };
-        let tiles = BerlinAlsBackend::new().fetch(&mut env, &two_tiles).unwrap();
+        let tiles = backend().fetch(&mut env, &two_tiles).unwrap();
         assert_eq!(tiles.len(), 1, "the cached tile");
         assert_eq!(down.calls.get(), 1);
         let warnings = notes.iter().filter(|n| n.contains("503")).count();
@@ -548,7 +567,7 @@ mod tests {
             },
             today: "2026-11-12".parse().unwrap(),
         };
-        let items = BerlinAlsBackend::new().estimate(&area, &EstimateEnv { cache: &cache });
+        let items = backend().estimate(&area, &EstimateEnv { cache: &cache });
         let what: Vec<(&str, f64)> = items
             .iter()
             .map(|i| (i.what.as_str(), i.megabytes))

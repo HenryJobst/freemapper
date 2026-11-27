@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The region adapters built into freemapper and the registry the engine asks (ADR 0082).
 //!
 //! The registry is a type of `freemapper-adapter-api` and knows no adapter. This module fills it
@@ -7,6 +9,7 @@
 use std::sync::OnceLock;
 
 pub use freemapper_adapter_api::adapter::RegionAdapter;
+pub use freemapper_adapter_api::info::Names;
 pub use freemapper_adapter_api::registry::Registry;
 
 /// The adapters built into the program: the German states of `freemapper-adapters-de` with
@@ -26,7 +29,20 @@ pub fn builtin_with_hosts(extra: &ExtraHosts) -> Registry {
     let mut registry = Registry::new();
     freemapper_adapters_de::states::register_with_hosts(&mut registry, extra)
         .expect("the built-in states have distinct ids and backends");
+    freemapper_adapters_pl::register_with_hosts(&mut registry, extra)
+        .expect("Poland has an id of its own");
+    freemapper_adapters_cz::register_with_hosts(&mut registry, extra)
+        .expect("Czechia has an id of its own");
+    // What an adapter from a folder may replace (ADR 0188).
+    registry.mark_builtin();
     registry
+}
+
+/// The files of the adapter folder for the built-in adapter `id`, as `(name, text)`: what
+/// `adapters export` writes. `None` when the adapter is not declared by a manifest of the
+/// program (an adapter that code declares).
+pub fn export_files(id: &str) -> Option<Vec<(String, std::borrow::Cow<'static, str>)>> {
+    freemapper_adapters_de::states::export_files(id)
 }
 
 /// A registry with the raster backends of the program and no adapter: what the manifest of an
@@ -69,17 +85,27 @@ pub(crate) fn asking<T>(
 
 /// The names of the regions of the registry in its order, German with `german`, else English:
 /// the list of what freemapper supports, for messages.
-pub fn region_names(german: bool) -> Vec<&'static str> {
+pub fn region_names(lang: &str) -> Vec<&'static str> {
+    names_of(lang, |_| true)
+}
+
+/// [`region_names`] of the regions that have the full official geodata (rasters and cadastre), not
+/// those that have OSM only or no cadastre: for a sentence that says whose official geodata
+/// freemapper uses.
+pub fn region_names_with_geodata(lang: &str) -> Vec<&'static str> {
+    names_of(lang, |info| {
+        info.coverage == freemapper_adapter_api::info::Coverage::Full
+    })
+}
+
+fn names_of(
+    lang: &str,
+    keep: impl Fn(&freemapper_adapter_api::info::RegionInfo) -> bool,
+) -> Vec<&'static str> {
     registry()
         .adapters()
-        .map(|adapter| {
-            let names = &adapter.info().names;
-            if german {
-                names.de.as_str()
-            } else {
-                names.en.as_str()
-            }
-        })
+        .filter(|adapter| keep(adapter.info()))
+        .map(|adapter| adapter.info().names.in_lang(lang))
         .collect()
 }
 
@@ -242,8 +268,12 @@ pub(crate) mod test_support {
                 names: Names {
                     en: "Square".to_string(),
                     de: "Quadrat".to_string(),
+                    pl: None,
+                    cs: None,
                 },
                 crs: crate::crs::Crs::Utm33,
+                country: freemapper_adapter_api::info::Country::De,
+                coverage: freemapper_adapter_api::info::Coverage::Full,
                 object_id_prefix: None,
                 osm: Vec::new(),
                 credit_short: None,
@@ -289,6 +319,32 @@ pub(crate) mod test_support {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Every built-in region has the full geodata at present, Czechia and Poland among them; the
+    /// list leaves out one that has not.
+    #[test]
+    fn region_names_with_geodata_name_the_regions_with_rasters_and_a_cadastre() {
+        for lang in ["de", "en", "pl", "cs"] {
+            let all = region_names(lang);
+            let geodata = region_names_with_geodata(lang);
+            let czech = match lang {
+                "de" => "Tschechien",
+                "pl" => "Czechy",
+                "cs" => "Česko",
+                _ => "Czechia",
+            };
+            assert_eq!(geodata, all, "{lang}");
+            assert!(geodata.contains(&czech), "{lang}");
+            assert!(geodata.contains(&"Brandenburg"));
+            let polish = match lang {
+                "de" => "Polen",
+                "pl" => "Polska",
+                "cs" => "Polsko",
+                _ => "Poland",
+            };
+            assert!(geodata.contains(&polish), "{lang}");
+        }
+    }
     #[allow(unused_imports)]
     use crate::sources::region::ids::{IdFacts as _, regions};
 
@@ -476,6 +532,11 @@ mod tests {
             "adapters/mod.rs",
             "freemapper_adapters_de::states::register_backends(",
         ),
+        // The files of a built-in adapter, which `adapters export` writes as a folder.
+        (
+            "adapters/mod.rs",
+            "freemapper_adapters_de::states::export_files(id)",
+        ),
         // The tile download of the tile providers, re-exported for the engine's tests of it.
         ("fetch.rs", "pub use freemapper_adapters_de::tile_fetch::{"),
         // How a product names its tiles, a trait of the tile providers that `derive` reads.
@@ -486,6 +547,11 @@ mod tests {
         (
             "derive/terrain.rs",
             "use freemapper_adapters_de::lgb::ProductTiles as _;",
+        ),
+        // The manifests of the built-in states, whose services the reachability probe asks.
+        (
+            "probe.rs",
+            "targets(freemapper_adapters_de::states::manifest_texts())",
         ),
         // The endpoints of the cadastre of two states, for the helpers the engine's tests use.
         (
@@ -628,9 +694,9 @@ mod tests {
             "the map area lies outside the supported states (Brandenburg, Berlin, Saxony, \
              Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, \
              North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate, Saarland, \
-             Baden-Württemberg, Bremen, Bavaria); freemapper has data sources for those only so far"
+             Baden-Württemberg, Bremen, Bavaria, Poland, Czechia); freemapper has data sources for those only so far"
         );
-        assert_eq!(region_names(true)[2], "Sachsen");
+        assert_eq!(region_names("de")[2], "Sachsen");
     }
 
     /// The backends alone: no adapter, and every backend a built-in manifest names.
@@ -645,22 +711,53 @@ mod tests {
     }
 
     #[test]
-    fn registry_lists_the_fifteen() {
+    fn regions_have_their_country_and_coverage() {
+        use freemapper_adapter_api::info::{Country, Coverage};
+        for adapter in builtin().adapters() {
+            let info = adapter.info();
+            // Poland has the rasters and the cadastre of GUGiK (ADR 0170, 0171), as every German
+            // state has its own; Czechia has the rasters and the cadastre (RÚIAN, ZABAGED) of ČÚZK
+            // (ADR 0197).
+            let country = match info.id.as_str() {
+                "polska" => Country::Pl,
+                "cesko" => Country::Cz,
+                _ => Country::De,
+            };
+            let coverage = Coverage::Full;
+            assert_eq!(info.country, country, "{}", info.id);
+            assert_eq!(info.coverage, coverage, "{}", info.id);
+        }
+        assert_eq!(Country::De.code(), "de");
+        assert_eq!(Country::Pl.code(), "pl");
+        assert_eq!(Country::Cz.code(), "cz");
+    }
+
+    #[test]
+    fn registry_lists_the_fifteen_states_poland_and_czechia() {
         let built_in = builtin();
         let ids: Vec<&str> = built_in.adapters().map(|a| a.info().id.as_str()).collect();
-        let all: Vec<String> = regions::ALL.iter().map(ToString::to_string).collect();
+        let mut all: Vec<String> = regions::ALL.iter().map(ToString::to_string).collect();
+        assert_eq!(all.len(), 15);
+        all.push("polska".to_string());
+        all.push("cesko".to_string());
         assert_eq!(ids, all);
-        assert_eq!(ids.len(), 15);
         // The eleven that were code first, in the order the region functions always went
         // through them; a state added since comes after them.
         let legacy: Vec<String> = regions::LEGACY.iter().map(ToString::to_string).collect();
         assert_eq!(ids[..11], legacy);
         assert_eq!(
             ids[11..],
-            ["saarland", "badenwuerttemberg", "bremen", "bayern"]
+            [
+                "saarland",
+                "badenwuerttemberg",
+                "bremen",
+                "bayern",
+                "polska",
+                "cesko"
+            ]
         );
         // The registry of the process is the built-in one unless another was installed.
-        assert_eq!(registry().len(), 15);
+        assert_eq!(registry().len(), 17);
     }
 
     /// G1 records what the enums of v0.12.0 answered; the adapters must say the same.

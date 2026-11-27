@@ -1,0 +1,47 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     14.371927,
+     50.077223
+    ]
+   },
+   "properties": {
+    "NAZEV": "Hrušeň obecná nad Zdíkovskou ulicí",
+    "DRUH": "hrušeň obecná"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     14.44568,
+     50.058162
+    ]
+   },
+   "properties": {
+    "NAZEV": "Platan javorolistý v parku Jezerka",
+    "DRUH": "platan javorolistý"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     14.41821,
+     50.025471
+    ]
+   },
+   "properties": {
+    "NAZEV": "Jiráskovy duby v Hodkovičkách",
+    "DRUH": null
+   }
+  }
+ ]
+}

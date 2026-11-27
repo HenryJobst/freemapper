@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The polygons of an ESRI Shapefile: the shapes of the `.shp` with the text fields of the
 //! `.dbf`, cut to a box. Read are the polygon types (with or without heights and measures, of
 //! which only x and y are kept); the index file `.shx` is not needed.

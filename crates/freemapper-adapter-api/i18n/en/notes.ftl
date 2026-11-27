@@ -107,18 +107,21 @@ warning-permits-osm-no-extract = no OSM extract is cached for this map area, so 
 
 ## ALKIS
 
-warning-alkis-coverage-unknown = ALKIS buildings coverage unknown; run `freemapper fetch` online to record it
-progress-alkis-buildings-download = downloading ALKIS buildings
-progress-alkis-buildings = { $count } ALKIS buildings
-warning-alkis-no-buildings = no ALKIS buildings found in the map area
-progress-alkis-skipped = skipped { $count } ALKIS features: { $list }
-warning-alkis-buildings-changed = ALKIS buildings changed upstream ({ $changes })
-progress-alkis-no-land-use-stored = no ALKIS land use stored; run `freemapper fetch` online for out-of-bounds candidates
-progress-alkis-land-use-download = downloading ALKIS land use
-progress-alkis-land-use-parts = { $count } ALKIS land use parts
-warning-alkis-land-use-kept = ALKIS land use unavailable ({ $error }); keeping the stored land use
-warning-alkis-land-use-removed = ALKIS land use unavailable ({ $error }); the stored land use no longer covers the map area, so freemapper removed it
-warning-alkis-land-use-none = ALKIS land use unavailable ({ $error }); no out-of-bounds candidates
+warning-alkis-coverage-unknown = { $cadastre } buildings coverage unknown; run `freemapper fetch` online to record it
+progress-alkis-buildings-download = downloading { $cadastre } buildings
+progress-alkis-buildings = { $count } { $cadastre } buildings
+warning-alkis-no-buildings = no { $cadastre } buildings found in the map area
+progress-alkis-skipped = skipped { $count } { $cadastre } features: { $list }
+warning-alkis-buildings-changed = { $cadastre } buildings changed upstream ({ $changes })
+progress-alkis-no-land-use-stored = no { $cadastre } land use stored; run `freemapper fetch` online for out-of-bounds candidates
+progress-alkis-land-use-download = downloading { $cadastre } land use
+progress-alkis-land-use-parts = { $count } { $cadastre } land use parts
+warning-alkis-land-use-kept = { $cadastre } land use unavailable ({ $error }); keeping the stored land use
+warning-alkis-land-use-removed = { $cadastre } land use unavailable ({ $error }); the stored land use no longer covers the map area, so freemapper removed it
+warning-alkis-land-use-none = { $cadastre } land use unavailable ({ $error }); no out-of-bounds candidates
+progress-bdot-filled = { $count } BDOT10k { $what } filled in where EGiB gives none ({ $powiat })
+warning-bdot-failed = BDOT10k could not fill the gap in EGiB ({ $what }): { $error }
+warning-bdot-instead = EGiB is unavailable ({ $error }); using the BDOT10k { $what } of { $powiat } instead
 
 ## The Berlin layers
 
@@ -134,6 +137,12 @@ progress-feinkartierung-download = downloading the Hamburg Feinkartierung (stree
 progress-feinkartierung-features = { $count } Feinkartierung { $file } features
 warning-feinkartierung-layer-kept = Feinkartierung { $file } unavailable ({ $detail }); keeping the stored layer
 warning-feinkartierung-layer-skipped = Feinkartierung { $file } unavailable ({ $detail }); layer skipped
+progress-bdot-roads-none-stored = no BDOT10k roads and paths stored; run `freemapper fetch` online for the roads and paths of the register
+progress-bdot-roads-removing = removing the stored BDOT10k roads and paths: the map area is no longer in Poland
+progress-bdot-roads-download = downloading the BDOT10k roads and paths
+progress-bdot-roads-features = { $count } BDOT10k { $file } features
+warning-bdot-roads-layer-kept = BDOT10k { $file } unavailable ({ $detail }); keeping the stored layer
+warning-bdot-roads-layer-skipped = BDOT10k { $file } unavailable ({ $detail }); layer skipped
 error-extra-layer-unknown = not a layer of { $folder }
 warning-berlin-buildings-missing = no ALKIS buildings stored for this area in Berlin; run `freemapper fetch` to get them from the Geoportal Berlin
 
@@ -174,6 +183,7 @@ warning-trees-skipped = { $id } tree cadastre unavailable ({ $detail }); trees s
 
 progress-writing = writing { $path }
 progress-contours-steep = contours every { $interval } m: the terrain is so steep that contours every { $default } m would run together; a contour interval of { $default } m in the project keeps them (`--contour-interval { $default }`)
+warning-osm-only-no-terrain = no terrain data for this region yet: the map is made from OpenStreetMap alone, without contours, templates and buildings
 progress-no-ndsm-recorded = no nDSM recorded; run `freemapper fetch` for the nDSM template
 warning-ndsm-tile-invalid = invalid nDSM tile { $tile } in freemapper.toml; skipped
 warning-ndsm-not-cached = nDSM { $tile } not cached; run `freemapper fetch`
@@ -183,6 +193,7 @@ warning-surface-unusable = surface model unusable ({ $error }); run `freemapper 
 ## Downloads and the cache
 
 progress-downloading = downloading { $url }
+progress-retry-wait = the service is busy; trying again in { $seconds } s
 progress-downloaded = downloaded { $megabytes } MB
 progress-downloaded-of = downloaded { $megabytes } MB of { $total } MB
 progress-tile-index-download = downloading the { $product } tile index

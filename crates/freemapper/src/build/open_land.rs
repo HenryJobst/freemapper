@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Parks, meadows and woods (ALKIS land use) → 401, 403 and 405 areas (ISSprOM 2019-2 §4.4,
 //! ADR 0069), and the walkable area (belaufbare Fläche) under the whole sprint map.
 //!
@@ -33,6 +35,10 @@ pub const BASE_SOURCE: &str = freemapper_contract::tags::SOURCE_BASE;
 /// The map part of the walkable area, written first.
 pub const BASE_PART: &str = freemapper_contract::tags::BASE_PART;
 
+/// The `bez` of recreation land whose kind the source does not say (EGiB `Bz`: parks, playgrounds,
+/// sports grounds, zoos, unkept green, allotments). It is lawn only as a candidate.
+pub const UNSPECIFIED_RECREATION_BEZ: &str = "Erholungsfläche";
+
 /// The class of a land use on the map: its symbol and whether it is reliable enough to be a map
 /// object.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -43,7 +49,8 @@ pub struct OpenLandClass {
 
 /// `nutzart / bez` → symbol. A park, a green space and a meadow are lawn with trees: 401 (§4.4
 /// "lawn, field, meadow, grassland"). A cemetery and other farmland are candidates: graves,
-/// crops and gardens need the mapper. Woods are white forest, heath rough open land; moor and
+/// crops and gardens need the mapper; so does recreation land of unknown kind
+/// ([`UNSPECIFIED_RECREATION_BEZ`]). Woods are white forest, heath rough open land; moor and
 /// swamp are candidates for 403 (the mapper adds the marsh).
 pub fn open_land_class(land: &LandUse) -> Option<OpenLandClass> {
     let nutzart = spelling_key(&land.nutzart);
@@ -57,6 +64,8 @@ pub fn open_land_class(land: &LandUse) -> Option<OpenLandClass> {
     if is("Sport-, Freizeit- und Erholungsfläche") {
         return if bez_is(&["Grünanlage", "Park", "Siedlungsgrünfläche"]) {
             class(OPEN_LAND_CODE, true)
+        } else if bez_is(&[UNSPECIFIED_RECREATION_BEZ]) {
+            class(OPEN_LAND_CODE, false)
         } else {
             None
         };
@@ -377,9 +386,17 @@ mod tests {
             Some("Sportanlage"),
             Some("Spielplatz, Bolzplatz"),
             Some("Kleingarten"),
+            Some("Erholung"),
+            Some("Erholungsflächen"),
         ] {
             assert_eq!(class(recreation, bez), None, "{bez:?}");
         }
+        // Recreation land of unknown kind (Poland, EGiB `Bz`) is a candidate, never a map object.
+        assert_eq!(
+            class(recreation, Some(UNSPECIFIED_RECREATION_BEZ)),
+            candidate("401")
+        );
+        assert_eq!(class("Wohnbaufläche", Some("Erholungsfläche")), None);
         assert_eq!(class("Landwirtschaft", Some("Grünland")), map("401"));
         assert_eq!(class("Landwirtschaft", Some("Ackerland")), candidate("401"));
         assert_eq!(class("Landwirtschaft", None), candidate("401"));

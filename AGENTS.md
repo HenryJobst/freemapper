@@ -14,8 +14,8 @@ training in a small forest).
 
 Supported states: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein,
 Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate,
-Saarland, Baden-Württemberg, Bremen and Bavaria. Thuringia has no data sources yet; an area there fails with a message that says so. Tell the
-user before you start if the place lies outside these states.
+Saarland, Baden-Württemberg, Bremen and Bavaria. Thuringia has no data sources yet; an area there fails with a message that says so. Poland is usable: terrain model, contours,
+orthophoto, buildings and land use from GUGiK (the cadastre EGiB, BDOT10k where it gives nothing), permit notes from GDOŚ, the State Forests, the boundary register (voivodeship, powiat and gmina) and the monument registers of the NID (immovable, archaeological and the Pomniki historii), and the area must lie wholly in Poland. Czechia is a preview: terrain model, contours, surface model and orthophoto from ČÚZK, buildings from RÚIAN and land use from ZABAGED, permit notes from the AOPK (protected areas and objects), RÚIAN (kraj, okres, ORP, obec) and the NPÚ (monuments), and the area must lie wholly in Czechia. Tell the user before you start if the place lies outside these states.
 
 ## Install
 
@@ -23,7 +23,7 @@ freemapper is one executable without an installer and without dependencies. Do n
 the user asks; the release archives are ready to run.
 
 1. Find the newest version: `https://api.github.com/repos/HenryJobst/freemapper/releases/latest` returns JSON with
-   `tag_name`, for example `v0.24.0`. The release page is
+   `tag_name`, for example `v0.28.0`. The release page is
    <https://github.com/HenryJobst/freemapper/releases/latest>.
 2. Pick the archive for the system. The name is `freemapper-<tag>-<platform>` plus the extension:
 
@@ -41,7 +41,7 @@ the user asks; the release archives are ready to run.
 3. Download, check and unpack. macOS and Linux, for example in `~/Applications` or `~/opt`:
 
    ```sh
-   tag=v0.24.0; platform=macos-arm64
+   tag=v0.28.0; platform=macos-arm64
    base="https://github.com/HenryJobst/freemapper/releases/download/$tag"
    curl -fLO "$base/freemapper-$tag-$platform.tar.gz"
    curl -fLO "$base/freemapper-$tag-$platform.tar.gz.sha256"
@@ -52,7 +52,7 @@ the user asks; the release archives are ready to run.
    Windows (PowerShell):
 
    ```powershell
-   $tag = "v0.24.0"; $name = "freemapper-$tag-windows-x86_64.zip"
+   $tag = "v0.28.0"; $name = "freemapper-$tag-windows-x86_64.zip"
    $base = "https://github.com/HenryJobst/freemapper/releases/download/$tag"
    Invoke-WebRequest "$base/$name" -OutFile $name
    Invoke-WebRequest "$base/$name.sha256" -OutFile "$name.sha256"
@@ -91,6 +91,11 @@ turn that costs tokens. Use MCP only when you cannot run commands (see the next 
 `freemapper --help` lists the commands, `freemapper <command> --help` their switches. Pass `--lang en` when you
 parse the output; this file quotes the English texts.
 
+On Windows, a call without any argument on a console (a double click on `freemapper.exe`, or a bare `freemapper` in a
+terminal) is the same as `select Documents\freemapper\karte-<date>`: it opens the area page and does not print the help. Always pass
+a command and `--help` when you want the help. A person who double-clicks the program gets the area page; tell them to use PowerShell for
+all other commands.
+
 ```sh
 freemapper init <dir> --place "Clara-Zetkin-Schule Strausberg" --kind schoolyard --title "Clara-Zetkin-Schule"
 freemapper run <dir> --pdf
@@ -105,11 +110,19 @@ freemapper run <dir> --pdf
 | `fetch <dir>` | Downloads into the shared cache. `--offline` uses the cache only. |
 | `derive <dir>` | Computes templates and contours. |
 | `export <dir>` | Writes the map (also `--training`). `--force` replaces an existing map (old one as `.bak`). |
-| `permits <dir>` | Writes the permit notes `permits.md` and `permits.json`: administrative units, protected areas and operators of the map area, and whom that usually means asking. Asks `geodienste.bfn.de` and `sgx.geodatenzentrum.de` and, where the state of the map area has open services of its own (Berlin, Hamburg, Brandenburg, North Rhine-Westphalia, Saarland, Hesse, Schleswig-Holstein, Saxony; the [manual](docs/manual/en.md#12-permit-notes) lists the hosts), those through the adapter of the state and its host rules; in North Rhine-Westphalia that downloads three files of about 32 MB together, in Brandenburg one of about 4 MB, once: they stay in the cache and are downloaded again only when the server has a newer one. In Saxony it asks the map services of Sachsenforst at up to 25 points of the map; the notes then call the shares estimates. In Bavaria, Lower Saxony, Bremen, Mecklenburg-Vorpommern, Rhineland-Palatinate, Saxony-Anhalt and Saxony it also asks `geoportal.bafg.de` for the water protection areas the states report to the BfG, in Baden-Württemberg the LUBW (`rips-gdi.lubw.baden-wuerttemberg.de`). Monuments come from the monument offices of eleven states; the manual lists their hosts. In Schleswig-Holstein that is one file of about 52 MB, kept in the cache. It reads the OSM extract already cached (it downloads none). `--offline` reads only what an earlier run stored in `data/permits/`. Exit code 0 when the notes are written, also when a source is left out (a `warning:` line names it); 1 when no source could be read or the folder is held by another run. Takes about half a minute. |
+| `permits <dir>` | Writes the permit notes `permits.md` and `permits.json`: administrative units, protected areas and operators of the map area, and whom that usually means asking. Asks `geodienste.bfn.de` and `sgx.geodatenzentrum.de` and, where the state of the map area has open services of its own (Berlin, Hamburg, Brandenburg, North Rhine-Westphalia, Saarland, Hesse, Schleswig-Holstein, Saxony; the [manual](docs/manual/en.md#12-permit-notes) lists the hosts), those through the adapter of the state and its host rules; in North Rhine-Westphalia that downloads three files of about 32 MB together, in Brandenburg one of about 4 MB, once: they stay in the cache and are downloaded again only when the server has a newer one. In Saxony it asks the map services of Sachsenforst at up to 25 points of the map; the notes then call the shares estimates. In Bavaria, Lower Saxony, Bremen, Mecklenburg-Vorpommern, Rhineland-Palatinate, Saxony-Anhalt and Saxony it also asks `geoportal.bafg.de` for the water protection areas the states report to the BfG, in Baden-Württemberg the LUBW (`rips-gdi.lubw.baden-wuerttemberg.de`). Monuments come from the monument offices of eleven states; the manual lists their hosts. In Poland (`sdi.gdos.gov.pl`, `mapy.geoportal.gov.pl`, `usluga.zabytek.gov.pl`) and Czechia (`gis.nature.cz`, `ags.cuzk.gov.cz`, `geoportal.npu.cz`) it asks the services of the country instead of the German ones and refuses nothing else; the notes name no German authority there. In Schleswig-Holstein that is one file of about 52 MB, kept in the cache. It reads the OSM extract already cached (it downloads none). `--offline` reads only what an earlier run stored in `data/permits/`. Exit code 0 when the notes are written, also when a source is left out (a `warning:` line names it); 1 when no source could be read or the folder is held by another run. Takes about half a minute. |
 | `update` | Installs the newest freemapper release over this program. `--check` only checks, `--yes` installs without asking (needed without a terminal, so always for you), `--version <x.y.z>` picks a release, `--rollback` goes back to the replaced version, `--mode notify\|install\|off` stores what the daily check does. |
 | `adapters allow-host <adapter> <host>` | Allows a built-in state one more host, after a message said its adapter does not name that host. Only after the person agreed (see Troubleshooting). The hosts are in `allowed-hosts.toml` of the person's configuration folder. |
 | `adapters disallow-host <adapter> <host>` | Takes back a host that `allow-host` allowed. |
+| `adapters probe` | Asks every service the built-in states name once (a HEAD for files, the capabilities for map services, one feature for OGC APIs) and prints for each `ok`, `slow`, `moved` or `error` with the time. `--json` prints `{"results": [{url, host, adapters, status, detail, millis}]}`. Exit code 0 also when a service fails. `--status <file>` reads last night's status (it may be missing) and prints the new one as JSON, with a service down after two bad nights in a row (ADR 0186). It is the nightly check of the project; run it only when the person asks, it makes about 85 requests. |
 | `adapters list` | Lists the region adapters: the built-in states and those of the person's adapter folder, each with its source, revision, last check and the hosts it asks. `--project <dir>` also reads the folder `adapters` of a project. `--json` prints an object with `user_dir`, `adapters` (each with `id`, `names.en`, `names.de`, `provider`, `source`: `built-in`, `user` or `project`, `revision`, `last_verified`, `hosts`, `allowed_hosts`: the hosts the person allowed besides, and `overlaps`: the ids of the adapters on whose ground it lies) and `warnings` (each with `folder`, `skipped` and `findings` with `code`, `file`, `line`, `key`, `message`). |
+| `adapters export <adapter> <dir>` | Writes the built-in adapter of a state as the folder `<dir>/<adapter>` (its `manifest.toml` and the files it names), to change an address that moved. Only after the person agreed; never into a folder that has files in it. See "Correcting an address" below. |
+| `sources list [<adapter>]` | Lists the addresses of the manifests: adapter, path (`alkis.url`, `permits.wfs[0].url`, `orthophoto.endpoints.hm`, `net.hosts[1]`), address and where the manifest in force comes from (`built-in` or `user`). `--json` prints an array of `{adapter, path, url, source}`. Reads only. |
+| `sources get <adapter> <path>` | Prints one address and nothing else; exit code 1 for an unknown adapter or path. |
+| `sources set <adapter> <path> <url> [--add-host]` | Corrects one address in the person's own adapter folder (made from the built-in manifest when it is not there yet), after the whole manifest passed its check; nothing is written otherwise. An address on a host the manifest does not declare is refused unless `--add-host` adds the host. Only after the person agreed; show them the change first. See "Correcting an address" below. |
+| `sources diff <adapter>` | Shows the addresses the person's folder changes against the built-in manifest. |
+| `sources check <adapter> [--live --bbox …] [--json]` | `adapters check` on the person's folder of that adapter; same exit codes. |
+| `sources schema [--json]` | The keys of a manifest that hold an address; with `--json` a JSON Schema. |
 | `adapters check <dir>` | Checks the folder of one adapter without asking a server: whether it would load, with every finding. Exit code 0: passes, 1: findings, 2: could not run. `--live --bbox` also asks its services; only when the person asks for it. Details below the table. |
 
 Output switches for `run` and `export`: `--ocad`, `--pdf`, `--pdf-candidates` (the check print), `--training`,
@@ -130,13 +143,39 @@ straight onto the map; default `balanced`: the objects of the cadastre and the r
 <group>=map|candidates|off`, repeatable; the choice is saved in `freemapper.toml`. `init`, `derive` and `run` take
 `--contour-interval <metres>|auto` (saved in `freemapper.toml`; `auto`: the map kind's, a forest map gets 2.5 m in
 flat land and 10 m in steep land); the next derive traces the contours at it. When it picks 10 m, `derive` says so in
-a line; `--contour-interval 5` keeps 5 m. All commands that download take `--cache-dir <folder>`.
+a line; `--contour-interval 5` keeps 5 m. They also take `--steep-slope <degrees>|auto` (saved as `steep_slope_deg` in
+`freemapper.toml`, 15 to 80, default about 27): the slope from which terrain counts as steep when banks and cliffs are
+looked for; in rock towns and gorges, where almost every slope is steep, 55 to 60 finds the walls one by one (manual,
+chapter on forest maps). Likewise `--face-slope <degrees>|auto` (saved as `face_slope_deg`, 55 to 85, default 70): the
+slope from which terrain is a rock face area (206); 65 gives more and larger areas, 75 only real walls. The MCP
+parameters are `steep_slope` and `face_slope` (0: default) of `create_project` and `start_pipeline`. All commands that download take `--cache-dir <folder>`.
 
 `adapters check <dir>` checks the folder of one adapter and asks no server: exit code 0 when it would load
 (warnings or not), 1 with findings, 2 when the check cannot run. `--json` prints `passed`, `adapter`, `findings`
 (each with `severity`, `code`, `file`, `line`, `key`, `message`), `live` and `live_warnings`. `--live --bbox
 minLon,minLat,maxLon,maxLat` also fetches for that box from the servers the manifest names; run it only when the
 person asks for it.
+
+Correcting an address that moved, without a release (only after the person agreed, and show them the change
+before you write it): the short way is `sources list <id>` to find the path, then `sources set <id> <path> <url>`
+(add `--add-host` when the host is new, and say so to the person); it makes the folder, checks the manifest and
+writes nothing that would not pass; then `sources diff <id>` and `adapters check <folder>`. The long way: `adapters export <id> <dir>` writes the folder of the built-in state; change the `url`
+of the service that moved in its `manifest.toml` (and the host in `[net] hosts` if it is new); raise `revision`
+only if the data of a map changes; run `adapters check <folder>`: the one warning `check.built-in-id` is
+expected, every other finding is to be fixed; the person puts the folder into their adapter folder
+(`adapters list --json` names it as `user_dir`), and from the next start it replaces the built-in adapter with
+the warning `adapter.replaces-built-in`; `adapters list --json` then says `replaces_built_in: true`. Deleting the
+folder takes the built-in adapter back. The replacement asks only the hosts of its own manifest and keeps its own
+credit and licence, so do not change those without the person's say. Only what a manifest declares can be
+changed: addresses that sit in the code of a state (the tile addresses of Saxony, whose share tokens the code reads
+from the tile index, Berlin's layers fetched by code) cannot; the orthophoto WMS of ten states can
+(`[orthophoto]` with `url`, `layer`, `max_px`: Saxony, Hesse, Rhineland-Palatinate, Baden-Württemberg,
+Schleswig-Holstein, Saarland, North Rhine-Westphalia, Bavaria, Lower Saxony, Hamburg), and so can the other services
+of Hamburg, North Rhine-Westphalia, Lower Saxony, Mecklenburg-Vorpommern, Bremen, Brandenburg and Berlin (`[orthophoto.endpoints]`, names
+in the reference). A key such a table leaves out stays that of the built-in manifest. Poland has no manifest (`adapters export polska` says so). When the built-in adapter has a
+higher `revision` than the folder, `adapters check` warns with `check.built-in-newer` and each start with
+`adapter.replacement-outdated`: export again and carry the changes over. A project folder never replaces a
+built-in adapter. Report the move at <https://github.com/HenryJobst/freemapper/issues> as well.
 
 `init`, `fetch`, `derive`, `export` and `run` take `--adapters-from-project`: it also loads the region adapters in
 the folder `adapters` of the project folder, which can make freemapper ask other servers. Pass it only when the
@@ -152,7 +191,7 @@ exists, also one that must be installed by hand, and with 0 when this one is cur
 
 At most once a day, `find`, `init`, `select`, `fetch`, `run` and `permits` also check for a newer release. When they find one, a
 last line follows the command's output on stderr, also after an `error:` line:
-`freemapper 0.24.0 is available (you have 0.23.0). Update with: freemapper update`. It does not change the exit
+`freemapper 0.28.0 is available (you have 0.27.0). Update with: freemapper update`. It does not change the exit
 code. Pass it on and ask the person before you run `freemapper update --yes`. With `--offline`, with `CI` set or
 after `freemapper update --mode off` there is no check. If the person chose mode `install`, freemapper installs
 the update itself after a successful command and says so on stdout.
@@ -256,7 +295,7 @@ Rules:
   the person deletes `<name>-training.omap` (with `ocad` also `ocad/<name>-training.ocd`) and you start the pipeline
   again without `force`.
 - The server checks for a newer release once a day. When it knows one, the next tool result carries one extra
-  text block at its end, the note `Note for the person: freemapper 0.24.0 is available (this is 0.23.0). Ask them
+  text block at its end, the note `Note for the person: freemapper 0.28.0 is available (this is 0.27.0). Ask them
   before calling install_update.` It comes once per server process. Calling `check_update` or `install_update`
   takes its place: after a successful call of either the note does not come; after a failed one it still can.
   Pass the note on to the person.
@@ -355,7 +394,9 @@ The cache is shared by all projects: macOS `~/Library/Caches/freemapper`, Linux 
   to restart the assistant) after the command and before you call `start_pipeline` again, or the run fails
   with the same message. The same holds for an area page that is open: it is closed and started again. For an
   adapter of the person's own folder the message names the manifest instead: the
-  host belongs in its `[net] hosts`.
+  host belongs in its `[net] hosts`. When the address itself moved (not only the host), the person can
+  correct it without a release with `adapters export` (see "Correcting an address" above); offer it, do not do
+  it unasked.
 - "freemapper does not send requests to this address" with another reason (an address of this computer or of
   the local network, not https, more than 3 redirects): nothing to allow. Report it if it is a built-in state.
 - "another freemapper run is using this folder" or "a run is already going on": another run holds the project
@@ -398,6 +439,12 @@ This section is for coding agents in a clone of the repository, not for using th
   `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace --locked`, `cargo deny check`
   (licences, advisories and sources of the dependencies, `deny.toml`; install with `cargo install cargo-deny --locked`). The toolchain is
   pinned in `rust-toolchain.toml`.
+- The housekeeping gates: `scripts/check.sh` runs licence line, spelling, links, history, dependencies, action
+  pins, ADR index and changelog pair; `scripts/check.sh doc coverage msrv` builds the workspace and checks
+  rustdoc, line coverage and the MSRV. `scripts/check.sh sbom` compares `docs/sbom.cdx.json` (`sbom --fix`
+  rewrites it); `complexity`, `hack` and `mutants` (diff against `github/main`; `mutants` tests a random part on twelve runners, ten minutes after the baseline, ADR 0165) have their own CI jobs. `architecture` fails when a crate
+  depends against the layer table or on a crate only the CLI may use. CI runs the
+  tests with `cargo nextest run --workspace` and `cargo test --doc`, and the same gates as above (ADR 0159, 0161, 0162, 0163). `tests` compares `docs/tests.json` with the declared `#[test]`s (`tests --fix` rewrites it) and CI holds the timed Linux test run to its `budget`.
 - CI runs a pull request on Linux only. Give it the label `all-systems` when the change touches code that
   differs on macOS or Windows (paths, processes, the file system); every push to `main` runs all three.
 - Source code and technical docs are English; terms follow [`docs/glossary.md`](docs/glossary.md). User docs are in

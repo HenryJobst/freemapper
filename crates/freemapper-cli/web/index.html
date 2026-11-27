@@ -69,6 +69,14 @@
     <label><span data-text="page-contour-interval"></span>
       <select id="contour"></select>
     </label>
+    <label><span data-text="page-steep-slope"></span>
+      <select id="steep" aria-describedby="steep-hint"></select>
+    </label>
+    <p id="steep-hint" class="hint" data-text="page-steep-slope-hint"></p>
+    <label><span data-text="page-face-slope"></span>
+      <select id="face" aria-describedby="face-hint"></select>
+    </label>
+    <p id="face-hint" class="hint" data-text="page-face-slope-hint"></p>
     <p id="settings-fixed" class="hint" data-text="page-settings-fixed" hidden></p>
   </section>
 
@@ -93,6 +101,19 @@
       <label class="option"><input id="run-training" type="checkbox">
         <span data-text="page-opt-training"></span></label>
       <p class="hint option-help" data-text="page-help-training"></p>
+      <fieldset id="run-views" class="views" hidden>
+        <legend data-text="page-views-heading"></legend>
+        <label class="option"><input id="run-view-no-paths" type="checkbox" value="no-paths">
+          <span data-text="page-view-no-paths"></span></label>
+        <label class="option"><input id="run-view-brown-only" type="checkbox" value="brown-only">
+          <span data-text="page-view-brown-only"></span></label>
+        <label class="option"><input id="run-view-no-north-lines" type="checkbox" value="no-north-lines">
+          <span data-text="page-view-no-north-lines"></span></label>
+        <label class="option select"><span data-text="page-view-custom"></span>
+          <input id="run-view-custom" type="text" placeholder="no:505,506" autocomplete="off" spellcheck="false"></label>
+        <p class="hint option-help" data-text="page-help-views"></p>
+        <p id="run-views-forest-only" class="hint option-help" data-text="page-help-views-forest" hidden></p>
+      </fieldset>
       <label class="option"><input id="run-pdf-scale-bar" type="checkbox" aria-describedby="run-pdf-hint">
         <span data-text="page-opt-scale-bar"></span></label>
       <p class="hint option-help" data-text="page-help-scale-bar"></p>

@@ -137,6 +137,37 @@ Eine Tabelle, die ein Backend nennt, hat einen Schlüssel:
 |---|---|---|
 | `backend` | Text | Der Name eines Rasterbackends, das in freemapper eingebaut ist: 2 bis 32 Kleinbuchstaben, Ziffern und Bindestriche. Ein Name, den das Programm nicht hat, ist `manifest.backend-missing`. `kind = "backend"` darf daneben stehen, kein anderer Schlüssel. |
 
+`[orthophoto]` von zehn Backends (`geosn`, `hvbg`, `lvermgeo-rp`, `lgl-bw`, `lvermgeo-sh`, `lvgl`, `geobasis-nrw`,
+`ldbv`, `lgln`, `lgv`) nennt, wo das Backend das Orthofoto abfragt, mit denselben Schlüsseln wie ein WMS (Issue #273). Jeder
+Schlüssel ist optional; was fehlt, nimmt das Backend aus dem eingebauten Manifest des Bundeslands, ein Ordner, der ein
+Bundesland ersetzt (ADR 0188), nennt also nur, was umgezogen ist. Das Koordinatensystem, den Namen der Info-Ebene und
+das Lesen der Antworten behält der Code. `[terrain]` und `[surface]` nehmen keinen dieser Schlüssel, und ein Backend
+außerhalb dieser Liste nimmt in keiner Tabelle einen.
+
+| Schlüssel | Typ | Bedeutung und Grenzen |
+|---|---|---|
+| `url` | Text | Die WMS-Adresse, https auf einem Host aus `[net] hosts`, ohne Query. |
+| `layer` | Text | Die Ebene des Orthofotos: 1 bis 100 Buchstaben, Ziffern und `_.:-`. |
+| `max_px` | Ganzzahl | Die längste Seite einer Anfrage in Pixeln, 256 bis 10000. |
+
+Sechs Backends nennen weitere Adressen in `endpoints`, einer Tabelle aus Namen und Adressen (`[orthophoto.endpoints]`
+oder eine Inline-Tabelle), jede eine https-Adresse auf einem Host aus `[net] hosts`, ohne Query (Issue #273). Ein Name,
+den das Backend nicht abfragt, ist `manifest.unknown-key`; was fehlt, nimmt das Backend aus dem eingebauten Manifest.
+Der Code behält, was er mit den Dateien tut: die Kachellisten, die Coverages und Ausdehnungen der Dienste sowie die
+Namen der Ebenen und Jahre.
+
+| Backend | Namen | Adresse von |
+|---|---|---|
+| `lgv` (Hamburg) | `metadata`, `dgm1`, `bdom` | den Befliegungsdaten des Orthofotos, dem DGM1-Archiv, dem bDOM-Archiv |
+| `geobasis-nrw` | `hm` | dem Ordner der Höhenmodell-Dateien |
+| `lgln` (Niedersachsen) | `dop-stac`, `dgm-stac`, `dom-stac`, `dgm-wcs`, `dom-wcs` | den STAC-Schnittstellen und den WCS der Höhenmodelle |
+| `laiv-mv` | `overview`, `dop-wcs`, `dgm-wcs`, `dom-wcs` | dem Kachelindex des Downloadportals und den drei WCS |
+| `geobremen` | `wms`, `files` | dem WMS der Orthofotos (die Ebenen kommen aus seinen Capabilities) und dem Dateiserver |
+| `lgb` (Brandenburg, Berlin) | `data`, `currency` | dem Ordner der Kachelarchive (Orthofoto, DGM, bDOM) und der nDOM-Punktwolken und dem Ordner der Aktualitätslisten (CSV) |
+
+Der Cache-Ordner der Hamburger Archive folgt dem Dateinamen der Adresse: Ein Archiv unter neuer Adresse bekommt einen
+eigenen Ordner; die Download-Schätzung schaut weiter in den der eingebauten Adresse.
+
 `[orthophoto]` als Dienst:
 
 | Schlüssel | Typ | `wms` | `wcs` | Bedeutung und Grenzen |
@@ -227,6 +258,112 @@ Höchstens 32: die Baumkataster von Städten, gelesen aus einem GeoJSON-Export v
 | `attribution` | Text | ja | Die Quellenangabe des Katasters, höchstens 400, mit `{year}` höchstens einmal. |
 | `max_bytes` | ganze Zahl | ja | 1 bis 268 435 456. |
 
+## `[[permits.wfs]]`
+
+Eine Quelle der Genehmigungshinweise: ein WFS-Dienst, der GeoJSON (oder GML 3.2) liefert, gelesen nach einer
+Tabelle seiner Schichten. Jede Schicht sagt, welche Attribute Name, Zone oder Amt eines Funds ergeben; das
+Programm behält diese Attribute und sonst nichts. Höchstens 12 Quellen mit je 1 bis 8 Schichten. Ein Manifest,
+das eine erklärt, braucht freemapper 0.28.0 oder neuer (`min_freemapper`). Die Tabellen der eingebauten
+Bundesländer ziehen nach und nach hierher um (Issue #273); `adapters probe` fragt jede `url` an.
+
+| Schlüssel | Typ | Pflicht | Bedeutung und Grenzen |
+|---|---|---|---|
+| `key` | Text | ja | Der Name der Quelle: Kleinbuchstaben, Ziffern und Bindestriche, höchstens 40; einmalig je Manifest. Das Programm speichert ihre Schichten als `<key>-<Schicht>.geojson`. |
+| `label` | `{ en, de }` | ja | Wer veröffentlicht, dieselben Worte für alle Quellen eines Portals; je höchstens 200 Zeichen. |
+| `what` | `{ en, de }` | ja | Was die Quelle enthält, kurz; je höchstens 300 Zeichen. |
+| `credit` | Text | ja | Die Quellenangabe oder der Lizenztext, wörtlich wie der Herausgeber sie nennt; höchstens 400. Die Hinweise drucken sie. |
+| `gaps` | `{ en, de }` | nein | Wo die Daten nicht vollständig sind, obwohl sie die Region abdecken; bis zu 400 Zeichen je Sprache. |
+| `sections` | Liste von Texten | ja | Die Abschnitte der Hinweise, die sie füllt: `districts`, `green-spaces`, `owners`, `monuments`, `protected-objects`, `forest-units`, `state-forest`, `water-protection`, `forest-functions`, `admin-units`, … (die Namen des Programms). |
+| `url` | URL | ja | Die Adresse des Dienstes, auf einem Host aus `[net] hosts`. Anders als jede andere URL darf sie eine feste Query aus einfachen `name=wert`-Paaren tragen, die den Dienst auf dem Server wählt (`?mapfile=glb`); die Anfragen hängen ihre eigenen Parameter an. |
+| `output_format` | Text | ja | Das `outputFormat`, mit dem der Dienst GeoJSON nennt, URL-kodiert, wie er es braucht (`application/geo%2Bjson`). Mit `gml = true` das für GML 3.2. |
+| `gml` | ja/nein | nein | Der Dienst antwortet nur mit GML 3.2. |
+| `note` | Text | nein | Ein Hinweis des Herausgebers dazu, was die Daten wert sind, wörtlich; höchstens 600 Zeichen. Die Hinweise drucken ihn bei der Quelle. |
+| `offices` | Text | nein | `berlin` oder `hamburg`: Die Quelle hält die Bezirke dieses Stadtstaats, und die Hinweise nennen die Ämter seiner Bezirke (eine Quelle mit der Leseart `district`). |
+| `native_crs` | ganze Zahl | nein | 25832 oder 25833: Der Dienst findet nichts mit einem Rechteck in WGS 84 oder antwortet nur in seinem eigenen KBS und wird deshalb darin gefragt. |
+| `layers` | Liste von Tabellen | ja | Die Schichten, unten. |
+
+Eine Schicht hat `key` (ein Name wie oben, einmalig in ihrer Quelle), `type_name` (der WFS-Objekttyp; Buchstaben wie `ä` sind erlaubt und gehen prozentkodiert in die Anfrage) und
+`reading`, das sagt, wie ihre Objekte zu Funden werden und welche weiteren Schlüssel sie nimmt:
+
+| `reading` | Schlüssel | Bedeutung |
+|---|---|---|
+| `water` | `name`, `zone` (beide Pflicht), `citation`, `planned_attribute` mit `planned_value` und `planned_label`, `authority`, `name_form` | Ein Wasserschutzgebiet oder eine Zone; hat die Schicht geplante Zonen, das Attribut und der Wert, die eine kennzeichnen (die Zone sagt dann `planned_label` in Klammern, standardmäßig `geplant`). `authority` ist das Attribut der zuständigen Behörde. `name_form = "register"` liest den Namen, wie ein Register ihn schreibt: ohne Anführungszeichen und die Nummer am Ende, in der Schreibweise eines Namens. |
+| `function` | `function` (Pflicht: `recreation`, `protected`, `natural`, `closed`), `name` | Wald mit einer Funktion oder einem Schutz. |
+| `unit` | `administration`, `prefix`, `office` (alle Pflicht), `administration_attribute`, `unit_attribute` mit `unit_prefix` | Eine Einheit einer Forstverwaltung; das Amt ist `prefix` und das Attribut `office`. Mit `administration_attribute` ist die Verwaltung `administration` und der Text dieses Attributs (`Bezirksamt ` und der Bezirk). Mit `unit_attribute` und `unit_prefix` nennt der Fund auch eine kleinere Einheit im Amt (`Revier ` und sein Name). `office_unless` und `office_exceptions` (1 bis 4 Paare aus `name` und `prefix`) sagen, wie aus einem Amtsnamen der Name der Hinweise wird: Ein Name, der `office_unless` enthält (in jeder Schreibweise), bleibt wie er ist, ein Name der Ausnahmen bekommt diesen Vorsatz statt `prefix`. `office_renames` (1 oder 2 Paare aus `starts_with` und `name`) gibt einem Amt, dessen Name mit dem Text beginnt, den ganzen Namen (wo ein Dienst einen langen Namen abschneidet). |
+| `district` | `name` (Pflicht) | Ein Bezirk eines Stadtstaats, benannt durch das Attribut. |
+| `green-space` | `name` (Pflicht), `fallback`, `district_attribute` mit `districts` (1 bis 16 Namen), `dedication`, `name_form` | Eine öffentliche Grünanlage: ihr Name, oder wo er leer ist das Attribut `fallback`. `district_attribute` hält die Nummer ihres Bezirks (ab 1) in der Liste `districts`, ohne die Liste den Namen des Bezirks. `dedication` ist das Attribut, das sagt, ob sie für die Öffentlichkeit gewidmet ist. `name_form = "park"` nimmt den Teil des Namens vor einem Komma (den Park, zu dem ein Teil gehört). |
+| `playground` | keine | Ein öffentlicher Spielplatz; die Hinweise zählen sie. |
+| `owner` | `owner_attribute` (Pflicht), `owners` (Pflicht, 1 bis 8 Namen) | Ein Flurstück eines öffentlichen Eigentümers: Das Attribut nennt den Eigentümer, und nur ein Eigentümer der Liste kommt mit Namen; den Namen jedes anderen lassen die Hinweise weg. |
+| `state-forest` | `owner`, `prefix`, `office` (alle Pflicht), `office_unless`, `office_exceptions` | Landeswald und das Amt, das ihn betreut; der Amtsname folgt denselben Regeln wie bei einer `unit`. |
+| `object` | `object` (Pflicht: die Art des Schutzobjekts, etwa `natural-monument`, `protected-landscape-part`, `biotope`), `name`, `citation`, `only_attribute` mit `only_values` (1 bis 8), `point_names` (1 bis 4 Attribute) | Ein geschütztes Objekt des Naturschutzrechts; mit `only` zählt ein Objekt nur, wenn das Attribut einen der Werte hat. Ein Punkt (ein Baum, ein Findling) nimmt seinen Namen aus dem ersten Attribut von `point_names`, das einen Wert hat; eine Fläche nimmt `name`. |
+| `monument` | `monument` (Pflicht: die Art), `kind_from`, `link_attribute` mit `link_prefix` | Ein Denkmal der Liste; der Link zählt, wenn das Attribut mit `link_prefix` beginnt. |
+| `function-code` | `code_attribute`, `codes` (1 bis 8 Tabellen aus `code`, `function` und `label`) (alle Pflicht), `name` und zusammen `water_prefix`, `water_length`, `zone`, `zone_after` | Die Funktion eines Waldes, die ein Code nennt. Ein Objekt, dessen Code in `codes` steht, ist Wald dieser `function` (`recreation`, `protected`, `natural`, `closed`), benannt vom Attribut `name` oder von `label`. Ein Code aus `water_length` Zeichen, der mit `water_prefix` beginnt, ist eine Zone eines Trinkwasserschutzgebiets: Das Attribut `zone` endet auf die Zone, nach dem Text `zone_after`. Jeder andere Code bleibt weg. |
+
+Ein Schlüssel einer anderen Leseart ist `manifest.unknown-key`; ein Schlüssel, den eine Leseart braucht und der
+Schicht fehlt, ist `manifest.missing-key`. Ein Programm ohne den Leser dieser Tabellen antwortet mit
+`manifest.backend-missing`.
+
+## `[[permits.shapefile]]`
+
+Eine Quelle der Genehmigungshinweise, die ein Shapefile in einer Zip-Datei für das ganze Bundesland ist. Sie hat die
+Schlüssel einer `[[permits.wfs]]`-Quelle, mit diesen Unterschieden: `url` ist die Adresse der Zip-Datei (https, ein
+Host aus `[net] hosts`, keine Abfrage), `crs` ist das KBS ihrer Positionen (25832 oder 25833), und sie hat kein
+`output_format`, `gml`, `native_crs` und `offices`. `layers` hat genau eine Schicht mit `key` und `reading` wie oben,
+aber ohne `type_name`; das Programm liest `.shp` und `.dbf` der Zip-Datei, behält die Datensätze, deren Rechteck das
+Kartengebiet trifft, und von jedem nur die Attribute, die die Leseart nennt. Die Zip-Datei liegt im Download-Cache und
+wird nur neu geladen, wenn der Server eine neuere hat (höchstens 50 MB). Beide Tabellen zusammen halten höchstens
+12 Quellen; die Quellen von `[[permits.wfs]]` kommen in den Hinweisen zuerst, dann die von `[[permits.shapefile]]`,
+je in der Reihenfolge des Manifests. `adapters probe` fragt die Zip-Datei mit einem HEAD an.
+
+## `[[permits.geojson]]`
+
+Eine Quelle der Genehmigungshinweise, die eine GeoJSON-Datei für das ganze Bundesland ist. Sie hat die Schlüssel einer
+`[[permits.shapefile]]`-Quelle: `url` ist die Adresse der Datei (https, ein Host aus `[net] hosts`, keine Abfrage),
+`crs` das KBS ihrer Positionen (25832 oder 25833), `layers` hat genau eine Schicht ohne `type_name`; `output_format`,
+`gml`, `native_crs` und `offices` gibt es nicht. Das Programm liest die Datei als `FeatureCollection`, behält die
+Objekte, deren Rechteck das Kartengebiet trifft, und von jedem nur die Attribute, die die Leseart nennt. Die Datei liegt
+im Download-Cache und wird nur neu geladen, wenn der Server eine neuere hat (höchstens 150 MB); eine Antwort, die keine
+`FeatureCollection` ist, ersetzt sie nicht. Die Hinweise führen die Quellen von `[[permits.wfs]]` zuerst, dann die von
+`[[permits.shapefile]]` und `[[permits.geojson]]`.
+
+## `[[permits.arcgis]]`
+
+Eine Quelle der Genehmigungshinweise, die ein ArcGIS-REST-Kartendienst ist. Sie hat die Schlüssel einer
+`[[permits.wfs]]`-Quelle, aber `url` ist die Adresse des Kartendienstes (bis `MapServer`, https, ein Host aus
+`[net] hosts`, keine Abfrage), und `output_format`, `gml`, `crs`, `native_crs` und `offices` gibt es nicht. Das
+`type_name` einer Schicht ist ihre Nummer im Kartendienst (ein bis vier Ziffern). Das Programm fragt die `query` jeder
+Schicht mit dem Rechteck des Kartengebiets in WGS 84, Seite für Seite, solange der Dienst weitere meldet, und behält von
+jedem Objekt nur die Attribute, die die Leseart nennt. Ein Dienst hat 1 bis 8 Schichten. Die Hinweise führen die Quellen
+von `[[permits.wfs]]` zuerst, dann die von `[[permits.shapefile]]`, `[[permits.geojson]]` und `[[permits.arcgis]]`.
+
+## `[[permits.getfeatureinfo]]`
+
+Eine Quelle der Genehmigungshinweise, die ein WMS ist, den das Programm an Punkten fragt: Seine GetFeatureInfo nennt,
+was an einem Punkt liegt, ohne dessen Geometrie. Sie hat `key`, `label`, `what`, `credit`, `gaps`, `note` und
+`sections` wie eine `[[permits.wfs]]`-Quelle, aber kein `url`, `output_format`, `gml`, `crs`, `native_crs` und
+`offices`: Jede Schicht nennt ihren Dienst. Eine Schicht hat `key` und `reading` wie oben, `url` (https, ein Host aus
+`[net] hosts`, keine Abfrage), `wms_layers` (bis zu 24 Schichtnamen des WMS, durch Kommas getrennt, zusammen
+angefragt) und `one` (Standard `false`; `true`, wo die Schichten sich nicht überlappen, etwa die Reviere eines
+Bundeslandes: Ein Punkt behält dann nur sein erstes Objekt, weil ein Server nahe einer Grenze für beide Seiten
+antwortet); ein `type_name` hat sie nicht. Das Programm legt ein Raster aus höchstens 25 Zellen über das Kartengebiet,
+keine Seite kürzer als 50 m, fragt in der Mitte jeder Zelle an und speichert jede Antwort mit ihrer Zelle als Fläche.
+Die Hinweise nennen die Anteile Schätzungen (ADR 0139). Die Tabellen aller fünf Arten halten zusammen höchstens
+12 Quellen; die Hinweise führen die Quellen von `[[permits.wfs]]` zuerst, dann die von `[[permits.shapefile]]`,
+`[[permits.geojson]]`, `[[permits.arcgis]]` und `[[permits.getfeatureinfo]]`, je in der Reihenfolge des Manifests.
+
+## `[point_cloud]`
+
+Woher die LAZ-Kacheln der Vegetationskandidaten kommen. Optional; nur die eingebauten Adapter nutzen sie. Das Backend des
+Bundeslandes behält die Namen der Kacheln und die Art, die Antworten zu lesen; das Manifest nennt, wo (ADR 0189,
+Nachtrag). Ein Ordner-Adapter, der ein eingebautes Bundesland ersetzt, behält keine Vegetation aus Punktwolken, weil
+dafür Code nötig ist.
+
+| Schlüssel | Typ | Pflicht | Bedeutung und Grenzen |
+|---|---|---|---|
+| `kind` | Text | ja | `laz-tiles` (Kacheln nach Rasterposition in einem Ordner), `index-json` (der Ordner listet seine Kacheln in einem JSON-Index), `meta4` (ein Metalink listet die Kacheln), `currency-csv` (eine CSV nennt die Befliegungsdaten) oder `zip-archives` (Archive, die je viele Kacheln halten). |
+| `url` | URL | ja | Der Ordner der Kacheln oder Archive, ohne Schrägstrich am Ende. https, ein Host aus `[net] hosts`, keine Abfrage. |
+| `index_url` | URL | bei `index-json`, `meta4`, `currency-csv` | Die Indexdatei; die anderen Arten lehnen sie ab. |
+
 ## `[preview]`
 
 Das Luftbild auf der Karte der Gebietsseite. Die Tabelle kann fehlen.
@@ -280,7 +417,9 @@ draußen, eine Warnung nicht. Die Texte der Befunde sind englisch.
 | `manifest.file-missing` | Eine Datei, die das Manifest nennt, fehlt oder lässt sich nicht lesen. |
 | `adapter.folder` | Der Ordner ist eine Verknüpfung, hat zu viele Dateien oder lässt sich nicht lesen. |
 | `adapter.needs-newer` | Das Manifest verlangt ein neueres freemapper. |
-| `adapter.duplicate` | Die Kennung ist vergeben. Ein Ordner kann keinen anderen Adapter ersetzen. |
+| `adapter.duplicate` | Die Kennung ist vergeben. Ein Ordner ersetzt einen eingebauten Adapter, einmal, und keinen anderen. |
+| `adapter.replaces-built-in` | Ein Hinweis, der Adapter lädt: Er tritt an die Stelle des eingebauten Adapters mit seiner Kennung. |
+| `adapter.replacement-outdated` | Ein Hinweis, der Adapter lädt: Der eingebaute Adapter, den er ersetzt, hat eine höhere `revision`. |
 | `adapter.provider-shared` | Eigene Dienste unter dem Anbieter eines anderen Adapters. |
 | `boundary.too-large` | Eine Grenzdatei über 2 MiB oder mit mehr als einer Million Stützpunkten. |
 | `boundary.format` | Kein GeoJSON mit einem Polygon-Feature. |
@@ -297,7 +436,8 @@ Warnungen:
 | `adapter.rules-not-read` | Der Ordner hat eine `rules.toml`, die dieses freemapper nicht liest. |
 | `check.never-verified` | Das Manifest hat kein `last_verified`. |
 | `check.verified-long-ago` | `last_verified` liegt mehr als zwölf Monate zurück. |
-| `check.built-in-id` | Ein Adapter mit dieser Kennung ist ins Programm eingebaut; aus einem Adapterordner lädt dieser nicht. |
+| `check.built-in-id` | Ein Adapter mit dieser Kennung ist ins Programm eingebaut; aus einem Adapterordner ersetzt dieser ihn. |
+| `check.built-in-newer` | Der eingebaute Adapter mit dieser Kennung hat eine höhere `revision` als der Ordner; `adapters export` schreibt ihn neu. |
 | `check.prefix-shared` | Ein eingebauter Adapter hat dasselbe `object_id_prefix`. |
 | `check.boundary-area` | Die Grenze umschließt weniger als 1 km² oder mehr als 2 000 000 km²: wahrscheinlich die falsche Einheit. |
 | `check.shares-ground` | Der Adapter liegt auf dem Gebiet eines anderen: Beide haben mehr als ein Hundertstel der kleineren Region gemeinsam. Eine Karte dort bekommt die Objekte beider. |

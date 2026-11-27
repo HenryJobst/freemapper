@@ -39,7 +39,7 @@ cli-pdf-without-credits = PDF ohne Quellenangaben: ODbL und dl-de/by-2-0 verlang
 cli-wrote-pdf = { $path } geschrieben (die Karte ohne Kandidaten)
 cli-wrote-pdf-candidates = { $path } geschrieben (der Prüfausdruck: die Karte mit jedem Kandidaten, lagetreu; prüfen Sie sie im Gelände)
 cli-wrote-training = { $map } und { $pdf } geschrieben (die Trainingskarte: { $joined } zusammengelegt, { $shifted } verschoben, { $left } weggelassen oder gekürzt)
-cli-training-free-ends = { $count } Linienenden frei
+cli-training-free-ends = Freie Linienenden: { $ways } dort, wo ein Weg auf einen anderen traf, { $others } an anderen Linien
 cli-training-apart-left = Die Trainingskarte hat noch { $length } mm (auf dem Papier), an denen Objekte zu wenig Abstand halten; prüfen Sie sie in OOM
 cli-kept-training = Trainingskarte { $path } behalten, damit ein Lauf keine überschreibt, die gedruckt oder weitergegeben wurde; zum Erneuern löschen oder --force angeben
 
@@ -80,6 +80,10 @@ cli-adapter-from-project = Warnung: Der Adapter { $adapter } aus dem Projektordn
 cli-adapter-overlaps = Warnung: Der Adapter { $adapter } deckt auch Gebiet von { $others } ab; seine Objekte kommen dort auf die Karten
 cli-adapter-dir-relative = Warnung: FREEMAPPER_ADAPTER_DIR ist kein absoluter Pfad ({ $path }) und wird ignoriert
 cli-adapters-no-project = Warnung: { $path } ist kein Ordner; es wurden keine Adapter eines Projekts gelesen
+cli-adapters-export-unknown = Der Adapter { $adapter } wird von keinem Manifest dieses Programms beschrieben, also gibt es nichts zu exportieren; `freemapper adapters list` zeigt die Kennungen
+cli-adapters-export-taken = { $path } gibt es schon und es ist nicht leer; exportieren Sie in einen Ordner, den es noch nicht gibt
+cli-adapters-export-done = Die { $count } Dateien des Adapters { $adapter } stehen in { $path }. Darin steht nur, was sein Manifest beschreibt; Adressen, die im Code des Programms stehen, fehlen.
+cli-adapters-export-next = Ändern Sie die Adressen in manifest.toml, prüfen Sie den Ordner mit `freemapper adapters check` und legen Sie ihn dann nach { $path }: Er ersetzt den eingebauten Adapter ab dem nächsten Start, mit einer Warnung. Löschen Sie den Ordner, ist der eingebaute wieder da.
 cli-adapters-overlaps = teilt Gebiet mit: { $others }
 cli-adapters-line = { $adapter }  { $name }  { $source }  Revision { $revision }  geprüft { $checked }  Hosts: { $hosts }
 cli-adapters-source-built-in = eingebaut
@@ -244,6 +248,12 @@ page-scale = Maßstab 1:
 page-map-title = Titel
 page-contour-interval = Äquidistanz
 page-contour-auto = automatisch
+page-steep-slope = Steilheitsschwelle
+page-steep-slope-auto = automatisch (27°)
+page-steep-slope-hint = Ab diesem Neigungswinkel gilt das Gelände beim Suchen von Böschungen und Felswänden als steil. 27° (automatisch) passt für Hügelland, Parks und Städte. In Felsenstädten, Schluchten und Steinbrüchen ist fast jeder Hang steil, sodass Böschungen und Felswände zu einer Fläche verschmelzen und keine gefunden wird; 55° bis 65° trennt sie. Ein zu hoher Wert lässt nur die steilsten Wände übrig.
+page-face-slope = Wandschwelle
+page-face-slope-auto = automatisch (70°)
+page-face-slope-hint = Ab diesem Neigungswinkel wird das Gelände als schwarze Felswandfläche gezeichnet. 70° (automatisch) passt zu Felsenstädten wie Adršpach (5,2 % der Fläche). 65° ergibt mehr und größere schwarze Flächen, auch an steilen Hängen (8,4 %). 75° lässt nur echte Wände übrig, mit lückigen Rändern (2,5 %). Ein zu hoher Wert lässt kaum Flächen übrig.
 page-settings-fixed = Das Projekt gibt es schon; Kartenart, Maßstab und Titel stehen in freemapper.toml. Die Äquidistanz lässt sich weiter ändern.
 page-save = Speichern
 page-saving = Speichere …
@@ -316,6 +326,13 @@ page-help-pdf = Nur die Kartenobjekte, ohne Kandidaten.
 page-opt-pdf-candidates = Prüfausdruck mit allen Kandidaten
 page-opt-training = Trainingskarte
 page-help-training = Die Karte mit allen Kandidaten, so bereinigt, dass sie unverändert gedruckt werden kann; mit OCAD auch als OCAD-Datei.
+page-views-heading = Ansichten der Trainingskarte
+page-view-no-paths = Ohne Wege (Ultimate-Karte)
+page-view-brown-only = Nur braun (Isohypsen-OL)
+page-view-no-north-lines = Ohne Nordlinien
+page-view-custom = Weitere Ansicht
+page-help-views = Jede angehakte Ansicht ist eine weitere Datei neben der Trainingskarte, `<name>-training-<Ansicht>.omap` und ihre PDF, mit OCAD auch eine OCAD-Datei. Eine weitere Ansicht ist `no:505,506` (Symbole weglassen) oder `only:101,102` (nur diese behalten); `+` verbindet Ansichten. Titel, Maßstab und Quellen bleiben immer.
+page-help-views-forest = Ohne Wege und nur braun gibt es nur für Waldkarten.
 page-opt-scale-bar = Maßstabsleiste in die PDFs
 page-help-scale-bar = Deutsche Karten haben meist keine.
 page-opt-sources = Quellenangabe in den PDFs
@@ -360,6 +377,9 @@ page-file-kind-pdf-candidates = Prüfausdruck
 page-file-kind-training-map = Trainingskarte
 page-file-kind-training-pdf = PDF der Trainingskarte
 page-file-kind-training-ocad = OCAD-Trainingskarte
+page-file-kind-training-view-map = Ansicht der Trainingskarte
+page-file-kind-training-view-pdf = PDF der Ansicht der Trainingskarte
+page-file-kind-training-view-ocad = OCAD-Ansicht der Trainingskarte
 page-file-kind-preview = Kartenvorschau
 page-file-kind-permits = Genehmigungshinweise
 page-file-line = { $path } ({ $kind }, { $size })
@@ -447,6 +467,8 @@ error-project-already-exists = Das Projekt gibt es schon: { $path }
 error-project-map-exists = Die Karte gibt es schon (sie kann Ihre Arbeit enthalten); --force ersetzt sie: { $path }
 error-project-invalid-scale = ungültiger Maßstab 1:{ $scale }
 error-project-invalid-contour-interval = ungültige Äquidistanz { $interval } m in freemapper.toml; sie muss größer als 0 sein
+error-project-invalid-steep-slope = ungültige Steilheitsschwelle { $slope }° in freemapper.toml; sie muss zwischen 15° und 80° liegen
+error-project-invalid-face-slope = ungültige Wandschwelle { $slope }° in freemapper.toml; sie muss zwischen 55° und 85° liegen
 error-project-scale-not-allowed = Der Maßstab 1:{ $scale } ist für { $kind } nicht erlaubt; nehmen Sie { $allowed }
 error-project-scale-not-allowed-enlarge = Der Maßstab 1:{ $scale } ist für { $kind } nicht erlaubt; nehmen Sie { $allowed }. Zeichnen Sie in 1:4000, freemapper-print vergrößert beim Drucken auf 1:3000
 word-kind-schoolyard = Schulhofkarten
@@ -456,6 +478,7 @@ error-project-toml = ungültige Projektdatei: { $message }
 error-project-unknown-adapter = Die Projektdatei nennt den Adapter „{ $adapter }“, den dieses freemapper nicht hat; ein neueres freemapper bringt ihn vielleicht mit (`freemapper update`), oder er kommt aus Ihrem Adapterordner (`freemapper adapters list` zeigt ihn) oder, mit --adapters-from-project auf der Kommandozeile, aus dem Ordner `adapters` des Projekts (nur für ein Projekt, dem Sie vertrauen)
 error-project-not-fetched = Es sind noch keine Kacheln geladen; rufen Sie zuerst `freemapper fetch` auf
 error-project-ocd = OCAD-Export: { $message }
+error-project-pdf = PDF-Ausgabe: { $message }
 error-project-template-outdated = { $path }: Bild und Weltdatei passen nicht zum Kartengebiet; rufen Sie `freemapper derive` noch einmal auf
 error-project-tiles-outdated = Das Kartengebiet braucht die Kacheln { $tiles }, die nicht geladen sind; rufen Sie `freemapper fetch` auf
 error-project-buildings-not-fetched = Für dieses Kartengebiet sind keine ALKIS-Gebäude gespeichert; rufen Sie zuerst `freemapper fetch` mit Netzverbindung auf
@@ -464,6 +487,8 @@ error-project-terrain-not-fetched = Für dieses Kartengebiet ist kein Geländemo
 error-project-candidates-outdated = Die gespeicherten OSM-Kandidaten decken das Kartengebiet nicht ab; rufen Sie `freemapper fetch` auf
 error-project-stored = { $path }: { $message }; rufen Sie `freemapper fetch` noch einmal auf
 error-project-area-too-large = Das Kartengebiet mit Puffer misst { $width } × { $height } m, mehr als { $limit } m je Seite; verkleinern Sie das Kartengebiet oder buffer_m in freemapper.toml
+error-project-area-crosses-country = Das Kartengebiet liegt auf beiden Seiten einer Landesgrenze; Karten über eine Grenze hinweg werden noch nicht unterstützt, zeichnen Sie das Gebiet innerhalb eines Landes
+error-project-permits-not-for-region = Die Genehmigungshinweise gibt es für diese Region noch nicht: Sie fragen deutsche Dienste ab und nennen deutsche Behörden
 error-project-outside-coverage = Das Kartengebiet liegt außerhalb der unterstützten Bundesländer ({ $states }); bisher hat freemapper nur für diese Datenquellen
 
 ## Fehler: Speicherplatz
@@ -483,6 +508,7 @@ word-part-point-cloud = die Laserpunktwolken für die Vegetations-Kandidaten
 ## Fehler: Herunterladen
 
 error-fetch-http = Das Herunterladen von { $url } ist gescheitert: { $message }
+error-fetch-http-temporary = Das Herunterladen von { $url } ist gescheitert: { $message }. Der Dienst ist vermutlich überlastet oder in Wartung; freemapper hat bis zu { $attempts } Mal gefragt. Starten Sie den Lauf in einigen Minuten noch einmal; was schon heruntergeladen ist, bleibt erhalten.
 error-fetch-corrupt-archive = Von { $url } kam kein vollständiges Kachelarchiv: { $message }
 error-fetch-corrupt-extract = Von { $url } kam kein vollständiger OSM-Auszug: { $message }
 error-fetch-tiles-not-covered = { $count ->
@@ -565,6 +591,7 @@ cli-arg-version = Version anzeigen
 cli-help-help = Die Hilfe eines Befehls anzeigen
 cli-arg-help-command = Der Befehl, dessen Hilfe angezeigt wird, zum Beispiel run
 cli-parse-hint = Mehr dazu mit '--help'.
+cli-double-click-start = freemapper öffnet im Browser die Seite, auf der Sie das Kartengebiet wählen. Der Projektordner ist { $path }. Schließen Sie dieses Fenster, um das Programm zu beenden.
 cli-parse-unknown-argument = Unbekanntes Argument { $arg }
 cli-parse-missing-required = Pflichtargument fehlt: { $args }
 cli-parse-invalid-value = Ungültiger Wert { $value } für { $arg }
@@ -592,6 +619,7 @@ help-export-ocad = Zusätzlich einen OCAD-Startpunkt nach `ocad/` schreiben (For
 help-export-pdf = Zusätzlich `<name>.pdf` schreiben, die druckfertige Karte (nur die Kartenobjekte, keine Kandidaten); eine vorhandene OOM-Karte bleibt dabei, außer mit --force
 help-export-pdf-candidates = Zusätzlich `<name>-candidates.pdf` schreiben, den Prüfausdruck: die Karte mit jedem Kandidaten, lagetreu; eine vorhandene OOM-Karte bleibt dabei, außer mit --force
 help-export-training = Zusätzlich die Trainingskarte `<name>-training.omap` und ihre PDF `<name>-training.pdf` schreiben: die Karte mit jedem Kandidaten, so bereinigt, dass sie unverändert gedruckt werden kann; mit --ocad auch `ocad/<name>-training.ocd`. Eine vorhandene OOM-Karte bleibt dabei, außer mit --force, und --force ersetzt auch eine vorhandene Trainingskarte
+help-export-view = Mit --training: zusätzlich die Trainingskarte ohne das, was eine Ansicht weglässt, als `<name>-training-<Ansicht>.omap` und ihre PDF schreiben (mit --ocad auch eine OCAD-Datei). Ansichten: `no-paths` (keine Straßen, Wege, Treppen), `brown-only` (nur braune Symbole und der Rahmen), `no-north-lines`, oder eine Liste `no:<Codes>` / `only:<Codes>`; mit `+` kombinierbar. Die Option lässt sich wiederholen, für mehrere Dateien
 help-export-pdf-scale-bar = Die Maßstabsleiste auf die PDFs zeichnen (standardmäßig aus, deutsche Karten haben meist keine; die Maßstabszahl bleibt im Titelblock)
 help-export-pdf-sources = Quellenzeilen auf den PDFs: `auto` druckt die ganze Liste und kürzt sie nur, wenn sie mehr als 5 Zeilen bräuchte, `full` kürzt nie, `credit-only` druckt nur die freemapper-Zeile (ODbL und dl-de/by-2-0 verlangen dann, dass Sie die Quellen nennen, wenn Sie die Karte weitergeben). ATTRIBUTION.txt nennt immer jede Quelle
 help-fetch = Die Daten für das Kartengebiet laden (Orthophoto, Geländemodell, nDSM, ALKIS-Gebäude, OSM)
@@ -607,6 +635,7 @@ help-run-ocad = Zusätzlich einen OCAD-Startpunkt nach `ocad/` schreiben (Format
 help-run-pdf = Zusätzlich `<name>.pdf` schreiben, die druckfertige Karte (nur die Kartenobjekte, keine Kandidaten)
 help-run-pdf-candidates = Zusätzlich `<name>-candidates.pdf` schreiben, den Prüfausdruck: die Karte mit jedem Kandidaten, lagetreu
 help-run-training = Zusätzlich die Trainingskarte `<name>-training.omap` und ihre PDF `<name>-training.pdf` schreiben: die Karte mit jedem Kandidaten, so bereinigt, dass sie unverändert gedruckt werden kann; mit --ocad auch `ocad/<name>-training.ocd`. Eine vorhandene Trainingskarte bleibt, außer mit --force
+help-run-view = Mit --training: zusätzlich die Trainingskarte ohne das, was eine Ansicht weglässt, als `<name>-training-<Ansicht>.omap` und ihre PDF schreiben (mit --ocad auch eine OCAD-Datei). Ansichten: `no-paths` (keine Straßen, Wege, Treppen), `brown-only` (nur braune Symbole und der Rahmen), `no-north-lines`, oder eine Liste `no:<Codes>` / `only:<Codes>`; mit `+` kombinierbar. Eine vorhandene Ansichtsdatei bleibt, außer mit --force
 help-run-pdf-scale-bar = Die Maßstabsleiste auf die PDFs zeichnen (standardmäßig aus; die Maßstabszahl bleibt im Titelblock)
 help-run-pdf-sources = Quellenzeilen auf den PDFs: `auto` druckt die ganze Liste und kürzt sie nur, wenn sie mehr als 5 Zeilen bräuchte, `full` kürzt nie, `credit-only` druckt nur die freemapper-Zeile (ODbL und dl-de/by-2-0 verlangen dann, dass Sie die Quellen nennen, wenn Sie die Karte weitergeben). ATTRIBUTION.txt nennt immer jede Quelle
 help-select = Das Kartengebiet im Browser wählen: zeichnen oder einen Ort suchen. Beim Speichern wird freemapper.toml geschrieben und der Projektordner bei Bedarf angelegt
@@ -641,18 +670,59 @@ help-adapters-check-dir = Der Ordner des Adapters; sein Name ist die Kennung des
 help-adapters-check-live = Auch die Dienste des Adapters für das Rechteck aus --bbox anfragen und sagen, was jeder liefert. Die Anfragen bleiben auf den Hosts, die das Manifest erklärt
 help-adapters-check-bbox = Das Rechteck der Live-Prüfung in Grad, als minLon,minLat,maxLon,maxLat. Es liegt innerhalb der Grenze des Adapters; 150 m mal 150 m genügen
 help-adapters-check-json = Das Ergebnis als JSON ausgeben
+help-adapters-probe = Jeden Dienst, den die eingebauten Adapter nennen, einmal anfragen und sagen, ob er antwortet: ok, slow, moved oder error. Exit-Code 0 auch dann, wenn ein Dienst ausfällt; das Ergebnis ist die Antwort
+help-adapters-probe-json = Das Ergebnis als JSON ausgeben
+help-adapters-probe-status = Den Status der letzten Nacht aus dieser Datei lesen (sie darf fehlen) und den neuen Status als JSON ausgeben: Ein Dienst gilt nach zwei schlechten Nächten in Folge als ausgefallen. Die Wechsel gehen auf die Standardfehlerausgabe
 help-adapters-allow-host = Einem eingebauten Adapter einen weiteren Host freigeben: für ein Bundesland, dessen Dienst auf einen Server umgezogen ist, den sein Adapter noch nicht nennt. Die Meldung zur abgelehnten Adresse nennt den Host. Der Host wird geprüft wie ein Host eines Manifests, und freemapper verbindet sich weiterhin nur mit Servern im Internet
 help-adapters-allow-host-adapter = Die Kennung des eingebauten Adapters, wie `adapters list` sie zeigt
 help-adapters-allow-host-host = Der freizugebende Host: ein DNS-Name, keine Adresse, kein Port
 help-adapters-disallow-host = Einen Host zurücknehmen, den allow-host freigegeben hat
 help-adapters-disallow-host-adapter = Die Kennung des eingebauten Adapters
 help-adapters-disallow-host-host = Der Host, der zurückgenommen wird
+help-adapters-export = Den eingebauten Adapter eines Bundeslands als Adapterordner schreiben, den Sie ändern können: sein Manifest und die Dateien, die das Manifest nennt, in `<Ordner>/<Kennung>`. Der Ordner darf noch nicht existieren oder muss leer sein. Ändern Sie die Adressen in seiner `manifest.toml`, prüfen Sie ihn mit `adapters check` und legen Sie ihn in Ihren Adapterordner: Er ersetzt dann den eingebauten Adapter, mit einer Warnung. Entfernen Sie den Ordner, ist der eingebaute wieder da
+help-adapters-export-adapter = Die Kennung des eingebauten Adapters, wie `adapters list` sie zeigt
+help-adapters-export-dir = Der Ordner, in dem der Ordner `<Kennung>` angelegt wird
+help-sources = Die Adressen der Datenquellen ohne neues Release lesen und korrigieren. Eine Korrektur steht in Ihrem eigenen Adapterordner und ersetzt die eingebaute Adresse
+help-sources-list = Die Adressen der Manifeste mit ihren Pfaden und der Herkunft jedes Manifests auflisten. Mit einer Adapterkennung nur die dieses Adapters
+help-sources-get = Eine Adresse ausgeben und sonst nichts. Exit-Code 1, wenn der Adapter oder der Pfad unbekannt ist
+help-sources-set = Eine Adresse in Ihrem eigenen Adapterordner korrigieren, nachdem das ganze Manifest seine Prüfung bestanden hat. Eine Adresse auf einem Host, den das Manifest nicht erklärt, wird abgelehnt, außer Sie geben --add-host an
+help-sources-diff = Zeigen, was Ihr Adapterordner gegenüber dem eingebauten Manifest ändert
+help-sources-check = Den Ordner Ihres Adapters mit dieser Kennung prüfen wie `adapters check`. Exit-Code 0: bestanden; 1: Befunde; 2: Die Prüfung konnte nicht laufen
+help-sources-schema = Die Schlüssel eines Manifests ausgeben, die eine Adresse enthalten, mit --json als JSON-Schema
+help-arg-adapter = Die Kennung des Adapters, wie `adapters list` sie zeigt
+help-arg-path = Der Pfad der Adresse, wie `sources list` ihn zeigt
+help-sources-set-url = Die neue Adresse: https, ohne Query
+help-sources-set-add-host = Auch den Host der neuen Adresse zu den Hosts hinzufügen, die das Manifest erklärt
+cli-sources-no-user-dir = dieses System hat keinen Ordner für Ihre Adapter; setzen Sie FREEMAPPER_ADAPTER_DIR auf einen absoluten Pfad
+cli-sources-bad-id = { $adapter } ist keine Adapterkennung
+cli-sources-unknown-adapter = freemapper kennt keinen Adapter { $adapter }; `freemapper adapters list` zeigt die Kennungen
+cli-sources-no-manifest = kein Manifest dieses Programms beschreibt den Adapter { $adapter }; seine Adressen stehen im Code
+cli-sources-unknown-path-of = der Adapter { $adapter } hat keine Adresse unter { $path }; `freemapper sources list { $adapter }` zeigt die Pfade
+cli-sources-bad-value = die neue Adresse muss eine https-Adresse auf einem benannten Host sein, ohne Anführungszeichen, Backslash, Steuerzeichen, Benutzer oder Port
+cli-sources-host-not-declared = die neue Adresse führt zum Host { $host }, den das Manifest nicht erklärt; --add-host erklärt ihn
+cli-sources-invalid = das Manifest würde mit dieser Änderung nicht bestehen, deshalb wurde nichts geschrieben: { $findings }
+cli-sources-set-created = Der Ordner { $folder } für den Adapter { $adapter } wurde aus seinem eingebauten Manifest angelegt; er ersetzt den eingebauten Adapter ab dem nächsten Start.
+cli-sources-set-host-added = Der Host { $host } steht jetzt in [net] hosts; freemapper fragt diesen Server für diesen Adapter an.
+cli-sources-set-next = Prüfen Sie ihn mit `freemapper adapters check { $folder }`. Quellenangabe und Lizenz blieben, wie sie waren: Halten Sie sie richtig, wenn der Dienst den Betreiber gewechselt hat. Starten Sie den MCP-Server oder die Gebietsseite neu.
+cli-sources-diff-no-folder = Sie haben keinen Ordner des Adapters { $adapter } ({ $folder }); es gibt nichts zu vergleichen
+cli-sources-diff-none = Ihr Ordner enthält dieselben Adressen wie das eingebaute Manifest
+help-sources-list-json = Die Liste als JSON ausgeben
+help-sources-check-live = Auch die Dienste des Adapters für das Rechteck aus --bbox anfragen und sagen, was jeder liefert. Die Anfragen bleiben auf den Hosts, die das Manifest erklärt
+help-sources-check-bbox = Das Rechteck der Live-Prüfung in Grad, als minLon,minLat,maxLon,maxLat. Es liegt innerhalb der Grenze des Adapters; 150 m mal 150 m genügen
+help-sources-check-json = Das Ergebnis als JSON ausgeben
+help-sources-schema-json = Das Ergebnis als JSON ausgeben
 help-arg-adapters-from-project = Auch die Adapter im Ordner `adapters` des Projektordners laden. freemapper nennt jeden davon mit den Hosts, die er anfragt. Nur für ein Projekt, dem Sie vertrauen: Ein Adapter lässt freemapper die Server anfragen, die er nennt
 
 ## Die Zusammenfassung eines Laufs, für den MCP-Server und die Gebietsseite
 
 cli-internal-error = Interner Fehler: { $message }
 cli-pdf-sources-invalid = pdf_sources muss auto, full oder credit-only sein, nicht { $value }
+cli-view-unknown = Eine Ansicht ist no-paths, brown-only, no-north-lines, no:<Codes> oder only:<Codes>, nicht { $value }
+cli-view-empty = Die Liste { $value } nennt keinen Symbolcode
+cli-view-bad-code = { $value } ist kein Symbolcode wie 505 oder 501.6
+cli-summary-training-view = { $map } und { $pdf } geschrieben (eine Ansicht der Trainingskarte)
+cli-summary-kept-training-view = Die Dateien der Ansicht { $view } der Trainingskarte bleiben; zum Erneuern --force angeben
+cli-summary-training-view-failed = Die Ansicht der Trainingskarte ist fehlgeschlagen: { $error }
 cli-estimate-disk-unreadable = Der freie Speicherplatz von { $path } lässt sich nicht lesen ({ $message })
 cli-summary-wrote-map = Karte { $path } geschrieben
 cli-summary-kept-map = Die vorhandene Karte { $path } bleibt (sie kann die Arbeit der Kartiererin oder des Kartierers enthalten)
@@ -767,10 +837,17 @@ mcp-param-start-pipeline-pdf-scale-bar = Die Maßstabsleiste auf die PDFs zeichn
 mcp-param-start-pipeline-pdf-sources = Quellenzeilen auf den PDFs: "auto" (Standard; die ganze Liste, gekürzt nur, wenn sie mehr als 5 Zeilen braucht), "full" (nie gekürzt) oder "credit-only" (nur die freemapper-Zeile; ODbL und dl-de/by-2-0 verlangen dann, die Quellen zu nennen, wenn die Karte weitergegeben wird). ATTRIBUTION.txt nennt immer jede Quelle.
 mcp-param-start-pipeline-permits = Nach der Karte zusätzlich die Genehmigungshinweise schreiben (permits.md und permits.json): Verwaltungseinheiten, Schutzgebiete und wer die Flächen betreibt. Ein Fehler dort ist eine Warnung, kein gescheiterter Job. Standard false.
 mcp-param-start-pipeline-training = Zusätzlich die Trainingskarte <name>-training.omap und ihre PDF <name>-training.pdf schreiben: die Karte mit jedem Kandidaten, so bereinigt, dass sie unverändert gedruckt werden kann; mit ocad auch ocad/<name>-training.ocd. Eine vorhandene Trainingskarte bleibt, außer mit force. Standard false.
+mcp-param-start-pipeline-training-views = Mit training: zusätzlich die Trainingskarte ohne das, was eine Ansicht weglässt, je Eintrag ein Dateisatz: "no-paths", "brown-only", "no-north-lines" oder eine Liste wie "no:505,506" oder "only:101,102", mit + kombiniert. Die Dateien heißen <name>-training-<Ansicht>.omap und ihre PDF.
 
 cli-contour-interval-saved = Äquidistanz in freemapper.toml gespeichert: { $interval } m; derive rechnet die Höhenlinien damit
 cli-contour-interval-auto = Äquidistanz in freemapper.toml: automatisch (die der Kartenart; eine Waldkarte bekommt in flachem Gelände 2,5 m, in steilem 10 m)
+cli-steep-slope-saved = Steilheitsschwelle in freemapper.toml gespeichert: { $slope }°; derive sucht damit Böschungen und Felswände
+cli-steep-slope-auto = Steilheitsschwelle in freemapper.toml: Standard (etwa 27°)
+cli-face-slope-saved = Wandschwelle in freemapper.toml gespeichert: { $slope }°; derive sucht damit Felswandflächen
+cli-face-slope-auto = Wandschwelle in freemapper.toml: Standard (70°)
 help-arg-contour-interval = Äquidistanz in Metern, z. B. `2.5`, oder `auto` für die der Kartenart (Waldkarte: 5 m, in flachem Gelände 2,5 m, in steilem 10 m). Wird in der freemapper.toml gespeichert; derive rechnet die Höhenlinien damit
+help-arg-steep-slope = Hangneigung in Grad, ab der das Gelände beim Suchen von Böschungen und Felswänden als steil gilt, z. B. `55`, oder `auto` für den Standard von 27°. In Felsenstädten und Schluchten, wo fast jeder Hang steil ist und Böschungen und Felswände zu einer Fläche verschmelzen, sollte sie höher liegen (55 bis 65). Wird in freemapper.toml gespeichert; derive sucht damit Böschungen und Felswände
+help-arg-face-slope = Hangneigung in Grad, ab der das Gelände eine Felswand ist (schwarze Fläche, Symbol 206), z. B. `75`, oder `auto` für den Standard von 70°. 65 ergibt mehr und größere Flächen, auch an steilen Hängen; 75 lässt nur echte Wände übrig. Wird in freemapper.toml gespeichert; derive sucht damit Felswände
 cli-content-saved = Inhaltseinstellung in freemapper.toml gespeichert: { $summary }
 cli-content-invalid = Die Inhaltseinstellung ist nicht lesbar: { $detail }
 help-arg-content = Was direkt auf die Karte kommt: `safe` lässt jedes Objekt dort, wo die Erzeugung es hinlegt, `balanced` (Standard) legt die Objekte des Katasters und der Register auf die Karte, `full` legt alles auf die Karte. Die Wahl wird in freemapper.toml gespeichert
@@ -778,9 +855,13 @@ help-arg-content-set = Eine Objektgruppe nach `map`, `candidates` oder `off` sch
 mcp-param-create-project-content = Was direkt auf die Karte kommt: "safe", "balanced" (Standard) oder "full". Wird im Projekt gespeichert. balanced legt die Objekte des Katasters und der Register auf die Karte, full legt alles darauf.
 mcp-param-create-project-content-set = Gruppen, die anders als das Profil behandelt werden, als "gruppe=ort" mit dem Ort map, candidates oder off, z. B. "walls=map". Gruppen: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets.
 mcp-param-create-project-contour-interval = Äquidistanz in Metern, z. B. 2.5; 0 stellt die automatische Wahl wieder her (die der Kartenart; eine Waldkarte bekommt in flachem Gelände 2,5 m, in steilem 10 m). Wird im Projekt gespeichert; das nächste derive rechnet die Höhenlinien damit.
+mcp-param-create-project-steep-slope = Hangneigung in Grad, ab der das Gelände beim Suchen von Böschungen und Felswänden als steil gilt, z. B. 55; 0 setzt auf den Standard von 27° zurück. In Felsenstädten und Schluchten, wo fast jeder Hang steil ist und Böschungen und Felswände zu einer Fläche verschmelzen, sollte sie höher liegen (55 bis 65). Wird im Projekt gespeichert; das nächste derive sucht damit Böschungen und Felswände.
+mcp-param-create-project-face-slope = Hangneigung in Grad, ab der das Gelände eine Felswand ist (schwarze Fläche, Symbol 206), z. B. 75; 0 setzt auf den Standard von 70° zurück. 65 ergibt mehr und größere Flächen, auch an steilen Hängen; 75 lässt nur echte Wände übrig. Wird im Projekt gespeichert; das nächste derive sucht damit Felswände.
 mcp-param-start-pipeline-content = Vor dem Lauf ändern, was direkt auf die Karte kommt: "safe", "balanced" oder "full". Wird im Projekt gespeichert. Standard: die Einstellung des Projekts, sonst balanced.
 mcp-param-start-pipeline-content-set = Gruppen, die anders als das Profil behandelt werden, als "gruppe=ort" mit dem Ort map, candidates oder off, z. B. "fences=candidates". Wird im Projekt gespeichert.
 mcp-param-start-pipeline-contour-interval = Äquidistanz in Metern, z. B. 2.5; 0 stellt die automatische Wahl wieder her (die der Kartenart; eine Waldkarte bekommt in flachem Gelände 2,5 m, in steilem 10 m). Wird im Projekt gespeichert; das nächste derive rechnet die Höhenlinien damit.
+mcp-param-start-pipeline-steep-slope = Hangneigung in Grad, ab der das Gelände beim Suchen von Böschungen und Felswänden als steil gilt, z. B. 55; 0 setzt auf den Standard von 27° zurück. In Felsenstädten und Schluchten, wo fast jeder Hang steil ist und Böschungen und Felswände zu einer Fläche verschmelzen, sollte sie höher liegen (55 bis 65). Wird im Projekt gespeichert; das nächste derive sucht damit Böschungen und Felswände.
+mcp-param-start-pipeline-face-slope = Hangneigung in Grad, ab der das Gelände eine Felswand ist (schwarze Fläche, Symbol 206), z. B. 75; 0 setzt auf den Standard von 70° zurück. 65 ergibt mehr und größere Flächen, auch an steilen Hängen; 75 lässt nur echte Wände übrig. Wird im Projekt gespeichert; das nächste derive sucht damit Felswände.
 mcp-error-content = Die Inhaltseinstellung ist nicht lesbar: { $detail }
 
 ## Genehmigungshinweise (`freemapper permits`, `run --permits`, ADR 0117). Die Kennungen
@@ -803,6 +884,7 @@ error-permits-missing-not-read = { $source }: nicht gelesen
 
 permits-title = Hinweise zu Genehmigungen
 permits-disclaimer = Hinweis, keine Rechtsauskunft. Maßgeblich sind die zuständigen Behörden. Datenstand und Genauigkeit siehe Tabelle unter „Quellen und Datenstand“; Flächen können fehlen oder veraltet sein (BfN: jährliche Zusammenführung, „Nicht für Planungszwecke geeignet.“).
+permits-disclaimer-regional = Hinweis, keine Rechtsauskunft. Maßgeblich sind die zuständigen Behörden. Datenstand und Genauigkeit siehe Tabelle unter „Quellen und Datenstand“; Flächen können fehlen oder veraltet sein.
 permits-bfn-merge = Das BfN führt die Daten der Bundesländer einmal im Jahr zusammen und weist sie als nicht für Planungszwecke geeignet aus. Maßgeblich sind die Landesbehörden.
 permits-created = Erstellt am { $date } für das Kartengebiet einer { $kind ->
         [schoolyard] Schulhofkarte
@@ -865,6 +947,7 @@ permits-quoted = „{ $text }“
 permits-osm-unnamed = ohne Namen
 permits-osm-operator = Betreiber laut OSM: { $operator }
 permits-osm-enclosing-gap = OpenStreetMap-Flächen, die das ganze Kartengebiet umschließen und keine Ecke darin haben, können hier fehlen, ebenso Schutzgebiete, die in OSM als Relation mit `type=boundary` erfasst sind. Die Angaben von BfN und VG250 sind davon nicht betroffen.
+permits-osm-enclosing-gap-short = OpenStreetMap-Flächen, die das ganze Kartengebiet umschließen und keine Ecke darin haben, können hier fehlen.
 permits-operator-line = { $name } ({ $roles ->
         [operator] Betreiber
         [owner] Eigentümer
@@ -887,6 +970,7 @@ permits-hint-nature-authority = { $kreisfrei ->
 permits-hint-national-park = Im Nationalpark gelten eigene Regeln. Fragen Sie früh bei der Nationalparkverwaltung nach.
 permits-hint-nsg-paths = Im Naturschutzgebiet gilt meist ein Wegegebot. Für einen Lauf abseits der Wege fragen Sie die Naturschutzbehörde.
 permits-hint-natura2000 = Ein FFH-Gebiet oder ein Vogelschutzgebiet (Natura 2000) berührt das Kartengebiet. Für eine Veranstaltung kann die Naturschutzbehörde eine Prüfung der Verträglichkeit verlangen.
+permits-hint-protected-areas-pl = Im Kartengebiet liegen Schutzgebiete oder Schutzobjekte des Naturschutzes. Bei einem Nationalpark, einem Landschaftspark oder einem Naturschutzgebiet ist meist die Verwaltung des Parks oder Reservats der Ansprechpartner; bei den übrigen Gebieten und Objekten kann die Regionale Direktion für Umweltschutz (RDOŚ) der Woiwodschaft meist sagen, wer zuständig ist. Fragen Sie früh nach, wenn Sie dort eine Veranstaltung planen.
 permits-hint-order-office = { $amt ->
         [none] Für Straßen, Plätze und andere öffentliche Flächen ist meist das Ordnungsamt der Gemeinde { $gemeinde } zuständig.
        *[other] Für Straßen, Plätze und andere öffentliche Flächen ist meist das Ordnungsamt zuständig: { $amt }, für die Gemeinde { $gemeinde }.
@@ -924,6 +1008,28 @@ permits-object-kind = { $kind ->
         [natural-monument] Naturdenkmal
         [protected-landscape-part] Geschützter Landschaftsbestandteil
         [biotope] Geschütztes Biotop
+        [national-park] Nationalpark (park narodowy)
+        [park-buffer-zone] Pufferzone eines Parks (otulina)
+        [landscape-park] Landschaftspark (park krajobrazowy)
+        [nature-reserve] Naturreservat (rezerwat przyrody)
+        [protected-landscape-area] Landschaftsschutzgebiet (obszar chronionego krajobrazu)
+        [natura2000-habitats] Natura-2000-Gebiet für Lebensräume (SOO)
+        [natura2000-birds] Natura-2000-Gebiet für Vögel (OSO)
+        [ecological-site] Ökologische Fläche (użytek ekologiczny)
+        [landscape-complex] Natur- und Landschaftskomplex (zespół przyrodniczo-krajobrazowy)
+        [documentation-site] Dokumentationsstätte (stanowisko dokumentacyjne)
+        [natural-monument-pl] Naturdenkmal (pomnik przyrody)
+        [national-park-cz] Nationalpark (národní park, NP)
+        [protected-landscape-area-cz] Landschaftsschutzgebiet (chráněná krajinná oblast, CHKO)
+        [national-nature-reserve] Nationales Naturreservat (národní přírodní rezervace, NPR)
+        [national-nature-monument] Nationales Naturdenkmal (národní přírodní památka, NPP)
+        [nature-reserve-cz] Naturreservat (přírodní rezervace, PR)
+        [nature-monument-cz] Naturdenkmal (přírodní památka, PP)
+        [protective-zone-cz] Schutzzone (ochranné pásmo)
+        [nature-zone-cz] Zone des Naturschutzes (zóna ochrany přírody)
+        [natura2000-habitats-cz] Natura-2000-Gebiet für Lebensräume (evropsky významná lokalita, EVL)
+        [natura2000-birds-cz] Natura-2000-Gebiet für Vögel (ptačí oblast, PO)
+        [memorial-tree] Geschützter Baum (památný strom)
        *[special-rules] Fläche mit besonderer Regelung
     }
 permits-object-count = { $count } Objekte
@@ -972,6 +1078,23 @@ permits-hint-owners-unknown = { $rest ->
 permits-section-forest-units = Forstverwaltung ({ $source })
 permits-section-state-forest = Staatswald ({ $source })
 permits-none-forest-units = Laut { $source } liegt das Kartengebiet im Bereich keiner Forstdienststelle.
+permits-section-admin-units = Verwaltungseinheiten ({ $source })
+permits-none-admin-units = Laut { $source } liegt das Kartengebiet in keiner Verwaltungseinheit des Registers.
+permits-section-register-monuments = Denkmale des nationalen Registers ({ $source })
+permits-none-register-monuments = Laut { $source } liegt kein eingetragenes Denkmal im Rechteck um das Kartengebiet.
+permits-register-monuments-total = Eingetragene Denkmale im Rechteck um das Kartengebiet: { $count }. Das Register gibt keine Position an, diese Hinweise können also nicht sagen, wo sie liegen; das ist auf der Karte zu prüfen.
+permits-register-monuments-left = { $count } weitere werden hier nur gezählt, ohne Namen.
+permits-section-register-archaeology = Archäologische Denkmale des nationalen Registers ({ $source })
+permits-none-register-archaeology = Laut { $source } liegt kein eingetragenes archäologisches Denkmal im Rechteck um das Kartengebiet.
+permits-register-archaeology-total = Eingetragene archäologische Denkmale im Rechteck um das Kartengebiet: { $count }. Das Register gibt keine Position an, diese Hinweise können also nicht sagen, wo sie liegen; das ist auf der Karte zu prüfen.
+permits-register-archaeology-left = { $count } weitere werden hier nur gezählt, ohne Namen.
+permits-section-register-history = Denkmäler der Geschichte ({ $source })
+permits-none-register-history = Laut { $source } liegt kein Denkmal der Geschichte im Rechteck um das Kartengebiet.
+permits-register-history-in-area = Denkmäler der Geschichte im Kartengebiet: { $count }.
+permits-register-history-nearby = Weitere Denkmäler der Geschichte im Rechteck um das Kartengebiet, aber nicht im Kartengebiet: { $count }.
+permits-register-history-left = { $count } weitere werden hier nur gezählt, ohne Namen.
+permits-admin-unit-code = { $name } (TERYT { $code })
+permits-admin-unit-code-ruian = { $name } (RÚIAN { $code })
 permits-none-state-forest = Laut { $source } liegt im Kartengebiet kein Staatswald.
 permits-forest-units-reach = Die Forstdienststelle ist für den Wald in ihrem Bereich zuständig. Ihr Bereich kann auch Siedlungen und Felder umfassen.
 permits-state-forest-office = zuständig: { $office }
@@ -983,6 +1106,38 @@ permits-hint-forest-owner = { $office ->
         [known] Für eine Veranstaltung im Wald brauchen Sie die Zustimmung der Waldbesitzer. Wem der Wald gehört, kann meist die Forstdienststelle sagen. In mehreren Bundesländern ist eine organisierte Veranstaltung im Wald außerdem der Forstbehörde anzuzeigen oder von ihr zu genehmigen.
        *[unknown] Für eine Veranstaltung im Wald brauchen Sie die Zustimmung der Waldbesitzer. In mehreren Bundesländern ist eine organisierte Veranstaltung im Wald außerdem der Forstbehörde anzuzeigen oder von ihr zu genehmigen. Welche Forstdienststelle hier zuständig ist, bestimmen diese Hinweise nicht; Auskunft gibt die Forstverwaltung des Bundeslandes oder die untere Forstbehörde.
     }
+permits-hint-forest-owner-pl = { $office ->
+        [known] Für eine Veranstaltung im Wald brauchen Sie in der Regel die Zustimmung des Waldbesitzers. Wer den Wald betreut, kann meist das oben genannte Forstamt (Nadleśnictwo) sagen. Wald, der nicht zu den Staatsforsten gehört, etwa Privatwald, steht nicht in den Daten dieser Hinweise. Wald, der nicht im Eigentum des Staates steht, etwa Privat- oder Kommunalwald, beaufsichtigt der Starost (starosta) in der Forstwirtschaft (Waldgesetz, Art. 5 Abs. 1 Nr. 2); fragen Sie dort im Starostwo Powiatowe.
+       *[unknown] Für eine Veranstaltung im Wald brauchen Sie in der Regel die Zustimmung des Waldbesitzers. Diese Hinweise nennen für das Kartengebiet kein Forstamt der Staatsforsten; die Daten umfassen nur die Staatsforsten, der Wald kann also jemand anderem gehören, etwa einem privaten Eigentümer. Wer der Eigentümer ist, muss gesondert geklärt werden. Wald, der nicht im Eigentum des Staates steht, etwa Privat- oder Kommunalwald, beaufsichtigt der Starost (starosta) in der Forstwirtschaft (Waldgesetz, Art. 5 Abs. 1 Nr. 2); fragen Sie dort im Starostwo Powiatowe.
+    }
+permits-hint-monument-register-pl = Denkmale des nationalen Registers liegen im Rechteck um das Kartengebiet. Ihre Positionen stehen nicht in den Daten, prüfen Sie also auf der Karte, wo sie liegen. Nach Art. 36 Abs. 1 des Denkmalschutzgesetzes (ustawa o ochronie zabytków) brauchen Konservierungs-, Restaurierungs- und Bauarbeiten an einem eingetragenen Denkmal die Genehmigung des Woiwodschafts-Denkmalpflegers (Wojewódzki Konserwator Zabytków). Seit dem 3. Juni 2026 brauchen Bauarbeiten im Umfeld eines Denkmals, eine Nutzungsänderung, daran angebrachte Anlagen oder Schilder und andere Handlungen, die Substanz oder Aussehen verändern könnten, nur noch eine Meldung an den Konservator (Art. 36aa); er kann binnen 60 Tagen widersprechen und dann eine Genehmigung verlangen. Einen Lauf oder einen Posten als solchen nennt das Gesetz nicht; fragen Sie das Amt des Konservators, wenn eine Veranstaltung ein Denkmal oder seine Umgebung berührt.
+permits-hint-archaeology-register-pl = Archäologische Denkmale des nationalen Registers liegen im Rechteck um das Kartengebiet. Ihre Positionen stehen nicht in den Daten, prüfen Sie also auf der Karte, wo sie liegen. Nach Art. 36 Abs. 1 des Denkmalschutzgesetzes (ustawa o ochronie zabytków) brauchen archäologische Forschungen (Pkt 5), die Suche nach verborgenen oder aufgegebenen beweglichen Denkmalen mit elektronischen oder technischen Geräten wie Metallsonden (Pkt 12) und Konservierungs-, Restaurierungs- oder Bauarbeiten an einem eingetragenen Denkmal (Pkt 1) die Genehmigung des Woiwodschafts-Denkmalpflegers (Wojewódzki Konserwator Zabytków). Die Genehmigung für die Suche entfällt am 1. Januar 2027: Dann erlaubt Art. 36b einer volljährigen Person die Suche mit Zustimmung von Eigentümer und Besitzer des Grundstücks nach einer Meldung im Suchregister über die App des Kulturministeriums, und Art. 36c verbietet solche Suchen unter anderem an eingetragenen Denkmalen und im Abstand von weniger als 10 m davon. Einen Spaziergang, einen Lauf oder einen Posten als solchen nennt das Gesetz nicht; fragen Sie das Amt des Konservators, wenn eine Veranstaltung oder Feldarbeit eine eingetragene Stätte berührt.
+permits-hint-history-register-pl = Ein Denkmal der Geschichte (Pomnik historii) liegt im oder nahe beim Kartengebiet; der Abschnitt zu den Denkmälern der Geschichte sagt, welches. Der Präsident der Republik Polen erklärt ein unbewegliches Denkmal, das im Register steht, oder einen Kulturpark von besonderem Wert durch Verordnung zum Pomnik historii (Art. 15 Abs. 1 des Denkmalschutzgesetzes, ustawa o ochronie zabytków). Es steht also schon unter dem Schutz des Registers oder des Kulturparks. Für Arbeiten an einem im Register eingetragenen Denkmal muss der Woiwodschafts-Denkmalpfleger (Wojewódzki Konserwator Zabytków) eine Genehmigung erteilen (Art. 36 Abs. 1); in einem Kulturpark legt der Beschluss des Gemeinderats die Verbote und Beschränkungen fest (Art. 16 Abs. 2, Art. 17 Abs. 1). Das Gesetz nennt keinen Spaziergang, Lauf oder Posten als solchen; fragen Sie das Amt des Denkmalpflegers, wenn eine Veranstaltung oder Geländearbeit das Denkmal berührt.
+permits-hint-gmina-nature-pl = { $gmina ->
+        [none] Im Kartengebiet liegt ein Naturdenkmal (pomnik przyrody), eine ökologische Fläche (użytek ekologiczny), ein Natur- und Landschaftskomplex (zespół przyrodniczo-krajobrazowy) oder eine Dokumentationsstätte (stanowisko dokumentacyjne). Der Gemeinderat (rada gminy) legt sie per Beschluss fest; der Beschluss nennt, wer das Objekt beaufsichtigt und welche Verbote gelten (Art. 44 des Naturschutzgesetzes). Das Gesetz selbst nennt für eine Veranstaltung hier keine Genehmigung. Fragen Sie beim Amt der Gemeinde, in der das Objekt liegt, nach dem Beschluss und der aufsichtführenden Stelle.
+       *[other] Im Kartengebiet liegt ein Naturdenkmal (pomnik przyrody), eine ökologische Fläche (użytek ekologiczny), ein Natur- und Landschaftskomplex (zespół przyrodniczo-krajobrazowy) oder eine Dokumentationsstätte (stanowisko dokumentacyjne). Der Gemeinderat (rada gminy) legt sie per Beschluss fest; der Beschluss nennt, wer das Objekt beaufsichtigt und welche Verbote gelten (Art. 44 des Naturschutzgesetzes). Das Gesetz selbst nennt für eine Veranstaltung hier keine Genehmigung. Fragen Sie { $count ->
+        [one] beim Amt der Gemeinde ({ $gmina }), in der das Objekt liegt,
+       *[other] bei den Ämtern der Gemeinden ({ $gmina }), jeweils für die Objekte in ihrem Gebiet,
+    } nach dem Beschluss und der aufsichtführenden Stelle.
+    }
+permits-hint-gmina-roads-pl = Eine Veranstaltung, die den Verkehr behindert oder eine Straße besonders nutzt, braucht nach Art. 65 des Straßenverkehrsgesetzes (Prawo o ruchu drogowym) eine Genehmigung; der Antrag geht mindestens 30 Tage vorher ein. Sie erteilt die Stelle, die den Verkehr auf der Straße regelt: der Starost für Kreis- und Gemeindestraßen, der Stadtpräsident in einer Stadt mit Kreisrechten, der Marschall der Woiwodschaft oder die GDDKiA für die übrigen Straßen (Art. 10 und 65b). Straßenverwalter einer Gemeindestraße ist der Wójt, Bürgermeister oder Stadtpräsident { $count ->
+        [one] der Gemeinde ({ $gmina }); er entscheidet
+       *[other] jeder der Gemeinden ({ $gmina }); der jeweilige Verwalter entscheidet
+    } über die Inanspruchnahme des Straßenkörpers (Art. 19 und 40 des Gesetzes über die öffentlichen Straßen). Die Kategorie der Straßen zeigen diese Hinweise nicht.
+permits-hint-gmina-land-pl = Gehört Land im Kartengebiet der Gemeinde, zum Beispiel ein städtischer Park, ein Platz, ein Schulgelände oder ein Wald, verwaltet es der Wójt, Bürgermeister oder Stadtpräsident, der die Gemeinde vertritt (Art. 30 und 31 des Gemeindeselbstverwaltungsgesetzes). Holen Sie die Zustimmung { $count ->
+        [one] beim Amt der Gemeinde ({ $gmina }) ein
+       *[other] bei den Ämtern der Gemeinden ({ $gmina }) ein
+    }, bevor Sie es nutzen. Diese Hinweise zeigen nicht, wem das Land gehört.
+permits-hint-protected-areas-cz = Im Kartengebiet liegen Schutzgebiete oder Schutzobjekte des Naturschutzes. Nach dem Gesetz über Natur- und Landschaftsschutz (Gesetz Nr. 114/1992 Sb.) sind in einem Nationalpark organisierte sportliche, touristische und andere öffentliche Veranstaltungen außerhalb der von der Naturschutzbehörde bestimmten Orte verboten (§ 16 Abs. 1 Buchst. q), und in der Schutzzone eines Nationalparks brauchen solche Massenveranstaltungen außerhalb dieser Orte und außerhalb der bebauten Gebiete die Zustimmung der Behörde (§ 37 Abs. 3 Buchst. d). In einem nationalen Naturreservat ist es verboten, außerhalb der mit Zustimmung der Behörde markierten Wege zu gehen oder zu fahren (§ 29 Buchst. d). Naturschutzbehörden sind unter anderem die Verwaltung eines Nationalparks, die Agentur für Natur- und Landschaftsschutz (AOPK ČR), das Kreisamt (krajský úřad) und das Amt einer Gemeinde mit erweiterter Zuständigkeit (§ 75 Abs. 1). Andere Schutzgebiete und Schutzobjekte haben eigene Schutzbedingungen. Fragen Sie früh bei der Behörde nach, wenn Sie dort eine Veranstaltung planen.
+permits-hint-monuments-cz = Im Kartengebiet liegen Kulturdenkmale oder Denkmalgebiete der staatlichen Liste. Nach dem Gesetz über die staatliche Denkmalpflege (Gesetz Nr. 20/1987 Sb., § 14 Abs. 1 und 2) muss der Eigentümer eines Denkmals vor Instandhaltung, Reparatur, Umbau oder einer anderen Änderung des Denkmals oder seiner Umgebung vorab eine Entscheidung oder eine verbindliche Stellungnahme einholen. Dasselbe gilt für den Eigentümer eines Grundstücks in einem Denkmalreservat, einer Denkmalzone oder der Schutzzone eines Denkmals bei einem Bau, einer Änderung eines Baus, Geländearbeiten, einer Anlage oder einem Schild, dem Abbruch eines Bauwerks, der Behandlung von Gehölzen oder Unterhaltungsarbeiten. Entscheiden kann das Amt der Gemeinde mit erweiterter Zuständigkeit{ $orp ->
+        [none] {""}
+       *[other] {" "}({ $orp})
+    }, bei einem nationalen Kulturdenkmal das Kreisamt. Einen Spaziergang, einen Lauf oder einen Posten als solchen nennt das Gesetz nicht; fragen Sie dieses Amt, wenn eine Veranstaltung ein Denkmal berührt oder Anlagen oder Schilder daran anbringt.
+permits-hint-forest-owner-cz = Eine gesellschaftliche Massenveranstaltung, etwa eine sportliche oder kulturelle, auf Flächen mit Waldfunktion darf nur mit schriftlicher Zustimmung des Eigentümers des Waldes stattfinden, in dem sie abgehalten wird (Waldgesetz, Gesetz Nr. 289/1995 Sb., § 20 Abs. 5). Der Veranstalter muss sie außerdem spätestens 30 Tage vorher schriftlich dem Amt der Gemeinde mit erweiterter Zuständigkeit{ $orp ->
+        [none] {""}
+       *[other] {" "}({ $orp})
+    } anzeigen, oder dem Kreisamt, wenn die Veranstaltung über den Bezirk einer solchen Gemeinde hinausreicht. Die Anzeige nennt Datum und Ort, die Besetzung der Veranstaltung, die erwartete Teilnehmerzahl und die schriftlichen Zustimmungen der Eigentümer (derselbe Absatz). Diese Hinweise zeigen nicht, wem der Wald gehört; fragen Sie die Waldbesitzer früh.
+permits-hint-roads-cz = Eine Veranstaltung, die eine Straße anders als üblich nutzt, etwa eine sportliche, kulturelle oder ähnliche Veranstaltung, die die Sicherheit oder Flüssigkeit des Straßenverkehrs gefährden könnte, braucht die Erlaubnis des zuständigen Straßenverwaltungsamts. Sie wird mit vorheriger Zustimmung des Straßeneigentümers erteilt und, wo Sicherheit oder Flüssigkeit des Verkehrs betroffen sein können, der Polizei der Tschechischen Republik (Straßengesetz, Gesetz Nr. 13/1997 Sb., § 25 Abs. 1 und Abs. 6 Buchst. d). Das Amt ist bei örtlichen Straßen das Gemeindeamt oder, wo es entscheidet, das Amt der Gemeinde mit erweiterter Zuständigkeit, bei Straßen zweiter und dritter Klasse das Amt der Gemeinde mit erweiterter Zuständigkeit (§ 40 Abs. 4 und 5). Gemeinden im Kartengebiet: { $gmina }. Diese Hinweise zeigen nicht, welcher Klasse die Straßen angehören.
 permits-section-water-protection = Wasserschutzgebiete ({ $source })
 permits-section-forest-functions = Waldfunktionen und Schutzwald ({ $source })
 permits-none-water-protection = Laut { $source } liegt im Kartengebiet kein Wasserschutzgebiet.

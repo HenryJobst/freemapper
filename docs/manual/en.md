@@ -58,7 +58,7 @@ On request freemapper also writes the **print-ready map as a PDF**, a **check pr
     OSM extract is cached, the update of that extract. It warns for each part it leaves out. Every map
     needs the map data, the terrain model and the orthophoto. If those do not fit, freemapper stops
     before it downloads anything.
-- An area in **Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate, Saarland, Baden-Württemberg, Bremen or Bavaria**. Thuringia is still missing.
+- An area in **Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate, Saarland, Baden-Württemberg, Bremen or Bavaria**. Thuringia is still missing. Poland is usable: the map there combines OpenStreetMap with the cadastre EGiB, orthophoto and terrain from GUGiK, and the area must lie wholly in Poland. In Poland, buildings and land use come from the cadastre EGiB; where it gives nothing (municipalities without a cadastre service, cities with empty land use classes), BDOT10k fills in, for which the GML archive of the powiat (7 to 89 MB) is downloaded into the cache. A forest map in Poland also takes the roads and paths of BDOT10k as candidates, where OpenStreetMap has none within 10 m; for them freemapper reads only two files of the archive (about 2 MB). Czechia is usable as a preview: the map there combines OpenStreetMap with the terrain model, surface model and orthophoto of ČÚZK, the buildings of the register RÚIAN and the land use of ZABAGED; the area must lie entirely in Czechia, and the OSM extract of the whole country (about 910 MB) is downloaded once. All services are open under CC BY 4.0 and need no key. Contour lines wander in dense old towns because the terrain model there is interpolated bare earth; the RÚIAN parcels are outdated since December 2021 and are not used. The permit notes come from the AOPK, RÚIAN and the NPÚ (ADR 0201).
 - Optionally an AI assistant such as Claude, so you do not have to type commands.
 
 ## 3. Installation
@@ -77,6 +77,12 @@ freemapper is a single program without an installer.
 3. On the first start the system warns you, because the program is not signed:
    - **Windows:** "Windows protected your PC" → *More info* → *Run anyway*.
    - **macOS:** "cannot be opened …" → *System Settings › Privacy & Security* → *Open Anyway*.
+
+**Double click on Windows:** A double click on `freemapper.exe` opens the area page in the browser (like `freemapper select`)
+and creates the project folder under `Documents\freemapper\karte-<date>`; the console window stays open while the program
+runs, and closing it ends the program. Everything else, such as `run`, `permits` or `update`, you type in PowerShell:
+Start menu › "PowerShell", change with `cd` into the folder with `freemapper.exe` (or type `powershell` into the address
+bar in Explorer) and call for example `.\freemapper.exe run <folder>` there.
 
 Note the **full path** to the program, e.g. `C:\Users\Anna\Documents\freemapper\freemapper.exe` or
 `/Users/anna/Documents/freemapper/freemapper`. The assistant needs it.
@@ -677,6 +683,32 @@ From the terrain model come further candidates the contours miss:
   (0.5 m on schoolyard maps), narrower than 5 mm on paper and at least 10 m, that rises clearly from its
   foot. An elongated knoll is turned along its length.
 - **Small depressions** (111): the same, as a hollow.
+- **Boulders** (204) and **large boulders** (205): a knoll that lies on a bare-rock area (OpenStreetMap
+  `natural=bare_rock`, symbol 214) is a rock tower or a block, not a knoll of the ground. From 1 m high freemapper
+  draws it as a boulder (204), from 2 m as a large boulder (205), without rotation. The height is cut off at 6 m.
+  The terrain of a rock town such as Adršpach (520 of 522 knolls on rock, most above 4 m) becomes a field of black
+  dots, as real maps show it. A rock area that OpenStreetMap lacks keeps its brown knolls.   When three or more boulders stand so close that their symbols would leave less than the minimum gap of 0.15 mm
+  (0.55 mm centre to centre, 5.5 m at 1:10 000), they are merged into one boulder cluster (207) at their centre. With today's terrain model this hardly ever
+  happens: the knolls stand at least 5.4 m apart.
+- **Rock face areas** (206): a connected patch at least 70° steep is drawn as a black area in plan shape when it is at
+  least 0.3 mm² and 0.25 mm wide (the minimum sizes of 206). Sprint maps of a rock town, such as the Adršpach map of 2009,
+  draw it this way. A face that reaches past the edge of the terrain model is missing, and a gap inside one (a crack,
+  a level ledge) is filled. A bank or cliff that runs along a face is dropped, because the area shows it already. Contours stop at the area and do not run through the black. The
+  area is a candidate of the terrain layer. The limit (the face threshold) can be set: `--face-slope <degrees>` on
+  `init`, `derive` or `run`, in the field "Face threshold" on the area page, or as `face_slope_deg = 75` in
+  `freemapper.toml`; `auto` gives the default of 70° back, 55° to 85° are allowed. A map that is built already needs
+  `derive` and `export --force` afterwards. On Adršpach the default gives 310 areas.
+
+  | Value | When | What happens |
+  |---|---|---|
+  | 65° | Rock towns with sloping walls, when the default areas look too small | More and larger areas (Adršpach: 8.4 % of the ground), steep slopes turn black too. |
+  | `auto` (70°) | Rock towns such as Adršpach, quarries, rock drops | The default (Adršpach: 5.2 % of the ground). |
+  | 75° | Only real walls | Fewer areas (Adršpach: 2.5 %) with ragged edges. |
+  | above 80° | (not useful) | Hardly any areas are left. |
+
+  Where there is hardly any rock (low mountains, parks), the threshold changes little: there are few areas anyway.
+  This was measured on Adršpach only, the values for other areas are estimates; when in doubt look at the candidates
+  in the layer "Terrain".
 - **Earth banks** (104) and, from 3 m high, **impassable cliffs** (201): a narrow, steep strip that takes
   most of its height difference within a few metres. A plain slope does not count. The ticks point down.
 
@@ -691,6 +723,30 @@ as banks. Check each one in the terrain. A bank may turn out to be a wall, a cli
 `landforms` (see below), banks, cliffs and retaining walls too: with `full` or `--content-set landforms=map` they
 go straight onto the map. `slopes=map` takes only the banks of ALKIS and OpenStreetMap, in Bavaria also the
 earth walls, rocks and cave entrances of the landscape model.
+
+**Steepness threshold.** The slope angle from which a patch of terrain counts as steep when freemapper looks for
+earth banks and cliffs can be set: `--steep-slope <degrees>` on `init`, `derive` or `run`, in the field "Steepness
+threshold" on the area page, or as `steep_slope_deg = 55` in `freemapper.toml`; `auto` gives the default back (about
+27°). 15° to 80° are allowed. A map that is built already needs `derive` and `export --force` afterwards. The threshold
+changes only what comes from the terrain model (the banks and cliffs of the group `landforms`), not the cliffs from
+OpenStreetMap. It holds for banks and cliffs alike: a bank is less steep than a wall, so a high threshold loses the banks
+(Nikolsdorfer Wände: 16 banks at the default, none at 55°).
+
+| Value | When | What happens |
+|---|---|---|
+| `auto` (27°) | Hills, parks, towns, ordinary forests | Every strip steeper than that may be an earth bank or a cliff. |
+| 40° to 50° | Steep valleys and slopes with many rock bands (not tested) | Fewer banks on ordinary steep slopes. |
+| 55° to 60° | Rock towns and gorges where almost every slope is steep | The steep pieces part, and more walls are found one by one. |
+| 65° to 70° | Only the steepest walls | A few very high walls are left. |
+
+Why it is needed: where almost every slope is steep, the steep cells join into one patch, and a patch that is not long
+and narrow counts as a slope, not as a wall. This was measured on one area, the Adršpach rock town, with the 2 m model of
+the Czech ČÚZK: at the default 47 % of the area was steep and 92 % of that hung together; 1 cliff candidate of 30 m
+was left. At 50° there were 6 of 230 m, at 55° 11 of 610 m, at 60° 11 of 470 m, at 65° 11 of 430 m and at 70° 4 of
+170 m. That is little for terrain of hundreds of single towers: the search finds long, narrow walls, not towers, which
+the 2 m model shows only as knolls. The values for other areas are estimates; when in doubt try 55° and look at the
+candidates in the layer "Terrain". A line that runs down the slope instead of along the contours is the centre line
+of a steep patch and no wall; freemapper drops it at every threshold.
 
 ### Vegetation from laser point clouds
 
@@ -1003,10 +1059,17 @@ What the training map does differently from the map, step by step:
    way. Two short pieces do not keep each other. A stair too short to draw between two ways is drawn as the way
    (it carries `freemapper:generalized`); one at a dead end goes.
 
+   A short way piece that linked ways before step 5 stays as long as those ways stay, also where step 6 or 8 moved
+   its ends off them; a small ring stays when it links two ways.
+
    Last, a line end that touched a line before step 5 and lost it in step 8 or 9 is drawn onto what is left of that
-   line, when that lies within 0.5 mm plus the gap. Where nothing is left in reach, the end stays free and the
-   summary line counts it: `3 line ends left free`. Where two lines lay on each other and one was cut for the
-   other, the gap is meant and nothing is drawn back.
+   line, when that lies within 0.5 mm plus the gap and the moved line keeps its gap to everything it keeps apart
+   from. A path that ended on a sidewalk that went beside a road is drawn onto the road, from as far as the sidewalk
+   lay. Where nothing is left in reach, the end stays free and the summary line counts it: `Line ends left free: 1
+   where a way met another way, 2 at other lines`. The first number counts ends of ways that met another way; each
+   is a break in the way network. The second counts the rest, mostly ends on a fence, ditch or earth bank that gave
+   way to a third object. Where two lines lay on each other and one was cut for the other, the gap is meant and
+   nothing is drawn back.
 
 On forest and sprint maps the training map also generalizes the cliffs more than the map (chapter 7).
 
@@ -1026,6 +1089,24 @@ is in the base map and the candidates, true to position. To write only the train
 `<name>-training.omap` (with `--ocad` also `ocad/<name>-training.ocd`) and call `run --training` without `--force`;
 the PDF is written again with it. `--force` replaces the base map as well. The uncertain objects of the training map
 come from the candidates; check the course in the terrain before an event, best with the check print.
+
+### Views of the training map
+
+For forms of training freemapper leaves something out of the finished training map: `freemapper run --training --view
+<view>` (or `export`) writes `<name>-training-<view>.omap` and its PDF beside the full map, with `--ocad` also
+`ocad/<name>-training-<view>.ocd`. The map is not computed again, the view is a selection from it. The training map
+itself stays as it is.
+
+| View | What stays |
+|---|---|
+| `no-paths` | everything but roads, paths and stairs (502 to 507, 501.6 to 501.8, 532), for Ultimate maps in the forest |
+| `brown-only` | only brown symbols (contours, banks, knolls, depressions, pits), for contour orienteering; the north lines go |
+| `no-north-lines` | everything but the north lines |
+
+`--view no:505,506` leaves symbols out by code, `--view only:101,102` keeps only these; `+` combines views
+(`no-paths+no-north-lines`), and the option can be repeated. The frame (title, scale, sources) and the base fill
+always stay. A run keeps existing view files unless you pass `--force`. The MCP tool `start_pipeline` takes the same
+views as `training_views`. On the area page they appear under the "Training map" box as three more boxes and a field for a view of your own; "Without paths" and "Brown only" can be chosen on forest maps only. freemapper-print applies the same views to any `.omap` (`--view`) when you only want to print.
 
 ## 11. OCAD
 
@@ -1355,6 +1436,73 @@ rectangle, the BfG the rectangle. It asks no other server for the notes. It asks
 the services of a state only for a map area that lies there, and only through the hosts the adapter of that
 state names. `adapters allow-host` does not apply to the federal
 services.
+
+### Permit notes in Poland
+
+For a map area in Poland the notes come from Polish services, not from the BfN and the BKG: the nature
+protection layers of the General Directorate for Environmental Protection (GDOŚ, `sdi.gdos.gov.pl`: national
+parks, landscape parks, nature reserves, protected landscape areas, Natura 2000, natural monuments and more) and,
+from the national boundary register (PRG, `mapy.geoportal.gov.pl`), the forest districts of the State Forests and
+the administrative units. The section "Administrative units" comes first. It names the voivodeship
+(województwo), the powiat and the gmina the map area lies in, each with its TERYT code and its share of the
+area, so a map area on a border lists every unit it touches. The notes name no Kreis or Ordnungsamt, because
+those do not exist there. They say that the administration of a park or reserve and the Regional Directorate for
+Environmental Protection (RDOŚ) can usually say who is in charge, and that an event in the forest usually needs the
+owner's consent. The gmina is named where the statutes make it the body to ask: for a natural monument, an
+ecological site, a nature and landscape complex or a documentation site, the gmina council establishes the
+object and its resolution says who supervises it and which bans apply, so the notes point to the gmina office for
+that resolution (Nature Conservation Act, art. 44). For an event on streets they say that the traffic permit
+(Road Traffic Act, art. 65, at least 30 days ahead) comes from the starosta for powiat and gmina roads, from the
+mayor in a city with powiat rights and from the voivodeship marshal or the GDDKiA otherwise, and that the head of
+the gmina (wójt, burmistrz, prezydent miasta) manages the gmina roads and decides on occupying the lane (Public
+Roads Act, art. 19 and 40). For land that belongs to the gmina the same head manages it and represents the gmina
+(Act on Gmina Self-Government, art. 30 and 31); the notes do not know which land is municipal, so they say "if".
+The wójt does not issue the permit for an event on a road, and the Nature Conservation Act names no permit for an
+event at a natural monument: the resolution decides. When the map area lies in several gminas, the hints name every one of them with its share and say that the head of each gmina is the body to ask for the part that lies in it. Mass events and assemblies get no gmina hint. Monuments come from the register of immovable monuments of the NID
+(`usluga.zabytek.gov.pl`, one request per map area): the notes count the monuments in the rectangle around the map
+area and name the most common names with their counts (at most ten). The register gives no positions, so the notes
+say to check on the map where they lie. The hint names the permit of the voivodeship monument conservator for conservation, restoration and building
+work at a monument (Act on the Protection of Monuments, art. 36 ust. 1) and says that since 3 June 2026 building work in
+its surroundings and some other actions need only a notification, to which the conservator can object within 60 days
+(art. 36aa); the Act names no run.
+A second request asks the register of archaeological monuments (the book C of the register) the same way; its section
+has the same form and its hint says that archaeological research and searching with metal detectors need the
+conservator's permit (art. 36 ust. 1 pkt 5 and 12), that the permit for searches falls away on 1 January 2027 and is
+replaced by the owner's consent plus a notification in the app of the ministry (art. 36b), and that registered
+monuments and their 10 m belt are then closed to such searches (art. 36c). Sites that are only in the
+archaeological record (AZP) and not entered in the register, are not covered. The Pomniki historii (monuments of
+history) come from a third request to the same host; they have true positions, so the section tells monuments inside
+the map area from those only in the rectangle around it and names them (ten at most per list). Only the State Forests
+are in the data; private forest is not, and the notes say that the starosta supervises forest that the State
+Treasury does not own. The German wording of these hints has not been read by a Polish speaker.
+The notes are a hint, not legal advice. `--offline` reads what an earlier run stored, as in Germany.
+
+### Permit notes in Czechia
+
+For a map area in Czechia the notes come from Czech services, not from the BfN and the BKG (ADR 0201). The
+Nature Conservation Agency (AOPK ČR, `gis.nature.cz`) gives the protected areas and objects: national parks (NP),
+protected landscape areas (CHKO), their zones of nature protection, national nature reserves and monuments
+(NPR, NPP), nature reserves and natural monuments (PR, PP) with their protective zones, the Natura 2000 sites for
+habitats (EVL) and for birds (PO) and the memorial trees. RÚIAN of the ČÚZK (`ags.cuzk.gov.cz`) gives the
+administrative units: the section "Administrative units" names the region (kraj), the district (okres), the
+municipality with extended powers (obec s rozšířenou působností, ORP) and the municipality (obec) the map area
+lies in, each with its RÚIAN code and its share, so a map area on a border lists every unit it touches. The
+National Heritage Institute (NPÚ, `geoportal.npu.cz`) gives the cultural monuments and monument areas of the state
+list with their positions; the notes count them by kind. Where a hint rests on a law, it names the provision:
+in a national park organised events are banned outside the places the nature conservation authority has set aside
+(Act 114/1992 Sb., § 16 odst. 1 písm. q), in its protective zone mass events need the authority's consent (§ 37
+odst. 3 písm. d), and in a national nature reserve entering outside the marked paths is banned (§ 29 písm. d). A
+mass sports, cultural or other social event in the forest needs the written consent of the forest owner and a
+written notice to the office of the ORP at least 30 days ahead (Act 289/1995 Sb., § 20 odst. 5); work on a
+monument or on a property in a monument reservation, zone or protective zone needs a decision or binding opinion of
+the ORP office, for a national monument of the regional office (Act 20/1987 Sb., § 14 odst. 1 and 2); an event
+that uses a road in a special way needs the permit of the road administration office (Act 13/1997 Sb., § 25 odst. 1
+and 6 písm. d, § 40). The notes name the ORP and the municipalities of the map area for these. They say that
+the Acts name no run or control as such where that is so. The forest owners are not in the data (the services of
+the Forest Management Institute ÚHÚL answer with a faulty certificate), so the notes ask you to find them. The natural
+parks (přírodní parky) and the protective zones of monuments are not covered. The Czech wording of the hints has
+not been read by a Czech speaker. The notes are a hint, not legal advice. `--offline` reads what an earlier run
+stored, as in Germany.
 
 ## 13. Regions and border areas
 
@@ -1699,6 +1847,60 @@ DNS name; an IP address, `localhost`, a name of the local network, a wildcard or
 allowed host, too, freemapper connects to servers on the internet only. `freemapper adapters list` shows the
 allowed hosts per state, and `freemapper adapters disallow-host hessen new-server.hessen.de` takes one back.
 
+### Correcting an address yourself
+
+`allow-host` only adds a host. When a state moved a service to a new address, you can also change the address
+yourself, without waiting for a release: your own adapter folder with the id of the state takes the place of the
+built-in adapter. You do not write the folder from nothing; `adapters export` writes the built-in one, and you
+change the few places that moved.
+
+The short way is `freemapper sources`: `sources list hessen` shows the addresses of the state, each with its path
+in the manifest (`alkis.url`, `permits.wfs[0].url`, `net.hosts[1]`) and whether the manifest in force is the built-in
+one or yours. `freemapper sources set hessen alkis.url https://new.example.org/wfs` changes one address in your own
+adapter folder. If the folder is not there yet it is made from the built-in manifest first, the way `adapters
+export` does it. The whole manifest is checked before anything is written; a change that would not pass is
+refused and nothing is written. An address on a host the manifest does not declare is refused too, unless you pass
+`--add-host`, which adds the host to `[net] hosts` and says so. `sources diff hessen` shows what your folder changes
+against the built-in manifest, `sources check hessen` is `adapters check` on your folder, `sources get hessen
+alkis.url` prints one address for a script, and `sources schema` lists the keys of a manifest that hold an address
+(`--json`: as a JSON Schema). The command writes only into your own adapter folder, never into a project folder.
+Credit and licence stay as the manifest states them; keep them right if the service changed hands. Restart the
+MCP server or the area page afterwards. The steps below are the same by hand.
+
+1. Export the state. The id is the one `freemapper adapters list` shows:
+   `freemapper adapters export hessen ~/my-adapters`. This writes the folder `~/my-adapters/hessen` with the
+   manifest (`manifest.toml`) and the files it names (the boundary, for some states the boundaries of the OSM
+   extracts). The command never writes into a folder that has files in it. Saxony-Anhalt declares its orthophoto
+   as a service, and an adapter like that needs a provider of its own to load as a replacement: its export names
+   the provider `saxonyanhalt`, and its downloads then go to a cache folder of their own.
+2. Change the address in `manifest.toml`: the `url` of the service that moved and, if the host is new, the host
+   in `[net] hosts`. Raise `revision` if the data a map gets changes. Do not touch what you do not need to.
+3. Check the folder: `freemapper adapters check ~/my-adapters/hessen`. It names the one warning
+   `check.built-in-id` (the id is built in, so the folder will replace it); every other finding is yours to fix.
+   `--live --bbox minLon,minLat,maxLon,maxLat` also asks the services.
+4. Put the folder into your adapter folder (`freemapper adapters list` prints where it is, or set
+   `FREEMAPPER_ADAPTER_DIR` to an absolute path). From the next start the folder replaces the built-in adapter.
+5. See that it took: every start of the program prints the warning `adapter.replaces-built-in`, `freemapper
+   adapters list` shows the state as `from your folder`, and `adapters list --json` has `"replaces_built_in":
+   true`.
+6. To go back, delete the folder. The built-in adapter is there again at the next start.
+
+What the replacement is held to: it asks only the hosts its own manifest names; the hosts you allowed with
+`allow-host` for the built-in adapter do not carry over. Credit and licence are those of the manifest, so keep
+`[credit]` and the licence right when the service changes the licence. A newer freemapper that changes the
+built-in state does not reach a region whose folder replaces it: when the built-in adapter has a higher
+`revision`, `adapters check` (`check.built-in-newer`) and every start (`adapter.replacement-outdated`) say so;
+export again and carry your changes over. A folder in a project (`--adapters-from-project`) never replaces a
+built-in adapter, and the area page and the AI assistant through MCP read only your own folder.
+
+What a folder cannot replace: only what the manifest declares is in the export. Addresses that still sit in the
+code of a state stay as they are: the layers of Berlin that the program fetches by code, the tree cadastres,
+the point clouds and the permit sources that no manifest table describes. Poland's adapter is code and has no
+manifest to export. If the moved service is one of those, report it (chapter 16) and use `allow-host` until the
+next release.
+
+An assistant that moved a service for you proposes the change, shows it and writes it only after you agreed.
+
 ## 14. Working on later
 
 - **Your map is safe:** running `run` again (or "please fetch again") leaves an existing map unchanged.
@@ -1720,9 +1922,16 @@ allowed hosts per state, and `freemapper adapters disallow-host hessen new-serve
 
 ## 15. Messages and what to do
 
-freemapper has German and English texts. The language comes from `--lang de` or `--lang en`, else from the
+freemapper has German and English texts and 19 more languages (see below). The language comes from `--lang de` or `--lang en`, else from the
 environment variable `FREEMAPPER_LANG`, else from the system language (`LANG`), else it is English. On Windows
 `LANG` is usually not set; use `--lang de` there if you want German.
+
+The program also speaks Polish, Czech, Danish, Spanish, Estonian, Finnish, French, Hungarian, Italian, Lithuanian,
+Latvian, Norwegian (Bokmål), Dutch, Portuguese, Russian, Slovak, Slovene, Swedish and Ukrainian (`--lang pl`,
+`--lang cs` and so on). These texts are drafted by machine, no native speaker has read them, and mistakes are
+possible. Corrections are welcome as an issue or a pull request: the texts live per language in
+`crates/freemapper-cli/i18n/<language>/freemapper.ftl` and `crates/freemapper-adapter-api/i18n/<language>/notes.ftl`,
+and the guide is `crates/freemapper-cli/i18n/README.md`.
 
 German covers the lines the program prints at the end of a step, such as "Wrote …" and the hints after `run`
 and `export`, and the error messages. An error message starts with `error:` (German `Fehler:`), and the program
@@ -1754,7 +1963,7 @@ language. The most important messages, in their English wording:
 | `download of … failed` or `invalid ALKIS data` | A server was unreachable or sent nonsense. | Try again later. Data fetched before is kept. |
 | Area selection: "access blocked" / 403 from OpenStreetMap, or the base map stays grey | The base map comes from `tile.openstreetmap.org`. Its tile policy asks for an identifiable application (`User-Agent`) or a valid `Referer`; the browser sends no `Referer` here. Up to 0.9.1 the browser loaded the tiles itself and got 403. Since 0.9.2 the local server fetches the tiles with `User-Agent: freemapper/<version> (+https://github.com/HenryJobst/freemapper)` and passes them to the browser. | Update freemapper. The computer needs internet access. If the server answers 502, the reason is in the response (for example HTTP 403 or no connection). The state aerial images are not affected. |
 | `… refused the request (HTTP 400)` | A service refuses the request. | Try again. If it persists, report a bug. |
-| `…: freemapper does not send requests to this address: the adapter of … does not name the host …` | For a state freemapper asks only the servers its adapter names. A service moved to another server, redirected there or pointed there in its answer. The message starts with the refused address and ends with the command that allows the host. | If you trust the server (it plainly belongs to the agency of the state): run the command from the message, `freemapper adapters allow-host <adapter> <host>`, repeat the run and report the move (chapter 17). See "When a service moves" in chapter 13. For an adapter of your own, add the host to `[net] hosts` of its manifest. |
+| `…: freemapper does not send requests to this address: the adapter of … does not name the host …` | For a state freemapper asks only the servers its adapter names. A service moved to another server, redirected there or pointed there in its answer. The message starts with the refused address and ends with the command that allows the host. | If you trust the server (it plainly belongs to the agency of the state): run the command from the message, `freemapper adapters allow-host <adapter> <host>`, repeat the run and report the move (chapter 17). See "When a service moves" in chapter 13. If the address itself changed, you can correct it without a release ("Correcting an address yourself", chapter 13). For an adapter of your own, add the host to `[net] hosts` of its manifest. |
 | `…: freemapper does not send requests to this address: …` with another reason | freemapper never connects to an address of this computer or of the local network, follows at most three redirects in a row and no redirect to `http`. | Nothing to allow. For a built-in state, report a bug. |
 | `… ignored the byte range` | The server (height models of Hamburg or Hesse) sends the whole archive instead of the tile; freemapper stops rather than download over 1 GB. | Try again later, otherwise report a bug. |
 | `download of … is larger than … MB; stopped` | A server (the OSM extract, the Downloadportal of Schleswig-Holstein, the full ALKIS or the Potsdam tree cadastre) sends far more than the file can be; freemapper stops and removes the partial download. For the trees it stands in the brackets of `warning: potsdam tree cadastre unavailable`. | Try again later, otherwise report a bug. |

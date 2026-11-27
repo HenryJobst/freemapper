@@ -276,9 +276,27 @@ Services move, and flight years change. What an adapter needs over time:
   `revision` when the change alters the data a map gets: another service, another product, another year.
 - For a built-in state, users can help themselves until the next version: the message about the refused
   address names the command `freemapper adapters allow-host <id> <host>`. Ask them to report the move.
+- A moved service of a built-in state that its manifest declares can also be corrected without a release:
+  `freemapper adapters export <id> <dir>` writes the built-in adapter (manifest and the files it names) as the
+  folder `<dir>/<id>`; change the address and `[net] hosts` in it, check it with `adapters check` (the one
+  warning `check.built-in-id` is expected), and put it into your adapter folder; deleting it takes the built-in
+  adapter back. The steps, the limits and the safety rules are in chapter 13 of the manual ("Correcting an
+  address yourself"). A folder in your adapter folder with the id of a
+  built-in state takes its place (once, with the note `adapter.replaces-built-in`; a project folder does not,
+  and one that declares services needs a `provider` of its own); `adapters list` shows it as `user` and the JSON
+  says `replaces_built_in`. Addresses that still sit in the code of the state (tree cadastres, point clouds,
+  the layers Berlin fetches by code) are not in the manifest and stay as they are. When the built-in adapter has
+  a higher `revision` than your folder, `adapters check` (`check.built-in-newer`) and every start
+  (`adapter.replacement-outdated`) say so: export again and carry your changes over.
+- The short way for a built-in state: `freemapper sources list <id>` shows its addresses with their paths,
+  `freemapper sources set <id> <path> <url>` corrects one in your own adapter folder (it makes the folder from the
+  built-in manifest when it is not there yet, and it writes nothing unless the whole manifest passes its check),
+  `--add-host` adds the host of the new address to `[net] hosts`, `freemapper sources diff <id>` shows what differs
+  from the built-in manifest and `freemapper sources schema` lists the keys that hold an address. A host that the
+  manifest does not declare is never added unnoticed.
 - A new key of the format needs a newer freemapper. Set `min_freemapper` to the version that introduced the
   key, so that an older program says "needs a newer freemapper" and not "unknown key".
 
-There is no scheduled live check of all adapters yet; broken services are noticed by people who make maps. An
+A nightly run asks every service of the built-in states once (`freemapper adapters probe`, `services-nightly.yml`) and opens an issue when one fails two nights in a row; addresses that still sit in code join as they move into manifests. An
 adapter in the repository whose maintainer does not answer stays in as long as it works. When it breaks and
 nobody fixes it, the maintainer of freemapper fixes it or takes it out with a changelog entry.

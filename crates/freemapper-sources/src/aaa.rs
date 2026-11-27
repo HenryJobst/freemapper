@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The full ALKIS (AAA model, a NAS-conformant WFS with the AdV namespace `adv:`) as buildings
 //! and land use in the simplified schema, for a state that serves no "ALKIS vereinfacht".
 //!
@@ -79,6 +81,7 @@ impl AaaAlkis {
 fn skipped_note(count: usize, shown: &[&str], more: bool) -> Note {
     note!(
         "progress-alkis-skipped",
+        cadastre = "ALKIS",
         count = count,
         list = format!("{}{}", shown.join("; "), if more { "; …" } else { "" })
     )

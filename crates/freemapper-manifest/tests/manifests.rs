@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The parser and validator of the adapter manifest against the sample manifests of the design
 //! and against manifests with one defect each.
 
@@ -86,7 +88,8 @@ fn valid_manifests_parse() {
     assert_eq!(
         hamburg.orthophoto,
         Some(Orthophoto::Backend {
-            name: "lgv".to_string()
+            name: "lgv".to_string(),
+            config: freemapper_adapter_api::rasters::RasterConfig::default(),
         })
     );
     assert_eq!(hamburg.adapter.agency, "Hamburg");
@@ -449,4 +452,210 @@ fn further_defects_have_their_codes() {
     );
     // A folder without a name (the root, an empty path) is not compared with the id.
     assert!(parse(&sample(), Path::new("")).is_ok());
+}
+
+/// The limits and values of the adapter table, the boundary, the attribution and the net: one
+/// change to the sample each, and the code and the key it gives.
+#[test]
+fn limits_and_values_of_the_tables_have_their_codes() {
+    let many = |n: usize, f: &dyn Fn(usize) -> String| (0..n).map(f).collect::<Vec<_>>().join(", ");
+    let hosts = many(32, &|i| format!("\"h{i}.example.org\""));
+    let maintainers = many(9, &|i| format!("\"github:user{i}\""));
+    let params = many(17, &|i| format!("\"p{i}\" = \"1\""));
+    let cases: Vec<(&str, String, &str, &str)> = vec![
+        // An extent has four numbers, each minimum below its maximum.
+        (
+            "envelope = [600000, 5600000, 700000, 5700000]",
+            "envelope = [700000, 5600000, 600000, 5700000]".into(),
+            "manifest.value",
+            "terrain.envelope",
+        ),
+        (
+            "envelope = [600000, 5600000, 700000, 5700000]",
+            "envelope = [600000, 5600000, 700000]".into(),
+            "manifest.value",
+            "terrain.envelope",
+        ),
+        (
+            "envelope = [600000, 5600000, 700000, 5700000]",
+            "envelope = [600000, 5700000, 700000, 5700000]".into(),
+            "manifest.value",
+            "terrain.envelope",
+        ),
+        (
+            "max_px = 4000\n",
+            format!("max_px = 4000\nparams = {{ {params} }}\n"),
+            "manifest.params",
+            "orthophoto.params",
+        ),
+        (
+            "hosts = [\"geo.example.org\"]",
+            format!("hosts = [\"geo.example.org\", {hosts}]"),
+            "manifest.value",
+            "net.hosts",
+        ),
+        (
+            "revision = 1\n",
+            format!("revision = 1\nmaintainers = [{maintainers}]\n"),
+            "manifest.value",
+            "adapter.maintainers",
+        ),
+        (
+            "revision = 1\n",
+            "revision = 1\nlast_verified = \"12.11.2026\"\n".into(),
+            "manifest.value",
+            "adapter.last_verified",
+        ),
+        (
+            "revision = 1\n",
+            "revision = 1\nobject_id_prefix = \"dehh\"\n".into(),
+            "manifest.value",
+            "adapter.object_id_prefix",
+        ),
+        (
+            "file = \"boundary.geojson\"\n",
+            "file = \"boundary.geojson\"\nsimplify_m = 2000\n".into(),
+            "manifest.value",
+            "boundary.simplify_m",
+        ),
+        (
+            "text = \"© Sample {year}, dl-de/by-2-0\"",
+            "text = \"© Sample {year}, dl-de/by-2-0\"\nyear = \"2020\"".into(),
+            "manifest.value",
+            "attribution.year",
+        ),
+        (
+            "text = \"© Sample {year}, dl-de/by-2-0\"",
+            "text = \"© Sample {year}, dl-de/by-2-0\"\nlicence_text = \"Free as in beer\"".into(),
+            "manifest.licence",
+            "attribution.licence_text",
+        ),
+    ];
+    for (old, new, code, key) in cases {
+        assert_eq!(sample().matches(old).count(), 1, "{old}");
+        let text = sample().replace(old, &new);
+        let findings = parse(&text, Path::new("sample")).expect_err(&new);
+        assert_eq!(codes(&findings), [code], "{new}: {findings:?}");
+        assert_eq!(findings[0].key, key, "{new}");
+    }
+    // What the limits let through: no simplification at all, the one year the manifest may
+    // name, and the same host twice, which is one host.
+    let fine = sample()
+        .replace(
+            "file = \"boundary.geojson\"\n",
+            "file = \"boundary.geojson\"\nsimplify_m = 0\n",
+        )
+        .replace(
+            "text = \"© Sample {year}, dl-de/by-2-0\"",
+            "text = \"© Sample {year}, dl-de/by-2-0\"\nyear = \"newest-fetch\"",
+        )
+        .replace(
+            "hosts = [\"geo.example.org\"]",
+            "hosts = [\"geo.example.org\", \"geo.example.org\"]",
+        );
+    // 32 hosts are the most there are.
+    let thirty_two = sample().replace(
+        "hosts = [\"geo.example.org\"]",
+        &format!(
+            "hosts = [\"geo.example.org\", {}]",
+            many(31, &|i| format!("\"h{i}.example.org\""))
+        ),
+    );
+    assert_eq!(
+        parse(&thirty_two, Path::new("sample")).unwrap().hosts.len(),
+        32
+    );
+    let manifest = parse(&fine, Path::new("sample")).unwrap();
+    assert_eq!(manifest.boundary.simplify_m, 0.0);
+    assert_eq!(manifest.hosts, ["geo.example.org"]);
+    assert_eq!(
+        parse(&sample(), Path::new("sample"))
+            .unwrap()
+            .boundary
+            .simplify_m,
+        25.0
+    );
+}
+
+/// The date lookups of a raster: each kind has the keys it needs and no others.
+#[test]
+fn the_date_lookups_of_a_raster_have_their_keys() {
+    let with = |date: &str| {
+        sample().replace(
+            "max_px = 4000\n",
+            &format!("max_px = 4000\ndate = {date}\n"),
+        )
+    };
+    let wfs = "{ kind = \"wfs-geojson\", url = \"https://geo.example.org/d/wfs\", layer = \"d:tiles\", field = \"datum\", format = \"DD.MM.YYYY\" }";
+    let parsed = parse(&with(wfs), Path::new("sample")).unwrap();
+    assert!(
+        matches!(
+            parsed.orthophoto,
+            Some(Orthophoto::Wms {
+                date: DateSource::WfsGeoJson {
+                    format: DateFormat::DayMonthYear,
+                    ..
+                },
+                ..
+            })
+        ),
+        "{:?}",
+        parsed.orthophoto
+    );
+    let iso = wfs.replace("DD.MM.YYYY", "YYYY-MM-DD");
+    assert!(matches!(
+        parse(&with(&iso), Path::new("sample")).unwrap().orthophoto,
+        Some(Orthophoto::Wms {
+            date: DateSource::WfsGeoJson {
+                format: DateFormat::Iso,
+                ..
+            },
+            ..
+        })
+    ));
+    let stac = "{ kind = \"stac-newest\", url = \"https://geo.example.org/stac\" }";
+    assert!(matches!(
+        parse(&with(stac), Path::new("sample")).unwrap().orthophoto,
+        Some(Orthophoto::Wms {
+            date: DateSource::StacNewest { .. },
+            ..
+        })
+    ));
+    assert!(matches!(
+        parse(&with("{ kind = \"none\" }"), Path::new("sample"))
+            .unwrap()
+            .orthophoto,
+        Some(Orthophoto::Wms {
+            date: DateSource::None,
+            ..
+        })
+    ));
+    let defects = [
+        (wfs.replace("DD.MM.YYYY", "MM/DD/YYYY"), "manifest.value"),
+        (
+            wfs.replace("format = \"DD.MM.YYYY\"", "unit = 1"),
+            "manifest.unknown-key",
+        ),
+        (
+            wfs.replace(", format = \"DD.MM.YYYY\"", ""),
+            "manifest.missing-key",
+        ),
+        (
+            wfs.replace(", field = \"datum\"", ""),
+            "manifest.missing-key",
+        ),
+        (wfs.replace("wfs-geojson", "ftp"), "manifest.date-kind"),
+        (
+            stac.replace("}", ", layer = \"x\" }"),
+            "manifest.unknown-key",
+        ),
+        (
+            "{ url = \"https://geo.example.org/stac\" }".to_string(),
+            "manifest.missing-key",
+        ),
+    ];
+    for (date, code) in defects {
+        let findings = parse(&with(&date), Path::new("sample")).expect_err(&date);
+        assert_eq!(codes(&findings), [code], "{date}: {findings:?}");
+    }
 }

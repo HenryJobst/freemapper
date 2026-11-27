@@ -1,8 +1,11 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The reader of an "ALKIS vereinfacht" OGC API Features service: paging through a collection,
 //! and parsing buildings and land use in the LGB property schema, which the WFS reader produces
 //! too. Which service serves which state is decided by the caller.
 
 use chrono::NaiveDate;
+use freemapper_adapter_api::fetch::get_with_retries;
 use serde_json::Value;
 
 use crate::crs::{BoundingBox, Crs, ProjectedPoint};
@@ -123,7 +126,7 @@ pub fn collection_features_in(
     let mut visited = Vec::new();
     let mut next = Some(collection_url_in(endpoint, bbox, crs));
     while let Some(url) = next.take() {
-        let bytes = fetcher.get(&url)?;
+        let bytes = get_with_retries(fetcher, &url, |bytes| Ok(bytes.to_vec()))?;
         let page: Value =
             serde_json::from_slice(&bytes).map_err(|e| invalid(format!("{url}: {e}")))?;
         let page_features = page["features"]
@@ -163,7 +166,7 @@ pub struct ParsedBuildings {
     pub skipped: Vec<String>,
 }
 
-/// Reads the buildings of a GeoJSON FeatureCollection as returned by [`fetch_buildings`].
+/// Reads the buildings of a GeoJSON FeatureCollection as returned by `fetch_buildings`.
 /// A feature without oid or with an unusable geometry is skipped and listed; a document that is
 /// not a FeatureCollection is an error.
 pub fn parse_buildings(geojson: &str) -> Result<ParsedBuildings, AlkisError> {
@@ -265,4 +268,85 @@ pub fn parse_land_use(geojson: &str) -> Result<Vec<LandUse>, AlkisError> {
             })
         })
         .collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+    use crate::fetch::test_support::MapFetcher;
+
+    fn bbox() -> BoundingBox {
+        BoundingBox {
+            min_e: 1.0,
+            min_n: 2.0,
+            max_e: 3.0,
+            max_n: 4.0,
+        }
+    }
+
+    fn feature(oid: &str) -> Value {
+        json!({ "type": "Feature", "properties": { "oid": oid }, "geometry": null })
+    }
+
+    fn page(oids: &[&str], next: Option<&str>) -> Vec<u8> {
+        let links: Vec<Value> = next
+            .map(|href| json!({ "rel": "next", "href": href }))
+            .into_iter()
+            .collect();
+        json!({ "features": oids.iter().map(|o| feature(o)).collect::<Vec<_>>(), "links": links })
+            .to_string()
+            .into_bytes()
+    }
+
+    #[test]
+    fn the_pages_are_followed_and_a_repeated_oid_is_kept_once() {
+        let fetcher = MapFetcher::default();
+        let first = collection_url_in("https://example.invalid/items", &bbox(), Crs::Utm32);
+        fetcher.insert(
+            &first,
+            page(&["a", "b"], Some("https://example.invalid/p2")),
+        );
+        fetcher.insert(
+            "https://example.invalid/p2",
+            page(&["b", "c"], Some("https://example.invalid/p3")),
+        );
+        // An empty page ends the paging, whatever link it carries.
+        fetcher.insert(
+            "https://example.invalid/p3",
+            page(&[], Some("https://example.invalid/p4")),
+        );
+        let features = collection_features_in(
+            &fetcher,
+            "https://example.invalid/items",
+            &bbox(),
+            Crs::Utm32,
+        )
+        .unwrap();
+        let oids: Vec<&str> = features
+            .iter()
+            .map(|f| f["properties"]["oid"].as_str().unwrap())
+            .collect();
+        assert_eq!(oids, ["a", "b", "c"]);
+    }
+
+    #[test]
+    fn a_next_link_seen_before_ends_the_paging() {
+        let fetcher = MapFetcher::default();
+        let first = collection_url_in("https://example.invalid/items", &bbox(), Crs::Utm33);
+        fetcher.insert(&first, page(&["a"], Some(&first)));
+        let features =
+            collection_features(&fetcher, "https://example.invalid/items", &bbox()).unwrap();
+        assert_eq!(features.len(), 1);
+    }
+
+    #[test]
+    fn a_page_without_features_is_invalid() {
+        let fetcher = MapFetcher::default();
+        let first = collection_url("https://example.invalid/items", &bbox());
+        fetcher.insert(&first, br#"{"links": []}"#.to_vec());
+        let result = collection_features(&fetcher, "https://example.invalid/items", &bbox());
+        assert!(result.is_err());
+    }
 }

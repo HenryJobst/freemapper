@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The adapter manifest of freemapper (ADR 0082): the TOML file that declares the standard
 //! services of a region adapter, format 1.
 //!
@@ -16,6 +18,7 @@ pub mod alkis;
 pub mod boundary;
 pub mod check;
 pub mod dates;
+pub mod edit;
 pub mod error;
 pub mod estimate;
 pub mod extras;
@@ -27,8 +30,8 @@ mod schema;
 mod validate;
 
 pub use error::ManifestError;
-pub use model::Manifest;
-pub use validate::MAX_ANSWER_BYTES;
+pub use model::{Manifest, PointCloud, PointCloudKind};
+pub use validate::{MAX_ANSWER_BYTES, TAKES_ADDRESSES, TAKES_ENDPOINTS};
 
 /// The name of the manifest file in the folder of an adapter.
 pub const MANIFEST_FILE: &str = "manifest.toml";

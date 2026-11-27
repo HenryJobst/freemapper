@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The Feinkartierung of Hamburg (ADR 0149): the surveyed street space (`feinkartierung_strasse`,
 //! curbs, railings, walls, bollards, benches, lamps, stair areas) and public green
 //! (`feinkartierung_gruen`, fences, handrails, walls, stairs, benches) of the LGV, as a set of

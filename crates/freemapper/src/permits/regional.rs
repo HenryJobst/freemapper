@@ -1,5 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The part of the permit notes that region adapters bring (ADR 0120): districts, green spaces,
-//! public land, monuments, protected objects and the forest administration (ADR 0124), from the [`PermitSource`]s of the adapters
+//! public land, monuments, protected objects and the forest administration (ADR 0124), from the `PermitSource`s of the adapters
 //! whose ground the map area touches.
 //!
 //! The engine knows the kinds of finding, not the region: it measures each finding on the map
@@ -10,16 +12,20 @@ use std::collections::BTreeMap;
 
 /// The kinds the regional part names, for the writers of the notes.
 pub use freemapper_adapter_api::permits::{
-    DistrictOffices, ForestFunctionKind, PermitSection, ProtectedObjectKind,
+    AdminUnitLevel, DistrictOffices, ForestFunctionKind, PermitSection, ProtectedObjectKind,
 };
 use freemapper_adapter_api::permits::{FindingKind, PermitFinding, PermitSourceInfo};
-use geo_types::{Coord, Geometry, MultiPolygon};
+use geo_types::{Coord, Geometry, LineString, MultiPolygon};
 use serde::{Deserialize, Serialize};
 
 use crate::permits::notes::{Plane, Share, SourceInput, SourceStatus, status};
 
 /// The most links to monuments the notes give; the others are counted.
 pub const MAX_MONUMENT_LINKS: usize = 20;
+
+/// The most names of monuments the notes give for a register without positions (ADR 0184); the
+/// other monuments are counted.
+pub const MAX_REGISTER_MONUMENT_NAMES: usize = 10;
 
 /// A text in the languages of the program, as the notes store it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -49,6 +55,9 @@ pub struct RegionalSource {
     /// Whose offices the hints of the districts of the source name (ADR 0129).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub offices: Option<DistrictOffices>,
+    /// The country whose hints the source asks for, as its ISO code in lower case (ADR 0201).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub country: Option<String>,
 }
 
 impl From<&PermitSourceInfo> for RegionalSource {
@@ -67,6 +76,7 @@ impl From<&PermitSourceInfo> for RegionalSource {
             gaps: info.gaps.map(words),
             sections: info.sections.to_vec(),
             offices: info.offices,
+            country: None,
         }
     }
 }
@@ -109,8 +119,57 @@ pub struct RegionalNotes {
     /// One entry per function of forest and name, by share, descending.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub forest_functions: Option<Vec<Share<ForestFunctionEntry>>>,
+    /// The administrative units on the map, level by level top down, within a level by share,
+    /// descending (ADR 0181).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub admin_units: Option<Vec<Share<AdminUnitEntry>>>,
+    /// The monuments of a register without positions, in the rectangle around the map area
+    /// (ADR 0184).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub register_monuments: Option<RegisterMonuments>,
+    /// The archaeological monuments of a register without positions, in the rectangle around the
+    /// map area (ADR 0190).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub register_archaeology: Option<RegisterMonuments>,
+    /// The monuments of history of a region with positions (ADR 0191).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub register_history: Option<RegisterHistory>,
     /// The sources of the adapter, in its order.
     pub sources: Vec<RegionalStatus>,
+}
+
+/// The monuments of history: those that touch the map area and those that lie only in the
+/// rectangle around it. A monument with several parts counts once.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RegisterHistory {
+    pub in_area: RegisterMonuments,
+    pub nearby: RegisterMonuments,
+}
+
+/// The monuments of a register that gives no position: how many, and the names of the first few.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RegisterMonuments {
+    pub total: usize,
+    /// The names as the register writes them with how often each occurs, by count descending,
+    /// then by name; at most [`MAX_REGISTER_MONUMENT_NAMES`] names.
+    pub names: Vec<RegisterMonumentName>,
+    /// The monuments that no name line covers: the ones beyond the cap and those without a name.
+    pub left: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RegisterMonumentName {
+    pub name: String,
+    pub count: usize,
+}
+
+/// An administrative unit of a region, the name as the register writes it.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct AdminUnitEntry {
+    pub level: AdminUnitLevel,
+    pub name: String,
+    /// The code of the register (the Polish TERYT).
+    pub code: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -212,9 +271,27 @@ pub struct RegionalStatus {
     pub status: SourceStatus,
 }
 
+/// A municipality (Polish gmina) of the map for the hints: the name as the register writes it and
+/// the share of the map area in percent, one decimal.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct Municipality {
+    pub name: String,
+    pub percent: f64,
+}
+
+/// The country code of the sources whose notes get the Czech hints (ADR 0201); the notes of the
+/// other regions without the German national sources get the Polish ones.
+pub(crate) const CZECH: &str = "cz";
+
 /// What the hints need of the regional part of one adapter.
 #[derive(Debug, Default)]
 pub(crate) struct HintFacts {
+    /// The country the sources of the adapter ask the hints of, by its code.
+    pub country: Option<String>,
+    /// The districts of the municipalities with extended powers (Czech ORP) on the map that are
+    /// more than an edge, by share, descending, as the register writes them; all of them when
+    /// each lies only at the edge (ADR 0201).
+    pub authority_districts: Vec<String>,
     /// The districts on the map that are more than an edge, by share, descending.
     pub districts: Vec<String>,
     /// The districts that hold a monument on the map: for each monument those that are more
@@ -228,6 +305,22 @@ pub(crate) struct HintFacts {
     pub monument_gaps: bool,
     /// Naturdenkmale, protected landscape parts or biotopes lie on the map (ADR 0146).
     pub nature_objects: bool,
+    /// A kind of protected object that the council of a gmina establishes lies on the map: a
+    /// natural monument, an ecological site, a nature and landscape complex or a documentation
+    /// site (Polish Nature Conservation Act, art. 44; ADR 0183).
+    pub gmina_nature_forms: bool,
+    /// The municipalities (Polish gminas) on the map that are more than an edge, by share,
+    /// descending, as the register writes them; all of them when each lies only at the edge.
+    pub municipalities: Vec<Municipality>,
+    /// The monuments of a register without positions in the rectangle around the map area
+    /// (Poland, ADR 0184).
+    pub register_monuments: usize,
+    /// The archaeological monuments of a register without positions in the rectangle around the
+    /// map area (Poland, ADR 0190).
+    pub register_archaeology: usize,
+    /// The monuments of history in the rectangle around the map area, in the area or not (Poland,
+    /// ADR 0191).
+    pub register_history: usize,
     /// The types of the biotopes on the map, by share, descending (ADR 0146).
     pub biotopes: Vec<String>,
     /// The districts that hold a protected object the lower nature conservation authority
@@ -269,6 +362,7 @@ struct Placed<'a> {
 enum Shape {
     Area(MultiPolygon<f64>),
     Points(Vec<Coord<f64>>),
+    Lines(Vec<LineString<f64>>),
 }
 
 impl Shape {
@@ -286,6 +380,12 @@ impl Shape {
             Geometry::Point(p) => Some(Shape::Points(
                 plane.project_point(p.0).into_iter().collect(),
             )),
+            Geometry::LineString(l) => {
+                Some(Shape::Lines(plane.project_line(l).into_iter().collect()))
+            }
+            Geometry::MultiLineString(ml) => Some(Shape::Lines(
+                ml.0.iter().filter_map(|l| plane.project_line(l)).collect(),
+            )),
             _ => None,
         }
     }
@@ -296,6 +396,7 @@ impl Shape {
         match self {
             Shape::Area(area) => plane.share(area),
             Shape::Points(points) => points.iter().any(|c| plane.contains(*c)).then_some(0.0),
+            Shape::Lines(lines) => lines.iter().any(|l| plane.crosses(l)).then_some(0.0),
         }
     }
 
@@ -306,6 +407,8 @@ impl Shape {
             Shape::Points(points) => points
                 .iter()
                 .any(|c| plane.contains(*c) && geo::Contains::contains(district, c)),
+            // No source of lines feeds the districts; a line is in none.
+            Shape::Lines(_) => false,
         }
     }
 }
@@ -415,8 +518,25 @@ fn one_adapter(
     let state_forest = read(PermitSection::StateForest).then(|| state_forest(&on_map));
     let water_protection = read(PermitSection::WaterProtection).then(|| water_protection(&on_map));
     let forest_functions = read(PermitSection::ForestFunctions).then(|| forest_functions(&on_map));
+    let admin_units = read(PermitSection::AdminUnits).then(|| admin_units(&on_map));
+    let register_monuments = read(PermitSection::MonumentRegister).then(|| {
+        count_register(&on_map, |kind| match kind {
+            FindingKind::RegisterMonument { name } => Some(name),
+            _ => None,
+        })
+    });
+    let register_archaeology = read(PermitSection::ArchaeologyRegister).then(|| {
+        count_register(&on_map, |kind| match kind {
+            FindingKind::RegisterArchaeology { name } => Some(name),
+            _ => None,
+        })
+    });
+    let register_history =
+        read(PermitSection::HistoryRegister).then(|| count_history(plane, &placed));
 
     let facts = HintFacts {
+        country: inputs.iter().find_map(|i| i.source.country.clone()),
+        authority_districts: authority_districts(admin_units.iter().flatten()),
         districts: districts
             .iter()
             .flatten()
@@ -433,6 +553,21 @@ fn one_adapter(
             .iter()
             .flatten()
             .any(|o| o.kind.needs_nature_authority()),
+        gmina_nature_forms: protected_objects.iter().flatten().any(|o| {
+            matches!(
+                o.kind,
+                ProtectedObjectKind::NaturalMonumentPl
+                    | ProtectedObjectKind::EcologicalSite
+                    | ProtectedObjectKind::LandscapeComplex
+                    | ProtectedObjectKind::DocumentationSite
+            )
+        }),
+        municipalities: municipalities(admin_units.iter().flatten()),
+        register_monuments: register_monuments.as_ref().map_or(0, |m| m.total),
+        register_archaeology: register_archaeology.as_ref().map_or(0, |m| m.total),
+        register_history: register_history
+            .as_ref()
+            .map_or(0, |h| h.in_area.total + h.nearby.total),
         biotopes: {
             let mut biotopes: Vec<(&ProtectedObjectEntry, f64)> = protected_objects
                 .iter()
@@ -509,6 +644,10 @@ fn one_adapter(
         state_forest,
         water_protection,
         forest_functions,
+        admin_units,
+        register_monuments,
+        register_archaeology,
+        register_history,
         sources: inputs
             .iter()
             .map(|i| RegionalStatus {
@@ -537,6 +676,61 @@ fn districts(on_map: &[(&Placed<'_>, f64)]) -> Vec<Share<DistrictEntry>> {
         }
     }
     by_share(summed, |name| DistrictEntry { name: name.clone() })
+}
+
+/// The units summed over their findings (a unit of several parts has one entry), level by level
+/// top down, within a level by share descending.
+fn admin_units(on_map: &[(&Placed<'_>, f64)]) -> Vec<Share<AdminUnitEntry>> {
+    let mut summed: BTreeMap<AdminUnitEntry, f64> = BTreeMap::new();
+    for (p, share) in on_map {
+        if let FindingKind::AdminUnit { level, name, code } = p.kind {
+            let key = AdminUnitEntry {
+                level: *level,
+                name: name.clone(),
+                code: code.clone(),
+            };
+            *summed.entry(key).or_default() += share;
+        }
+    }
+    let mut list: Vec<(AdminUnitEntry, f64)> = summed.into_iter().collect();
+    list.sort_by(|(a, x), (b, y)| {
+        a.level
+            .cmp(&b.level)
+            .then_with(|| y.total_cmp(x))
+            .then_with(|| a.cmp(b))
+    });
+    list.into_iter()
+        .map(|(entry, share)| Share::new(entry, share.min(1.0)))
+        .collect()
+}
+
+/// The municipalities of the units: those that are more than an edge, else all of them. The
+/// units come by share, descending.
+fn municipalities<'a>(units: impl Iterator<Item = &'a Share<AdminUnitEntry>>) -> Vec<Municipality> {
+    let all: Vec<&Share<AdminUnitEntry>> = units
+        .filter(|s| s.item.level == AdminUnitLevel::Municipality)
+        .collect();
+    let any_more_than_edge = all.iter().any(|s| !s.at_edge);
+    all.into_iter()
+        .filter(|s| !any_more_than_edge || !s.at_edge)
+        .map(|s| Municipality {
+            name: s.item.name.clone(),
+            percent: s.percent,
+        })
+        .collect()
+}
+
+/// The districts of the municipalities with extended powers of the units: those that are more
+/// than an edge, else all of them. The units come by share, descending.
+fn authority_districts<'a>(units: impl Iterator<Item = &'a Share<AdminUnitEntry>>) -> Vec<String> {
+    let all: Vec<&Share<AdminUnitEntry>> = units
+        .filter(|s| s.item.level == AdminUnitLevel::AuthorityDistrict)
+        .collect();
+    let any_more_than_edge = all.iter().any(|s| !s.at_edge);
+    all.into_iter()
+        .filter(|s| !any_more_than_edge || !s.at_edge)
+        .map(|s| s.item.name.clone())
+        .collect()
 }
 
 fn green_spaces(on_map: &[(&Placed<'_>, f64)]) -> GreenSpaces {
@@ -683,6 +877,75 @@ fn forest_functions(on_map: &[(&Placed<'_>, f64)]) -> Vec<Share<ForestFunctionEn
     by_share(summed, Clone::clone)
 }
 
+/// The monuments of a register without positions: counted, the names counted per name. `pick`
+/// gives the name of a finding of the register and `None` for any other finding.
+fn count_register(
+    on_map: &[(&Placed<'_>, f64)],
+    pick: impl Fn(&FindingKind) -> Option<&Option<String>>,
+) -> RegisterMonuments {
+    count_names(
+        on_map
+            .iter()
+            .filter_map(|(p, _)| pick(p.kind))
+            .map(Option::as_deref),
+    )
+}
+
+/// The monuments of history: each counts once however many parts it has, in the area when one
+/// of its parts touches the map, else nearby (every finding the source gave lies in the
+/// rectangle around the map). The name is the first one any part has.
+fn count_history(plane: &Plane, placed: &[Placed<'_>]) -> RegisterHistory {
+    let mut by_id: BTreeMap<&str, (Option<&str>, bool)> = BTreeMap::new();
+    for p in placed {
+        if let FindingKind::RegisterHistory { id, name } = p.kind {
+            let entry = by_id.entry(id.as_str()).or_default();
+            entry.0 = entry.0.or(name.as_deref());
+            entry.1 |= p.shape.on_map(plane).is_some();
+        }
+    }
+    let of = |in_area: bool| {
+        count_names(
+            by_id
+                .values()
+                .filter(|(_, on_map)| *on_map == in_area)
+                .map(|(name, _)| *name),
+        )
+    };
+    RegisterHistory {
+        in_area: of(true),
+        nearby: of(false),
+    }
+}
+
+/// `names` of monuments counted: the total, the names with their counts (at most
+/// [`MAX_REGISTER_MONUMENT_NAMES`], by count descending, then by name) and the monuments no name
+/// line covers.
+fn count_names<'a>(names: impl Iterator<Item = Option<&'a str>>) -> RegisterMonuments {
+    let mut total = 0;
+    let mut by_name: BTreeMap<&str, usize> = BTreeMap::new();
+    for name in names {
+        total += 1;
+        if let Some(name) = name {
+            *by_name.entry(name).or_default() += 1;
+        }
+    }
+    let mut names: Vec<RegisterMonumentName> = by_name
+        .into_iter()
+        .map(|(name, count)| RegisterMonumentName {
+            name: name.to_string(),
+            count,
+        })
+        .collect();
+    names.sort_by(|a, b| b.count.cmp(&a.count).then_with(|| a.name.cmp(&b.name)));
+    names.truncate(MAX_REGISTER_MONUMENT_NAMES);
+    let listed: usize = names.iter().map(|n| n.count).sum();
+    RegisterMonuments {
+        total,
+        names,
+        left: total - listed,
+    }
+}
+
 fn monuments(on_map: &[(&Placed<'_>, f64)]) -> Monuments {
     let mut by_kind: BTreeMap<&str, (usize, Vec<&str>)> = BTreeMap::new();
     for (p, _) in on_map {
@@ -750,7 +1013,7 @@ fn protected_objects(on_map: &[(&Placed<'_>, f64)]) -> Vec<ProtectedObjectEntry>
             continue;
         };
         match p.shape {
-            Shape::Points(_) => {
+            Shape::Points(_) | Shape::Lines(_) => {
                 *points
                     .entry((*kind, name.clone(), citation.clone()))
                     .or_default() += 1;

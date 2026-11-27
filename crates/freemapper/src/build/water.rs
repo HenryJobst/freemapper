@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! ALKIS water parcels → 301.1 uncrossable water with 301.6 bank lines (spec §4.5).
 //!
 //! A river is split into many parcels, so the parts are dissolved into one shape first: the
@@ -598,7 +600,7 @@ pub fn drop_points_in_water(
         .collect()
 }
 
-/// `objects` without the cadastre, register and survey fountains (311, [`cadastre_fountain`]) that
+/// `objects` without the cadastre, register and survey fountains (311, `cadastre_fountain`) that
 /// stand in, or within [`AREA_DEDUP_TOLERANCE_MM`] of, an OSM fountain basin among `basins`: a 301
 /// area from `amenity=fountain` (ADR 0087). The polygon is the real shape of the fountain, the
 /// point only repeats it. Other OSM water (a pond, a stream channel such as the waterfall of the

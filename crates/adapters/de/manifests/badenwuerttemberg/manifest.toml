@@ -57,12 +57,83 @@ note = "Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Versi
 
 [orthophoto]
 backend = "lgl-bw"
+url = "https://owsproxy.lgl-bw.de/owsproxy/ows/WMS_LGL-BW_ATKIS_DOP_20_C"
+layer = "IMAGES_DOP_20_RGB"
+max_px = 4000
 
 [terrain]
 backend = "lgl-bw"
 
 [surface]
 backend = "lgl-bw"
+
+# The water protection zones of the LUBW with the authority in charge (issue #273); the names come as the register
+# writes them (in capitals, in quotes, with a number), and a zone ordered provisionally says so.
+[[permits.wfs]]
+key = "lubw"
+label = { en = "LUBW", de = "LUBW" }
+what = { en = "water protection zones with the authority in charge", de = "Wasserschutzgebietszonen mit der zuständigen Behörde" }
+credit = "Grundlage: Daten aus dem Umweltinformationssystem (UIS) der LUBW Landesanstalt für Umwelt Baden-Württemberg"
+note = "Die Geometrien der Zonen I werden aus Sicherheitserwägungen nicht im Internet veröffentlicht. WSG-Zonen werden nur mit zusammengefassten Zonen I und II zum Herunterladen bereitgestellt."
+sections = ["water-protection"]
+url = "https://rips-gdi.lubw.baden-wuerttemberg.de/arcgis/services/wms/UIS_0100007500200036_AGGR/MapServer/WFSServer"
+output_format = "GEOJSON"
+layers = [
+    { key = "wasserschutzgebiete", type_name = "Wasserschutzgebietszone_M1", reading = "water", name = "WSG", zone = "ZONE", planned_attribute = "STATUS", planned_value = "vorläufig angeordnet", planned_label = "vorläufig angeordnet", authority = "DST", name_form = "register" },
+]
+
+# The two WFS of the Landesamt für Denkmalpflege behind the LGL's proxy; the type names go without their prefix (issue #273).
+[[permits.wfs]]
+key = "denkmale"
+label = { en = "Landesamt für Denkmalpflege Baden-Württemberg", de = "Landesamt für Denkmalpflege Baden-Württemberg" }
+what = { en = "Kulturdenkmale and Gesamtanlagen", de = "Kulturdenkmale und Gesamtanlagen" }
+credit = "Es gelten die Lizenzbedingungen „Datenlizenz Deutschland -Namensnennung -Version 2.0“ bzw. „dl-de/by-2-0” (https://www.govdata.de/dl-de/by-2-0) mit Angabe der Datenquelle: dl-de/by-2-0: Landesamt für Denkmalpflege im Regierungspräsidium Stuttgart, www.denkmalpflege-bw.de"
+sections = ["monuments"]
+url = "https://owsproxy.lgl-bw.de/owsproxy/wfs/WFS_LAD_Kulturdenkmale_Bau_Kunstdenkmalpflege"
+output_format = "application/json"
+layers = [
+    { key = "kulturdenkmale", type_name = "v_bau_kunstdenkmalpflege_kulturdenkmale", reading = "monument", monument = "Kulturdenkmal" },
+    { key = "gesamtanlagen", type_name = "v_bau_kunstdenkmalpflege_gesamtanlagen", reading = "monument", monument = "Gesamtanlage" },
+]
+
+[[permits.wfs]]
+key = "archaeologie"
+label = { en = "Landesamt für Denkmalpflege Baden-Württemberg", de = "Landesamt für Denkmalpflege Baden-Württemberg" }
+what = { en = "archaeological monuments and Grabungsschutzgebiete", de = "archäologische Kulturdenkmale und Grabungsschutzgebiete" }
+credit = "Es gelten die Lizenzbedingungen „Datenlizenz Deutschland -Namensnennung -Version 2.0“ bzw. „dl-de/by-2-0” (https://www.govdata.de/dl-de/by-2-0) mit Angabe der Datenquelle: dl-de/by-2-0: Landesamt für Denkmalpflege im Regierungspräsidium Stuttgart, www.denkmalpflege-bw.de"
+sections = ["monuments"]
+url = "https://owsproxy.lgl-bw.de/owsproxy/wfs/WFS_LAD_Archaeologische_Kulturdenkmale_BW"
+output_format = "application/json"
+layers = [
+    { key = "kulturdenkmale", type_name = "v_archaeologie_kulturdenkmale", reading = "monument", monument = "Archäologisches Kulturdenkmal" },
+    { key = "grabungsschutzgebiete", type_name = "v_archaeologie_grabungsschutzgebiete", reading = "monument", monument = "Grabungsschutzgebiet" },
+]
+
+# The Naturdenkmale of the LUBW, single ones and areas (issue #273). The biotopes stay out: their
+# terms of use need a request for any commercial use.
+[[permits.wfs]]
+key = "naturdenkmale"
+label = { en = "LUBW", de = "LUBW" }
+what = { en = "Naturdenkmale, single", de = "Naturdenkmale, Einzelgebilde" }
+credit = "Grundlage: Daten aus dem Umweltinformationssystem (UIS) der LUBW Landesanstalt für Umwelt Baden-Württemberg"
+sections = ["protected-objects"]
+url = "https://rips-gdi.lubw.baden-wuerttemberg.de/arcgis/services/wfs/Naturdenkmal_Einzelgebilde/MapServer/WFSServer"
+output_format = "GEOJSON"
+layers = [
+    { key = "naturdenkmale", type_name = "Naturdenkmal_Einzelgebilde", reading = "object", object = "natural-monument", name = "OBJEKT" },
+]
+
+[[permits.wfs]]
+key = "flaechennaturdenkmale"
+label = { en = "LUBW", de = "LUBW" }
+what = { en = "Naturdenkmale, areas", de = "Naturdenkmale, flächenhaft" }
+credit = "Grundlage: Daten aus dem Umweltinformationssystem (UIS) der LUBW Landesanstalt für Umwelt Baden-Württemberg"
+sections = ["protected-objects"]
+url = "https://rips-gdi.lubw.baden-wuerttemberg.de/arcgis/services/wfs/Naturdenkmal_Flaechenhaft/MapServer/WFSServer"
+output_format = "GEOJSON"
+layers = [
+    { key = "naturdenkmale", type_name = "Naturdenkmal_Flaechenhaft", reading = "object", object = "natural-monument", name = "OBJEKT" },
+]
 
 [preview]
 wms = "https://owsproxy.lgl-bw.de/owsproxy/ows/WMS_LGL-BW_ATKIS_DOP_20_C"

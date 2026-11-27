@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The LVermGeo SH Downloadportal (`geodaten.schleswig-holstein.de`, CC BY 4.0, "© GeoBasis-DE/
 //! LVermGeo SH"): the DGM1 and bDOM tiles under an area, looked up through the portal's AJAX
 //! `overview.php` (EPSG:25832, 1 km tiles).
@@ -18,6 +20,7 @@ use freemapper_sources::raster_fetch::{
 use freemapper_sources::wms::OrthophotoSource;
 
 use crate::note::{Arg, Note, note};
+#[cfg(any(test, feature = "testing"))]
 use std::borrow::Cow;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
@@ -25,7 +28,8 @@ use std::path::{Path, PathBuf};
 use chrono::NaiveDate;
 use serde_json::Value;
 
-use crate::crs::{BoundingBox, Crs};
+use crate::crs::BoundingBox;
+use crate::crs::Crs;
 use crate::fetch::{
     CacheDir, FetchError, FetchMode, Fetcher, download_with_retries, get_with_retries,
     write_cache_file,
@@ -85,7 +89,7 @@ pub(crate) fn overview_url(bbox: &BoundingBox, product: Product) -> String {
     )
 }
 
-/// The start of every [`overview_url`] of `product`, up to the bbox.
+/// The start of every `overview_url` of `product`, up to the bbox.
 pub fn overview_prefix(product: Product) -> String {
     format!(
         "{PORTAL}/_ajax/overview.php?type[]={}&bbox=",
@@ -259,6 +263,7 @@ fn excerpt(text: &str) -> String {
 
 /// The orthophoto WMS (WMS 1.3.0, MaxWidth/MaxHeight 5000; an oversize request is an XML
 /// exception). The layer shows the current mosaic; its tones are processed, not the tiles'.
+#[cfg(any(test, feature = "testing"))]
 pub const WMS: WmsService = WmsService {
     url: Cow::Borrowed("https://dienste.gdi-sh.de/WMS_SH_DOP20col_OpenGBD"),
     layer: Cow::Borrowed("sh_dop20_rgb"),
@@ -636,11 +641,15 @@ const PROVIDER: &str = "lvermgeosh";
 /// The rasters of LVermGeo SH (Schleswig-Holstein): requested for the area and stored in the project folder.
 pub struct LvermgeoShBackend {
     info: ProviderInfo,
+    /// The orthophoto WMS, as the manifest says it.
+    wms: WmsService,
 }
 
 impl LvermgeoShBackend {
-    pub fn new() -> Self {
+    /// The backend that asks `wms` for the orthophoto.
+    pub fn with_wms(wms: WmsService) -> Self {
         Self {
+            wms,
             info: ProviderInfo {
                 id: AdapterId::built_in(PROVIDER),
                 cache_dir: Some("lvermgeo_sh".to_string()),
@@ -651,6 +660,15 @@ impl LvermgeoShBackend {
     }
 }
 
+#[cfg(any(test, feature = "testing"))]
+impl LvermgeoShBackend {
+    /// The backend with the WMS the manifest of the state declares.
+    pub fn new() -> Self {
+        Self::with_wms(WMS)
+    }
+}
+
+#[cfg(any(test, feature = "testing"))]
 impl Default for LvermgeoShBackend {
     fn default() -> Self {
         Self::new()
@@ -668,7 +686,7 @@ impl RasterBackend for LvermgeoShBackend {
         project: &mut dyn RasterProject,
         bbox: &BoundingBox,
     ) -> Result<(), AdapterError> {
-        fetch_rasters(env, project, bbox)
+        fetch_rasters(env, project, bbox, &self.wms)
     }
 
     fn trust(&self) -> Option<&TrustAnchors> {
@@ -683,6 +701,7 @@ fn fetch_rasters(
     env: &mut AdapterEnv<'_>,
     project: &mut dyn RasterProject,
     bbox: &BoundingBox,
+    wms: &WmsService,
 ) -> Result<(), AdapterError> {
     let (fetcher, mode) = (env.fetcher, env.mode);
     let cache = env.cache;
@@ -695,7 +714,12 @@ fn fetch_rasters(
         env,
         project,
         bbox,
-        (&OrthophotoSource::Wms(WMS), "LVermGeo SH", &flight, None),
+        (
+            &OrthophotoSource::Wms(wms.clone()),
+            "LVermGeo SH",
+            &flight,
+            None,
+        ),
     )?;
     fetch_area_heights(
         env,

@@ -1,0 +1,3 @@
+# The highest cognitive complexity of a function when `scripts/check.sh complexity` came (ADR 0161).
+# Lowering it is welcome; raising it needs an ADR.
+cognitive-complexity-threshold = 57

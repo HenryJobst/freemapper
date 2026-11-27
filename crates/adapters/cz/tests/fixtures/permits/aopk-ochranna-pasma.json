@@ -1,0 +1,39 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       16.125159,
+       50.617551
+      ],
+      [
+       16.132429,
+       50.617551
+      ],
+      [
+       16.132429,
+       50.625408
+      ],
+      [
+       16.125159,
+       50.625408
+      ],
+      [
+       16.125159,
+       50.617551
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "KAT_ZCHU": "PR",
+    "NAZEV": "Křížová cesta"
+   }
+  }
+ ]
+}

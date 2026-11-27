@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The raw inputs of the permit notes in the project folder (`data/permits/`), and the notes
 //! file `permits.json`.
 //!
@@ -54,6 +56,8 @@ pub struct RawInputs {
     pub bbox: LatLonBox,
     /// [`area_key`] of the map area the inputs belong to.
     pub area: String,
+    /// Whether the German national sources belong to the map area ([`Inputs::national`]).
+    pub national: bool,
     /// The features of every VG250 level, in the order of [`AdminLevel::ALL`].
     pub admin: SourceInput<(AdminLevel, Vec<Value>)>,
     /// The features of every BfN kind, in the order of [`ProtectedKind::ALL`].
@@ -80,12 +84,24 @@ struct Record {
     /// [`area_key`] of the map area; missing in a record written before it existed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     area: Option<String>,
+    /// `false` for a map area outside Germany, where VG250 and the BfN are not asked
+    /// (ADR 0175); missing, and then `true`, in every record of a German map area.
+    #[serde(default = "yes", skip_serializing_if = "is_true")]
+    national: bool,
     vg250: SourceRecord,
     bfn: SourceRecord,
     osm: SourceRecord,
     /// The sources of the region adapters; missing in a record written before they existed.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     regional: Vec<RegionalRecord>,
+}
+
+fn yes() -> bool {
+    true
+}
+
+fn is_true(value: &bool) -> bool {
+    *value
 }
 
 /// The state of one source of a region adapter.
@@ -249,6 +265,7 @@ pub fn store_inputs_in(registry: &Registry, dir: &Path, raw: &RawInputs) -> io::
             raw.bbox.max_lat,
         ],
         area: Some(raw.area.clone()),
+        national: raw.national,
         vg250: source_record(&raw.admin, features::<AdminLevel>),
         bfn: source_record(&raw.protected, features::<ProtectedKind>),
         osm: source_record(&raw.osm, <[OsmFinding]>::len),
@@ -468,12 +485,26 @@ pub fn load_inputs(dir: &Path) -> Result<Inputs, PermitsError> {
 /// [`load_inputs`] with the regional sources of `registry`, which parse their stored layers.
 /// A stored source that no adapter of `registry` has any more is left out.
 pub fn load_inputs_in(registry: &Registry, dir: &Path) -> Result<Inputs, PermitsError> {
+    load_inputs_as(registry, dir, true)
+}
+
+/// [`load_inputs_in`] for a map area where the German national sources belong (`national`) or
+/// not: it only names the sources a project without stored inputs is missing.
+pub(crate) fn load_inputs_as(
+    registry: &Registry,
+    dir: &Path,
+    national: bool,
+) -> Result<Inputs, PermitsError> {
     let Some(record) = read_record(dir)? else {
-        return Err(nothing_read([Some(""); 3]));
+        return Err(nothing_read(national, [Some(""); 3]));
     };
+    let national = record.national;
     let folder = dir.join(PERMITS_DIR);
     let sources = folder.join(SOURCES_JSON);
     let admin = load_source(&record.vg250, &sources, || {
+        if !national {
+            return Ok(Vec::new());
+        }
         let mut units: Vec<AdminUnit> = Vec::new();
         for level in AdminLevel::ALL {
             let features = read_collection(&folder.join(vg250_file(level)))?;
@@ -482,6 +513,9 @@ pub fn load_inputs_in(registry: &Registry, dir: &Path) -> Result<Inputs, Permits
         Ok(units)
     })?;
     let protected = load_source(&record.bfn, &sources, || {
+        if !national {
+            return Ok(Vec::new());
+        }
         let mut areas: Vec<ProtectedArea> = Vec::new();
         for kind in ProtectedKind::ALL {
             let features = read_collection(&folder.join(bfn_file(kind)))?;
@@ -518,11 +552,15 @@ pub fn load_inputs_in(registry: &Registry, dir: &Path) -> Result<Inputs, Permits
         })?;
         regional.push(RegionalInput {
             adapter: stored.adapter.clone(),
-            source: RegionalSource::from(info),
+            source: RegionalSource {
+                country: source.country().map(|c| c.code().to_string()),
+                ..RegionalSource::from(info)
+            },
             findings,
         });
     }
     let inputs = Inputs {
+        national,
         admin,
         protected,
         osm,
@@ -541,11 +579,14 @@ fn something_read(inputs: &Inputs) -> Result<(), PermitsError> {
     {
         return Ok(());
     }
-    check_states([
-        state_of(&inputs.admin),
-        state_of(&inputs.protected),
-        state_of(&inputs.osm),
-    ])
+    check_states(
+        inputs.national,
+        [
+            state_of(&inputs.admin),
+            state_of(&inputs.protected),
+            state_of(&inputs.osm),
+        ],
+    )
 }
 
 /// [`PermitsError::NothingRead`] when no source of `raw` was read: then there is nothing to
@@ -558,19 +599,28 @@ pub(crate) fn something_fetched(raw: &RawInputs) -> Result<(), PermitsError> {
     {
         return Ok(());
     }
-    check_states([
-        state_of(&raw.admin),
-        state_of(&raw.protected),
-        state_of(&raw.osm),
-    ])
+    check_states(
+        raw.national,
+        [
+            state_of(&raw.admin),
+            state_of(&raw.protected),
+            state_of(&raw.osm),
+        ],
+    )
 }
 
-/// The states of VG250, the BfN and OSM, in this order.
-fn check_states(states: [Option<&str>; 3]) -> Result<(), PermitsError> {
-    if states.iter().any(Option::is_none) {
+/// The states of VG250, the BfN and OSM, in this order. Without the national sources only OSM
+/// counts: VG250 and the BfN were not asked.
+fn check_states(national: bool, states: [Option<&str>; 3]) -> Result<(), PermitsError> {
+    let read = if national {
+        states.iter().any(Option::is_none)
+    } else {
+        states[2].is_none()
+    };
+    if read {
         Ok(())
     } else {
-        Err(nothing_read(states))
+        Err(nothing_read(national, states))
     }
 }
 
@@ -583,17 +633,21 @@ fn state_of<T>(input: &SourceInput<T>) -> Option<&str> {
     }
 }
 
-fn nothing_read([admin, protected, osm]: [Option<&str>; 3]) -> PermitsError {
+fn nothing_read(national: bool, [admin, protected, osm]: [Option<&str>; 3]) -> PermitsError {
     let missing = |source: &str, state: Option<&str>| Missing {
         source: source.to_string(),
         reason: state.filter(|r| !r.is_empty()).map(str::to_string),
     };
     PermitsError::NothingRead {
-        missing: vec![
-            missing("vg250", admin),
-            missing("bfn", protected),
-            missing("osm", osm),
-        ],
+        missing: if national {
+            vec![
+                missing("vg250", admin),
+                missing("bfn", protected),
+                missing("osm", osm),
+            ]
+        } else {
+            vec![missing("osm", osm)]
+        },
     }
 }
 
@@ -644,5 +698,67 @@ mod tests {
         let feature = osm_feature(&road);
         assert_eq!(feature["geometry"]["type"], "LineString");
         assert_eq!(osm_finding(&feature), Some(road));
+    }
+
+    fn record(national: bool) -> Record {
+        let source = || SourceRecord {
+            state: Outcome::Read,
+            fetched: None,
+            count: Some(1),
+            reason: None,
+        };
+        Record {
+            schema: 1,
+            bbox: [13.0, 52.0, 13.1, 52.1],
+            area: None,
+            national,
+            vg250: source(),
+            bfn: source(),
+            osm: source(),
+            regional: Vec::new(),
+        }
+    }
+
+    /// German output stays as it was: the field is written only for a region without the
+    /// national sources, and a record without it reads as German (ADR 0175).
+    #[test]
+    fn the_national_flag_is_written_only_when_false_and_read_back() {
+        assert!(is_true(&true));
+        assert!(!is_true(&false));
+        let german = serde_json::to_value(record(true)).unwrap();
+        assert!(german.get("national").is_none(), "{german}");
+        let polish = serde_json::to_value(record(false)).unwrap();
+        assert_eq!(polish["national"], false);
+        let back: Record = serde_json::from_value(german).unwrap();
+        assert!(back.national);
+        let back: Record = serde_json::from_value(polish).unwrap();
+        assert!(!back.national);
+    }
+
+    /// Notes are written only when some source was read: with none, the write is refused and
+    /// leaves no file behind.
+    #[test]
+    fn notes_are_not_written_when_no_source_was_read() {
+        use crate::project::{MapKind, init_project};
+        let dir = tempfile::tempdir().unwrap();
+        let area = MapArea::from_geojson(
+            r#"{"type":"Polygon","coordinates":[[[12.985,52.383],[12.995,52.383],[12.995,52.388],[12.985,52.388],[12.985,52.383]]]}"#,
+        )
+        .unwrap();
+        let today = NaiveDate::from_ymd_opt(2026, 11, 22).unwrap();
+        let project = init_project(dir.path(), &area, MapKind::Sprint, None, today, None).unwrap();
+        let inputs = Inputs {
+            national: true,
+            admin: SourceInput::NotRead,
+            protected: SourceInput::NotRead,
+            osm: SourceInput::NotRead,
+            regional: Vec::new(),
+        };
+        let result = write_permit_notes(dir.path(), &project, &inputs, today);
+        assert!(
+            matches!(result, Err(PermitsError::NothingRead { .. })),
+            "{result:?}"
+        );
+        assert!(!dir.path().join(PERMITS_JSON).exists());
     }
 }

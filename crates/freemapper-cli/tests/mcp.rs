@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The MCP server spoken to over stdio, as an agent would.
 
 use std::io::{BufRead, BufReader, Read as _, Write};
@@ -114,6 +116,14 @@ impl Session {
         (error, texts.into_iter().next().unwrap_or_default())
     }
 
+    /// Calls a tool; returns the whole result with its content blocks.
+    fn call_result(&mut self, tool: &str, arguments: Value) -> Value {
+        self.request(
+            "tools/call",
+            json!({ "name": tool, "arguments": arguments }),
+        )
+    }
+
     /// Calls a tool; returns (is_error, the texts of all content blocks).
     fn call_all(&mut self, tool: &str, arguments: Value) -> (bool, Vec<String>) {
         let result = self.request(
@@ -180,6 +190,7 @@ fn mcp_lists_the_tools() {
             && start["inputSchema"]["properties"]["pdf"].is_object()
             && start["inputSchema"]["properties"]["pdf_candidates"].is_object()
             && start["inputSchema"]["properties"]["training"].is_object()
+            && start["inputSchema"]["properties"]["training_views"].is_object()
             && start["inputSchema"]["properties"]["pdf_scale_bar"].is_object()
             && start["inputSchema"]["properties"]["pdf_sources"].is_object(),
         "{start}"
@@ -229,6 +240,62 @@ fn mcp_creates_a_forest_project_with_a_contour_interval() {
     );
     assert!(error, "{text}");
     assert!(!other.exists(), "a refused interval creates no project");
+}
+
+#[test]
+fn mcp_creates_a_forest_project_with_a_steepness_threshold() {
+    let cache = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("forest");
+    let mut session = Session::start(cache.path());
+    let (error, text) = session.call(
+        "create_project",
+        json!({ "dir": project, "geojson": FIXTURE, "kind": "forest", "steep_slope": 55.0 }),
+    );
+    assert!(!error, "{text}");
+    let written = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
+    assert!(written.contains("steep_slope_deg = 55.0"), "{written}");
+    let other = dir.path().join("bad");
+    let (error, text) = session.call(
+        "create_project",
+        json!({ "dir": other, "geojson": FIXTURE, "kind": "forest", "steep_slope": 5.0 }),
+    );
+    assert!(error, "{text}");
+    assert!(!other.exists(), "a refused threshold creates no project");
+}
+
+#[test]
+fn mcp_creates_a_forest_project_with_a_face_threshold() {
+    let cache = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("forest");
+    let mut session = Session::start(cache.path());
+    let (error, text) = session.call(
+        "create_project",
+        json!({ "dir": project, "geojson": FIXTURE, "kind": "forest", "face_slope": 75.0 }),
+    );
+    assert!(!error, "{text}");
+    let written = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
+    assert!(written.contains("face_slope_deg = 75.0"), "{written}");
+    assert!(!written.contains("steep_slope_deg"), "{written}");
+    // 0 means the default: nothing is saved.
+    let zero = dir.path().join("zero");
+    let (error, text) = session.call(
+        "create_project",
+        json!({ "dir": zero, "geojson": FIXTURE, "kind": "forest", "face_slope": 0.0 }),
+    );
+    assert!(!error, "{text}");
+    let written = std::fs::read_to_string(zero.join("freemapper.toml")).unwrap();
+    assert!(!written.contains("face_slope_deg"), "{written}");
+    for (name, bad_slope) in [("bad", 5.0), ("high", 90.0)] {
+        let other = dir.path().join(name);
+        let (error, text) = session.call(
+            "create_project",
+            json!({ "dir": other, "geojson": FIXTURE, "kind": "forest", "face_slope": bad_slope }),
+        );
+        assert!(error, "{text}");
+        assert!(!other.exists(), "a refused threshold creates no project");
+    }
 }
 
 #[test]
@@ -1532,4 +1599,140 @@ mod update {
             "freemapper 99.0.0"
         );
     }
+}
+
+/// After a run the map has a preview: `preview_layer` answers with a text and a PNG image, and
+/// `list_layers` calls the map ready. A layer without a preview, a layer of another name and a
+/// folder that is no project are refused with what the agent can do about it.
+#[test]
+fn preview_layer_returns_a_png_after_a_run_and_refuses_what_it_cannot_show() {
+    let dir = tempfile::tempdir().unwrap();
+    let (project, cache) = offline_school(dir.path());
+    let mut session = Session::start(&cache);
+    let (error, text) = session.call("start_pipeline", json!({ "dir": project, "offline": true }));
+    assert!(!error, "{text}");
+    let status = wait_for_job(&mut session, &started_job(&text));
+    assert_eq!(status["state"], "finished", "{status}");
+
+    let result = session.call_result("preview_layer", json!({ "dir": project, "layer": "map" }));
+    assert_ne!(result["isError"], true, "{result}");
+    let blocks = result["content"].as_array().unwrap();
+    assert_eq!(blocks.len(), 2, "{result}");
+    assert_eq!(blocks[0]["type"], "text");
+    assert!(
+        blocks[0]["text"].as_str().unwrap().contains("map"),
+        "{result}"
+    );
+    assert_eq!(blocks[1]["type"], "image");
+    assert_eq!(blocks[1]["mimeType"], "image/png");
+    let png = base64_decode(blocks[1]["data"].as_str().unwrap());
+    assert_eq!(&png[..8], b"\x89PNG\r\n\x1a\n", "not a PNG");
+
+    let (_, text) = session.call("list_layers", json!({ "dir": project }));
+    let layers: Value = serde_json::from_str(&text).unwrap();
+    let map = layers
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|l| l["role"] == "map")
+        .unwrap();
+    assert_eq!(map["ready"], true, "{map}");
+
+    // A name that is no layer: the error lists the names that have a preview.
+    let (error, text) = session.call("preview_layer", json!({ "dir": project, "layer": "nope" }));
+    assert!(error);
+    assert!(text.contains("\"nope\"") && text.contains("map"), "{text}");
+    // A folder without a project, for the three tools that take one.
+    let empty = dir.path().join("empty");
+    std::fs::create_dir_all(&empty).unwrap();
+    for tool in ["preview_layer", "list_layers", "estimate_download"] {
+        let (error, text) = session.call(tool, json!({ "dir": empty, "layer": "map" }));
+        assert!(error, "{tool}: {text}");
+        assert!(text.contains("create_project"), "{tool}: {text}");
+    }
+}
+
+/// The bytes of standard base64 (what the image block carries), without a decoder crate.
+fn base64_decode(text: &str) -> Vec<u8> {
+    const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = Vec::new();
+    let (mut bits, mut have) = (0u32, 0);
+    for c in text.bytes().filter(|c| *c != b'=') {
+        bits = (bits << 6) | ALPHABET.iter().position(|a| *a == c).unwrap() as u32;
+        have += 6;
+        if have >= 8 {
+            have -= 8;
+            out.push((bits >> have) as u8);
+            bits &= (1 << have) - 1;
+        }
+    }
+    out
+}
+
+/// `start_pipeline` with `ocad`, `pdf` and `pdf_candidates` writes each output after the map
+/// and lists every file under its kind, in the order of the run; the summary says what was
+/// written. Without them the job lists no such file.
+#[test]
+fn start_pipeline_lists_the_ocad_and_pdf_outputs_it_was_asked_for() {
+    let dir = tempfile::tempdir().unwrap();
+    let (project, cache) = offline_school(dir.path());
+    let mut session = Session::start(&cache);
+    let (error, text) = session.call(
+        "start_pipeline",
+        json!({
+            "dir": project, "offline": true,
+            "ocad": true, "pdf": true, "pdf_candidates": true
+        }),
+    );
+    assert!(!error, "{text}");
+    let status = wait_for_job(&mut session, &started_job(&text));
+    assert_eq!(status["state"], "finished", "{status}");
+    let files = listed_files(&status);
+    let kinds: Vec<&str> = files.iter().map(|(kind, _)| kind.as_str()).collect();
+    let position = |kind: &str| kinds.iter().position(|k| *k == kind);
+    assert_eq!(kinds[0], "map", "{status}");
+    let (ocad, pdf, candidates) = (
+        position("ocad"),
+        position("pdf"),
+        position("pdf-candidates"),
+    );
+    assert!(
+        ocad.is_some() && pdf > ocad && candidates > pdf,
+        "ocad, pdf, pdf-candidates in this order: {kinds:?}"
+    );
+    for (kind, path) in &files {
+        assert!(
+            project.join(path).is_file(),
+            "{kind}: {path} is not written"
+        );
+    }
+    assert!(
+        files
+            .iter()
+            .any(|(kind, path)| kind == "pdf" && path.ends_with(".pdf")),
+        "{files:?}"
+    );
+    assert!(
+        files
+            .iter()
+            .any(|(kind, path)| kind == "ocad" && path.ends_with(".ocd")),
+        "{files:?}"
+    );
+    let result = status["result"].as_str().unwrap();
+    assert!(result.contains(".pdf"), "{result}");
+
+    // Without the options no output is listed, and the files of the run before are not.
+    let again = dir.path().join("again");
+    let (project, cache) = offline_school(&again);
+    let mut session = Session::start(&cache);
+    let (_, text) = session.call("start_pipeline", json!({ "dir": project, "offline": true }));
+    let status = wait_for_job(&mut session, &started_job(&text));
+    assert_eq!(status["state"], "finished", "{status}");
+    let kinds: Vec<String> = listed_files(&status).into_iter().map(|(k, _)| k).collect();
+    assert!(
+        kinds
+            .iter()
+            .all(|k| !matches!(k.as_str(), "ocad" | "pdf" | "pdf-candidates")),
+        "{kinds:?}"
+    );
 }

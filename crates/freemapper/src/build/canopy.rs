@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! ALKIS canopies (`Überdachung`, `Carport`) → 522 map objects (Berlin plus 1, every state in
 //! states plus 1).
 //!
@@ -195,7 +197,7 @@ fn outside_buildings(canopy: Polygon<f64>, buildings: &[Polygon<f64>]) -> Vec<Po
 const ROOF_UNDER_CANOPY_SHARE: f64 = 0.5;
 
 /// The cadastre wins over a set for roofs too: a roof a set names in `canopy_yielding` (Berlin's
-/// surveyed bus shelters, 522 candidates) with at least [`ROOF_UNDER_CANOPY_SHARE`] of its area
+/// surveyed bus shelters, 522 candidates) with at least `ROOF_UNDER_CANOPY_SHARE` of its area
 /// under the `canopies` (522 map objects) is dropped, and the canopy with the largest share names
 /// it in `freemapper:also` (ADR 0149). Everything else stays.
 pub fn drop_roofs_under_canopies(

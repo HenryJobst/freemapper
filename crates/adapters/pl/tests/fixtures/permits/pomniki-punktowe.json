@@ -1,0 +1,51 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "gid": 245439,
+    "kodinspire": "PL.ZIPOP.1393.PP.0806013.1765",
+    "typ": "jednoobiektowy",
+    "podtyp": null,
+    "obiekt": "drzewo",
+    "nazwa": "Wojtek",
+    "fop_id": 122881,
+    "gatunek": "Dąb szypułkowy - Quercus robur",
+    "data_utwor": "2023-10-19Z",
+    "powierzchn": null,
+    "link": "http://crfop.gdos.gov.pl/CRFOP/widok/viewpomnikprzyrody.jsf?fop=PL.ZIPOP.1393.PP.0806013.1765"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     15.95274023722801,
+     53.00592551398317
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "gid": 144478,
+    "kodinspire": "PL.ZIPOP.1393.PP.3217023.2342",
+    "typ": "wieloobiektowy",
+    "podtyp": "aleja",
+    "obiekt": "drzewo",
+    "nazwa": "",
+    "fop_id": 105968,
+    "gatunek": "Lipa drobnolistna - Tilia cordata ",
+    "data_utwor": "2002-01-12Z",
+    "powierzchn": null,
+    "link": "http://crfop.gdos.gov.pl/CRFOP/widok/viewpomnikprzyrody.jsf?fop=PL.ZIPOP.1393.PP.3217023.2342"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     16.12873759944271,
+     53.092623054955155
+    ]
+   }
+  }
+ ]
+}

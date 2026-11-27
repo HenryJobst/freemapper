@@ -1,8 +1,11 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The region adapters of a run: those built into the program, those of the user's folder and,
 //! when the person asks for them, those of a project (ADR 0082, spec 3.7).
 //!
-//! The registry is assembled once, before anything asks it. An adapter from a folder cannot
-//! replace one the program has; a folder with a defect is left out with a warning. The MCP
+//! The registry is assembled once, before anything asks it. An adapter from the person's folder
+//! replaces a built-in one with its id (ADR 0188), one from a project folder does not; a folder
+//! with a defect is left out with a warning. The MCP
 //! server and the area page never load the adapters of a project: a project that was passed on
 //! must not bring a source along.
 
@@ -159,8 +162,7 @@ fn report_lines(assembled: &Assembled) -> Vec<String> {
             ],
         ));
         if !adapter.overlaps.is_empty() {
-            let german = crate::text::lang().code() == "de";
-            let others = region_names(assembled, &adapter.overlaps, german);
+            let others = region_names(assembled, &adapter.overlaps, &crate::text::lang().code());
             lines.push(text(
                 "cli-adapter-overlaps",
                 &[
@@ -276,10 +278,72 @@ pub fn list(json: bool, project: Option<&Path>) {
     for line in allowed.lines.into_iter().chain(warning_lines(&assembled)) {
         eprintln!("{line}");
     }
-    let german = crate::text::lang().code() == "de";
-    for line in list_lines(&assembled, user.dir.as_deref(), german) {
+    for line in list_lines(&assembled, user.dir.as_deref(), &crate::text::lang().code()) {
         println!("{line}");
     }
+}
+
+/// `freemapper adapters export <id> <dir>`: writes the built-in adapter `id` as the folder
+/// `<dir>/<id>`, which loads as an adapter that replaces the built-in one (ADR 0188). It never
+/// overwrites: the folder must not exist or must be empty.
+pub fn export(id: &str, dir: &Path) -> anyhow::Result<()> {
+    let files = freemapper::adapters::export_files(id).ok_or_else(|| {
+        anyhow::anyhow!(text("cli-adapters-export-unknown", &[("adapter", v(id))]))
+    })?;
+    let target = dir.join(id);
+    write_export(&target, &files)?;
+    println!(
+        "{}",
+        text(
+            "cli-adapters-export-done",
+            &[
+                ("adapter", v(id)),
+                ("count", v(files.len())),
+                ("path", v(target.display())),
+            ]
+        )
+    );
+    let user = user_dir();
+    if let Some(user) = user.dir {
+        println!(
+            "{}",
+            text("cli-adapters-export-next", &[("path", v(user.display()))])
+        );
+    }
+    Ok(())
+}
+
+/// Writes `files` into `target`, a folder that does not exist yet or is empty.
+pub(crate) fn write_export(
+    target: &Path,
+    files: &[(String, std::borrow::Cow<'static, str>)],
+) -> anyhow::Result<()> {
+    use std::io::Write as _;
+    let taken = |_| {
+        anyhow::anyhow!(text(
+            "cli-adapters-export-taken",
+            &[("path", v(target.display()))]
+        ))
+    };
+    match std::fs::read_dir(target) {
+        Ok(mut entries) => {
+            if entries.next().is_some() {
+                return Err(taken(()));
+            }
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            std::fs::create_dir_all(target)?;
+        }
+        Err(_) => return Err(taken(())),
+    }
+    for (name, body) in files {
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(target.join(name))?;
+        file.write_all(body.as_bytes())?;
+    }
+    Ok(())
 }
 
 /// The hosts the person allowed for the adapter `id`.
@@ -289,11 +353,23 @@ fn allowed_for<'a>(assembled: &'a Assembled, id: &str) -> &'a [String] {
 
 /// The regions of the adapters `ids` by their names, as a person knows them; German with
 /// `german`. An id the registry does not hold stays as it is.
-fn region_names<'a>(assembled: &'a Assembled, ids: &'a [String], german: bool) -> Vec<&'a str> {
+/// The names of a region for the JSON listings: `pl` and `cs` appear only when the region has one, so the
+/// keys that existed before stay as they were.
+pub(crate) fn names_json(names: &freemapper::adapters::Names) -> serde_json::Value {
+    let mut json = serde_json::json!({ "en": names.en, "de": names.de });
+    if let Some(pl) = &names.pl {
+        json["pl"] = serde_json::Value::from(pl.as_str());
+    }
+    if let Some(cs) = &names.cs {
+        json["cs"] = serde_json::Value::from(cs.as_str());
+    }
+    json
+}
+
+fn region_names<'a>(assembled: &'a Assembled, ids: &'a [String], lang: &str) -> Vec<&'a str> {
     ids.iter()
         .map(|id| match assembled.registry.get(id) {
-            Some(other) if german => other.info().names.de.as_str(),
-            Some(other) => other.info().names.en.as_str(),
+            Some(other) => other.info().names.in_lang(lang),
             None => id.as_str(),
         })
         .collect()
@@ -308,6 +384,14 @@ fn overlaps_of<'a>(assembled: &'a Assembled, id: &str) -> &'a [String] {
         .map_or(&[], |loaded| &loaded.overlaps)
 }
 
+/// Whether the adapter `id` is one from a folder that took the place of a built-in one.
+fn replaces_built_in(assembled: &Assembled, id: &str) -> bool {
+    assembled
+        .loaded
+        .iter()
+        .any(|loaded| loaded.id == id && loaded.replaces_built_in)
+}
+
 /// Where the adapter `id` comes from, as the JSON says it.
 fn source_of(assembled: &Assembled, id: &str) -> &'static str {
     match assembled.loaded.iter().find(|loaded| loaded.id == id) {
@@ -318,7 +402,7 @@ fn source_of(assembled: &Assembled, id: &str) -> &'static str {
 }
 
 /// The lines of the list; the names of the regions are German with `german`.
-fn list_lines(assembled: &Assembled, user: Option<&Path>, german: bool) -> Vec<String> {
+fn list_lines(assembled: &Assembled, user: Option<&Path>, lang: &str) -> Vec<String> {
     let mut lines: Vec<String> = assembled
         .registry
         .adapters()
@@ -336,11 +420,7 @@ fn list_lines(assembled: &Assembled, user: Option<&Path>, german: bool) -> Vec<S
                     || text("cli-adapters-never-checked", &[]),
                     |day| day.to_string(),
                 );
-            let name = if german {
-                &info.names.de
-            } else {
-                &info.names.en
-            };
+            let name = info.names.in_lang(lang);
             let line = text(
                 "cli-adapters-line",
                 &[
@@ -368,7 +448,7 @@ fn list_lines(assembled: &Assembled, user: Option<&Path>, german: bool) -> Vec<S
             match overlaps_of(assembled, info.id.as_str()) {
                 [] => line,
                 others => {
-                    let others = region_names(assembled, others, german);
+                    let others = region_names(assembled, others, lang);
                     let others = text("cli-adapters-overlaps", &[("others", v(others.join(", ")))]);
                     format!("{line}  {others}")
                 }
@@ -391,7 +471,7 @@ fn list_json(assembled: &Assembled, user: Option<&Path>) -> String {
             let declared = adapter.declared();
             serde_json::json!({
                 "id": info.id.as_str(),
-                "names": { "en": info.names.en, "de": info.names.de },
+                "names": names_json(&info.names),
                 "provider": info.provider.as_str(),
                 "source": source_of(assembled, info.id.as_str()),
                 "revision": declared.map(|declared| declared.revision),
@@ -401,6 +481,7 @@ fn list_json(assembled: &Assembled, user: Option<&Path>) -> String {
                 "hosts": declared.map(|declared| declared.hosts.clone()).unwrap_or_default(),
                 "allowed_hosts": allowed_for(assembled, info.id.as_str()),
                 "overlaps": overlaps_of(assembled, info.id.as_str()),
+                "replaces_built_in": replaces_built_in(assembled, info.id.as_str()),
             })
         })
         .collect();
@@ -432,6 +513,35 @@ fn list_json(assembled: &Assembled, user: Option<&Path>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_polish_name_is_listed_only_where_there_is_one() {
+        let mut names = freemapper::adapters::Names {
+            en: "Poland".into(),
+            de: "Polen".into(),
+            pl: None,
+            cs: None,
+        };
+        assert_eq!(
+            names_json(&names),
+            serde_json::json!({"en": "Poland", "de": "Polen"})
+        );
+        names.pl = Some("Polska".into());
+        assert_eq!(
+            names_json(&names),
+            serde_json::json!({"en": "Poland", "de": "Polen", "pl": "Polska"})
+        );
+    }
+
+    #[test]
+    fn the_list_names_a_region_in_polish() {
+        let assembled = assemble(None, None);
+        let lines = list_lines(&assembled, None, "pl");
+        assert!(
+            lines.iter().any(|l| l.starts_with("polska  Polska  ")),
+            "{lines:?}"
+        );
+    }
 
     const SQUARE: &str = r#"{"type":"Feature","properties":{},"geometry":{"type":"Polygon","coordinates":
         [[[400000,5800000],[401000,5800000],[401000,5801000],[400000,5801000],[400000,5800000]]]}}"#;
@@ -581,14 +691,14 @@ land_use_type = "ave:NutzungFlurstueck"
         let adapters = project_dir(project.path());
         write(&adapters, "projectadapter", &manifest("projectadapter"));
         let without = assemble(Some(user.path()), None);
-        assert_eq!(without.registry.len(), 16);
+        assert_eq!(without.registry.len(), 18);
         assert_eq!(
             ids(&without).last().map(String::as_str),
             Some("useradapter")
         );
         assert!(report_lines(&without).is_empty());
         let with = assemble(Some(user.path()), Some(&adapters));
-        assert_eq!(ids(&with)[15..], ["useradapter", "projectadapter"]);
+        assert_eq!(ids(&with)[17..], ["useradapter", "projectadapter"]);
         assert_eq!(
             (
                 source_of(&with, "hamburg"),
@@ -608,12 +718,12 @@ land_use_type = "ave:NutzungFlurstueck"
                  Sample useradapter; its objects go onto maps there"
             ]
         );
-        // Neither folder: the fifteen states.
-        assert_eq!(assemble(None, None).registry.len(), 15);
+        // Neither folder: the fifteen states and Poland.
+        assert_eq!(assemble(None, None).registry.len(), 17);
     }
 
     #[test]
-    fn a_broken_folder_is_a_warning_and_a_built_in_adapter_stays() {
+    fn a_folder_with_the_id_of_a_built_in_state_replaces_it_and_a_broken_one_is_left_out() {
         let user = tempfile::tempdir().unwrap();
         write(user.path(), "hamburg", &manifest("hamburg"));
         write(
@@ -622,21 +732,52 @@ land_use_type = "ave:NutzungFlurstueck"
             &manifest("broken").replace("https://", "http://"),
         );
         let assembled = assemble(Some(user.path()), None);
-        assert_eq!(assembled.registry.len(), 15);
+        // The state keeps its place and its count: the folder took its place.
+        assert_eq!(assembled.registry.len(), 17);
         assert_eq!(
             assembled.registry.get("hamburg").unwrap().info().names.en,
-            "Hamburg"
+            "Sample hamburg"
         );
+        assert_eq!(source_of(&assembled, "hamburg"), "user");
+        assert!(replaces_built_in(&assembled, "hamburg"));
+        assert!(!replaces_built_in(&assembled, "berlin"));
         let lines = report_lines(&assembled);
         assert_eq!(lines.len(), 2, "{lines:?}");
-        assert!(
-            lines[0].starts_with("warning: the adapter in "),
-            "{}",
-            lines[0]
-        );
         assert!(lines[0].contains("is left out: "), "{}", lines[0]);
         assert!(lines[0].contains("[policy.url]"), "{}", lines[0]);
-        assert!(lines[1].contains("[adapter.duplicate]"), "{}", lines[1]);
+        assert!(
+            lines[1].contains("[adapter.replaces-built-in]"),
+            "{}",
+            lines[1]
+        );
+        let json: serde_json::Value =
+            serde_json::from_str(&list_json(&assembled, Some(user.path()))).unwrap();
+        let hamburg = json["adapters"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|a| a["id"] == "hamburg")
+            .unwrap();
+        assert_eq!(hamburg["replaces_built_in"], true);
+        assert_eq!(hamburg["source"], "user");
+    }
+
+    /// A built-in state is replaced once: a folder of the project with the same id does not
+    /// replace the one of the person's folder.
+    #[test]
+    fn a_state_is_replaced_once() {
+        let user = tempfile::tempdir().unwrap();
+        write(user.path(), "hamburg", &manifest("hamburg"));
+        let project = tempfile::tempdir().unwrap();
+        let adapters = project_dir(project.path());
+        write(&adapters, "hamburg", &manifest("hamburg"));
+        let assembled = assemble(Some(user.path()), Some(&adapters));
+        assert_eq!(assembled.registry.len(), 17);
+        let lines = report_lines(&assembled);
+        assert!(
+            lines.iter().any(|l| l.contains("[adapter.duplicate]")),
+            "{lines:?}"
+        );
     }
 
     /// A host that is an address, a wildcard or this computer keeps the adapter out, in the
@@ -659,7 +800,7 @@ land_use_type = "ave:NutzungFlurstueck"
         }
         write(&adapters, "fine", &manifest("fine"));
         let assembled = assemble(None, Some(&adapters));
-        assert_eq!(ids(&assembled)[15..], ["fine"]);
+        assert_eq!(ids(&assembled)[17..], ["fine"]);
         let lines = warning_lines(&assembled);
         assert_eq!(lines.len(), 4, "{lines:?}");
         for line in &lines {
@@ -691,8 +832,8 @@ land_use_type = "ave:NutzungFlurstueck"
         write(user.path(), "useradapter", &manifest("useradapter"));
         write(user.path(), "zweiter", &manifest("zweiter"));
         let assembled = assemble(Some(user.path()), None);
-        let lines = list_lines(&assembled, Some(user.path()), false);
-        assert_eq!(lines.len(), 18);
+        let lines = list_lines(&assembled, Some(user.path()), "en");
+        assert_eq!(lines.len(), 20);
         assert!(
             lines[4]
                 .starts_with("hamburg  Hamburg  built in  revision 2  checked 2026-11-15  hosts: "),
@@ -700,51 +841,51 @@ land_use_type = "ave:NutzungFlurstueck"
             lines[4]
         );
         assert_eq!(
-            lines[15],
+            lines[17],
             "useradapter  Sample useradapter  from your folder  revision 3  checked 2026-10-01  hosts: geo.example.org  shares ground with: Brandenburg"
         );
         // An adapter on the ground of another names it.
         assert_eq!(
-            lines[16],
+            lines[18],
             "zweiter  Sample zweiter  from your folder  revision 3  checked 2026-10-01  hosts: geo.example.org  shares ground with: Brandenburg, Sample useradapter"
         );
         assert_eq!(
-            lines[17],
+            lines[19],
             format!("Your adapters are read from {}", user.path().display())
         );
         // The German list has the German names.
-        let german = list_lines(&assembled, Some(user.path()), true);
+        let german = list_lines(&assembled, Some(user.path()), "de");
         assert!(german[2].starts_with("saxony  Sachsen  "), "{}", german[2]);
         assert!(
-            german[15].starts_with("useradapter  Beispiel useradapter  "),
+            german[17].starts_with("useradapter  Beispiel useradapter  "),
             "{}",
-            german[15]
+            german[17]
         );
         assert!(
-            german[16].ends_with(": Brandenburg, Beispiel useradapter"),
+            german[18].ends_with(": Brandenburg, Beispiel useradapter"),
             "{}",
-            german[16]
+            german[18]
         );
         let json: serde_json::Value =
             serde_json::from_str(&list_json(&assembled, Some(user.path()))).unwrap();
-        assert_eq!(json["adapters"].as_array().unwrap().len(), 17);
+        assert_eq!(json["adapters"].as_array().unwrap().len(), 19);
         assert_eq!(
-            json["adapters"][15]["overlaps"],
+            json["adapters"][17]["overlaps"],
             serde_json::json!(["brandenburg"])
         );
         assert_eq!(
-            json["adapters"][16]["overlaps"],
+            json["adapters"][18]["overlaps"],
             serde_json::json!(["brandenburg", "useradapter"])
         );
         assert_eq!(json["adapters"][0]["overlaps"], serde_json::json!([]));
         assert_eq!(json["adapters"][0]["id"], "brandenburg");
         assert_eq!(json["adapters"][0]["source"], "built-in");
         assert_eq!(json["adapters"][0]["provider"], "lgb");
-        assert_eq!(json["adapters"][15]["source"], "user");
-        assert_eq!(json["adapters"][15]["revision"], 3);
-        assert_eq!(json["adapters"][15]["last_verified"], "2026-10-01");
-        assert_eq!(json["adapters"][15]["hosts"][0], "geo.example.org");
-        assert_eq!(json["adapters"][15]["names"]["de"], "Beispiel useradapter");
+        assert_eq!(json["adapters"][17]["source"], "user");
+        assert_eq!(json["adapters"][17]["revision"], 3);
+        assert_eq!(json["adapters"][17]["last_verified"], "2026-10-01");
+        assert_eq!(json["adapters"][17]["hosts"][0], "geo.example.org");
+        assert_eq!(json["adapters"][17]["names"]["de"], "Beispiel useradapter");
         assert_eq!(json["warnings"].as_array().unwrap().len(), 0);
         assert_eq!(json["user_dir"], user.path().display().to_string());
     }

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! What `freemapper adapters check` finds in the folder of an adapter without asking a server:
 //! whether the folder loads as it would from the adapter folder of a person, and what its
 //! author should know before passing it on.
@@ -46,7 +48,7 @@ impl Checked {
 /// adapter; `built_in` holds the adapters of the program, which the adapter is compared with.
 ///
 /// Warnings: `check.never-verified`, `check.verified-long-ago` (more than twelve months before
-/// `today`), `check.built-in-id`, `check.prefix-shared`, `check.boundary-area`,
+/// `today`), `check.built-in-id`, `check.built-in-newer`, `check.prefix-shared`, `check.boundary-area`,
 /// `check.shares-ground` and the loader's `adapter.rules-not-read`.
 pub fn check_folder(
     folder: &Path,
@@ -83,16 +85,28 @@ pub fn check_folder(
     let adapter = registry
         .get(&loaded.id)
         .expect("the adapter that loaded is in the registry");
-    if built_in.get(&loaded.id).is_some() {
+    if let Some(built) = built_in.get(&loaded.id) {
         warn(
             "check.built-in-id",
             "adapter.id",
             format!(
                 "an adapter with the id {} is built into this freemapper; from an adapter \
-                 folder this one does not load",
+                 folder this one replaces it (ADR 0188)",
                 loaded.id
             ),
         );
+        let newest = built.declared().map_or(0, |declared| declared.revision);
+        if newest > loaded.revision {
+            warn(
+                "check.built-in-newer",
+                "adapter.revision",
+                format!(
+                    "the built-in adapter {} is at revision {newest}, this folder at {}; \
+                     `freemapper adapters export {}` writes the built-in one again",
+                    loaded.id, loaded.revision, loaded.id
+                ),
+            );
+        }
     }
     let prefix = adapter.info().object_id_prefix.as_deref();
     for other in built_in.adapters() {

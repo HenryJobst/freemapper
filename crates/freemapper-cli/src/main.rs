@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! `freemapper` command line interface.
 
 mod adapter_check;
@@ -17,10 +19,12 @@ mod select;
 mod select_page;
 mod select_preview;
 mod select_run;
+mod sources;
 mod text;
 mod tiles;
 mod update;
 
+use std::io::IsTerminal as _;
 use std::path::PathBuf;
 
 use anyhow::Context;
@@ -32,8 +36,9 @@ use freemapper::places::{find_places, place_area};
 use freemapper::project::{
     MapKind, MapOutcome, OcadOutcome, PdfSources, ProjectFile, TrainingOutcome, derive_project,
     export_candidates_pdf_from, export_map_preview_or_warn, export_ocad_from, export_pdf_from,
-    export_starter_project_from, export_training_from, fetch_project, init_project, map_path,
-    parse_contour_interval, set_content, set_contour_interval, starter_documents,
+    export_starter_project_from, export_training_from, export_training_views, fetch_project,
+    init_project, map_path, parse_contour_interval, parse_face_slope, parse_steep_slope,
+    set_content, set_contour_interval, set_face_slope, set_steep_slope, starter_documents,
 };
 
 use text::{n, text, v};
@@ -108,6 +113,13 @@ enum Commands {
         /// unless you pass --force, and --force also replaces an existing training map.
         #[arg(long)]
         training: bool,
+        /// With --training: also write the training map without what a view leaves out, as
+        /// `<name>-training-<view>.omap` and its PDF (with --ocad also an OCAD file). Views:
+        /// `no-paths` (no roads, paths, stairs), `brown-only` (only brown symbols and the frame),
+        /// `no-north-lines`, or a list `no:<codes>` / `only:<codes>`; combine with `+`. Repeat the
+        /// option for several files
+        #[arg(long = "view", requires = "training")]
+        view: Vec<String>,
         /// Draw the scale bar on the PDFs (off by default, German maps usually have none; the
         /// scale number stays in the title block).
         #[arg(long)]
@@ -172,6 +184,13 @@ enum Commands {
         /// you pass --force.
         #[arg(long)]
         training: bool,
+        /// With --training: also write the training map without what a view leaves out, as
+        /// `<name>-training-<view>.omap` and its PDF (with --ocad also an OCAD file). Views:
+        /// `no-paths` (no roads, paths, stairs), `brown-only` (only brown symbols and the frame),
+        /// `no-north-lines`, or a list `no:<codes>` / `only:<codes>`; combine with `+`. An
+        /// existing view file stays unless you pass --force
+        #[arg(long = "view", requires = "training")]
+        view: Vec<String>,
         /// Draw the scale bar on the PDFs (off by default; the scale number stays in the title block).
         #[arg(long)]
         pdf_scale_bar: bool,
@@ -276,6 +295,12 @@ enum Commands {
         #[command(subcommand)]
         command: AdaptersCommand,
     },
+    /// Read and correct the addresses of the data sources without a new release. A correction
+    /// goes into your own adapter folder and replaces the built-in address.
+    Sources {
+        #[command(subcommand)]
+        command: SourcesCommand,
+    },
     /// Install a newer freemapper from the GitHub releases, after asking. A build from source says
     /// how to update it instead.
     Update {
@@ -295,6 +320,74 @@ enum Commands {
         /// in every build, because it only writes the setting.
         #[arg(long, value_enum, conflicts_with_all = ["check", "yes", "version", "rollback"])]
         mode: Option<UpdateMode>,
+    },
+}
+
+#[derive(Subcommand)]
+enum SourcesCommand {
+    /// List the addresses of the manifests with their paths and where each manifest comes from.
+    /// With an adapter id only that adapter's.
+    List {
+        /// The id of the adapter, as `adapters list` shows it.
+        adapter: Option<String>,
+        /// Print the list as JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Print one address and nothing else. Exit code 1 when the adapter or the path is unknown.
+    Get {
+        /// The id of the adapter, as `adapters list` shows it.
+        adapter: String,
+        /// The path of the address, as `sources list` shows it.
+        path: String,
+    },
+    /// Correct one address in your own adapter folder, after the whole manifest passed its check.
+    /// An address on a host the manifest does not declare is refused unless you pass --add-host.
+    Set {
+        /// The id of the adapter, as `adapters list` shows it.
+        adapter: String,
+        /// The path of the address, as `sources list` shows it.
+        path: String,
+        /// The new address: https, no query.
+        url: String,
+        /// Also add the host of the new address to the hosts the manifest declares.
+        #[arg(long)]
+        add_host: bool,
+    },
+    /// Show what your adapter folder changes against the built-in manifest.
+    Diff {
+        /// The id of the adapter, as `adapters list` shows it.
+        adapter: String,
+    },
+    /// Check the folder of your adapter of that id as `adapters check` does. Exit code 0: it
+    /// passes; 1: it has findings; 2: the check could not run.
+    Check {
+        /// The id of the adapter, as `adapters list` shows it.
+        adapter: String,
+        /// Also ask the services of the adapter for the box --bbox names and say what each delivers. The
+        /// requests stay on the hosts the manifest declares.
+        #[arg(long, requires = "bbox")]
+        live: bool,
+        /// The box of the live check in degrees, as minLon,minLat,maxLon,maxLat. It lies inside the boundary
+        /// of the adapter; 150 m by 150 m is enough.
+        #[arg(
+            long,
+            value_name = "BOX",
+            requires = "live",
+            allow_hyphen_values = true
+        )]
+        bbox: Option<adapter_check::LiveBox>,
+        /// Print the result as JSON.
+        #[arg(long)]
+        json: bool,
+        #[command(flatten)]
+        cache: CacheArgs,
+    },
+    /// Print the keys of a manifest that hold an address, with --json as a JSON Schema.
+    Schema {
+        /// Print the result as JSON.
+        #[arg(long)]
+        json: bool,
     },
 }
 
@@ -335,6 +428,29 @@ enum AdaptersCommand {
         json: bool,
         #[command(flatten)]
         cache: CacheArgs,
+    },
+    /// Ask every service the built-in adapters name once and say whether it answers: ok, slow,
+    /// moved or error. Exit code 0 also when a service fails; the result is the answer.
+    Probe {
+        /// Print the result as JSON.
+        #[arg(long)]
+        json: bool,
+        /// Read the status of last night from this file (it may be missing) and print the new
+        /// status as JSON: a service is down after two bad nights in a row. The changes go to
+        /// standard error.
+        #[arg(long, value_name = "FILE")]
+        status: Option<PathBuf>,
+    },
+    /// Write the built-in adapter of a state as an adapter folder you can change: its manifest
+    /// and the files the manifest names, in `<dir>/<id>`. The folder must not exist yet or be
+    /// empty. Change the addresses in its `manifest.toml`, check it with `adapters check`, and
+    /// put it into your adapter folder: it then replaces the built-in adapter, with a warning.
+    /// Removing the folder takes the built-in one back.
+    Export {
+        /// The id of the built-in adapter, as `adapters list` shows it.
+        adapter: String,
+        /// The folder in which the folder `<id>` is made.
+        dir: PathBuf,
     },
     /// Allow a built-in adapter one more host: for a state whose service moved to a server
     /// its adapter does not name yet. The message about the refused address says which host.
@@ -475,6 +591,7 @@ impl Commands {
             | Commands::Derive { .. }
             | Commands::Mcp { .. }
             | Commands::Adapters { .. }
+            | Commands::Sources { .. }
             | Commands::Update { .. } => None,
         }
     }
@@ -689,13 +806,25 @@ struct ContourArgs {
     /// the contours at it
     #[arg(long = "contour-interval", value_name = "METRES")]
     contour_interval: Option<String>,
+    /// Slope angle in degrees from which the terrain counts as steep when earth banks and cliffs
+    /// are looked for, e.g. `55`, or `auto` for the default of 27°. Raise it (55 to 65) in rock
+    /// towns and gorges, where almost every slope is steep and banks and cliffs run together
+    /// into one patch. Saved in freemapper.toml; derive looks for banks and cliffs with it
+    #[arg(long = "steep-slope", value_name = "DEGREES")]
+    steep_slope: Option<String>,
+    /// Slope angle in degrees from which the ground is a rock face (black area, symbol 206),
+    /// e.g. `75`, or `auto` for the default of 70°. 65 gives more and larger faces, also on
+    /// steep slopes; 75 keeps only true walls. Saved in freemapper.toml; derive looks for rock
+    /// faces with it
+    #[arg(long = "face-slope", value_name = "DEGREES")]
+    face_slope: Option<String>,
 }
 
 impl ContourArgs {
     /// Saves the interval asked for in the project of `dir`; nothing when none was asked.
     fn save(&self, dir: &std::path::Path) -> anyhow::Result<()> {
         let Some(asked) = &self.contour_interval else {
-            return Ok(());
+            return self.save_slopes(dir);
         };
         let interval = parse_contour_interval(asked)?;
         set_contour_interval(dir, interval)?;
@@ -705,6 +834,40 @@ impl ContourArgs {
                 text("cli-contour-interval-saved", &[("interval", v(interval))])
             ),
             None => println!("{}", text("cli-contour-interval-auto", &[])),
+        }
+        self.save_slopes(dir)
+    }
+
+    /// Saves the steep slope and the face slope asked for.
+    fn save_slopes(&self, dir: &std::path::Path) -> anyhow::Result<()> {
+        self.save_steep_slope(dir)?;
+        self.save_face_slope(dir)
+    }
+
+    /// Saves the face slope asked for; nothing when none was asked.
+    fn save_face_slope(&self, dir: &std::path::Path) -> anyhow::Result<()> {
+        let Some(asked) = &self.face_slope else {
+            return Ok(());
+        };
+        let slope = parse_face_slope(asked)?;
+        set_face_slope(dir, slope)?;
+        match slope {
+            Some(slope) => println!("{}", text("cli-face-slope-saved", &[("slope", v(slope))])),
+            None => println!("{}", text("cli-face-slope-auto", &[])),
+        }
+        Ok(())
+    }
+
+    /// Saves the steep slope asked for; nothing when none was asked.
+    fn save_steep_slope(&self, dir: &std::path::Path) -> anyhow::Result<()> {
+        let Some(asked) = &self.steep_slope else {
+            return Ok(());
+        };
+        let slope = parse_steep_slope(asked)?;
+        set_steep_slope(dir, slope)?;
+        match slope {
+            Some(slope) => println!("{}", text("cli-steep-slope-saved", &[("slope", v(slope))])),
+            None => println!("{}", text("cli-steep-slope-auto", &[])),
         }
         Ok(())
     }
@@ -761,6 +924,46 @@ impl From<Kind> for MapKind {
     }
 }
 
+/// Whether the program was most likely started by a double click in the file manager: on Windows,
+/// without any argument, on a console. A bare `freemapper` typed in a terminal looks the same.
+fn opened_by_double_click(
+    windows: bool,
+    arg_count: usize,
+    stdin_tty: bool,
+    stdout_tty: bool,
+) -> bool {
+    windows && arg_count == 1 && stdin_tty && stdout_tty
+}
+
+/// The project folder of a double click: the first `karte-<date>` (then `karte-<date>-2`, …) in
+/// `<root>` that does not exist yet, so a second start does not reopen the first map.
+fn double_click_folder(root: &std::path::Path, today: chrono::NaiveDate) -> PathBuf {
+    let base = format!("karte-{today}");
+    let mut folder = root.join(&base);
+    let mut number = 2;
+    while folder.exists() {
+        folder = root.join(format!("{base}-{number}"));
+        number += 1;
+    }
+    folder
+}
+
+/// The arguments a double click stands for: `select <folder>`, with the folder below the person's
+/// documents (else the home folder, else the working folder). Said in a line first, because the
+/// console window is all the person sees of the program besides the browser.
+fn double_click_args(program: std::ffi::OsString) -> Vec<std::ffi::OsString> {
+    let root = dirs::document_dir()
+        .or_else(dirs::home_dir)
+        .unwrap_or_default()
+        .join("freemapper");
+    let folder = double_click_folder(&root, chrono::Local::now().date_naive());
+    println!(
+        "{}",
+        text("cli-double-click-start", &[("path", v(folder.display()))])
+    );
+    vec![program, "select".into(), folder.into_os_string()]
+}
+
 fn main() -> std::process::ExitCode {
     // The language first: the help and the parse errors need it.
     let args: Vec<std::ffi::OsString> = std::env::args_os().collect();
@@ -790,6 +993,16 @@ fn main() -> std::process::ExitCode {
         }
     };
     let mut command = help::localized(Cli::command(), &lang);
+    let args = if opened_by_double_click(
+        cfg!(windows),
+        args.len(),
+        std::io::stdin().is_terminal(),
+        std::io::stdout().is_terminal(),
+    ) {
+        double_click_args(args.into_iter().next().unwrap_or_default())
+    } else {
+        args
+    };
     let matches = match command.clone().try_get_matches_from(args) {
         Ok(matches) => matches,
         Err(error) => return parse_error(error),
@@ -848,7 +1061,7 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
     let mut adapter_lines = Vec::new();
     if !matches!(
         cli.command,
-        Commands::Adapters { .. } | Commands::Update { .. }
+        Commands::Adapters { .. } | Commands::Sources { .. } | Commands::Update { .. }
     ) {
         // The MCP server and the area page read the person's settings and never write them.
         let may_write = !matches!(cli.command, Commands::Mcp { .. } | Commands::Select { .. });
@@ -871,6 +1084,12 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             if let Some(asked) = &contours.contour_interval {
                 parse_contour_interval(asked)?;
             }
+            if let Some(asked) = &contours.steep_slope {
+                parse_steep_slope(asked)?;
+            }
+            if let Some(asked) = &contours.face_slope {
+                parse_face_slope(asked)?;
+            }
             let today = chrono::Local::now().date_naive();
             let project = init_project(&dir, &area, kind.into(), scale, today, title)?;
             println!(
@@ -890,11 +1109,14 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             pdf,
             pdf_candidates,
             training,
+            view,
             pdf_scale_bar,
             pdf_sources,
             content,
             adapters: _,
         } => {
+            let views =
+                pipeline::parse_views(&view, &crate::text::lang()).map_err(anyhow::Error::msg)?;
             let _lock = lock_folder(&dir)?;
             content.save(&dir)?;
             // Built once for every output of this command (ADR 0091).
@@ -949,6 +1171,28 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
                 for warning in pipeline::training_warnings(&outcome) {
                     report(&warning);
                 }
+                if !views.is_empty() {
+                    for files in export_training_views(
+                        &dir,
+                        &documents,
+                        &views,
+                        force,
+                        pdf_scale_bar,
+                        pdf_sources.into(),
+                        ocad,
+                    )? {
+                        println!(
+                            "{}",
+                            text(
+                                "cli-summary-training-view",
+                                &[
+                                    ("map", v(files.map.display())),
+                                    ("pdf", v(files.pdf.display())),
+                                ],
+                            )
+                        );
+                    }
+                }
             }
         }
         Commands::Fetch {
@@ -990,6 +1234,7 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             pdf,
             pdf_candidates,
             training,
+            view,
             pdf_scale_bar,
             pdf_sources,
             permits,
@@ -998,6 +1243,8 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             cache,
             adapters: _,
         } => {
+            let training_views =
+                pipeline::parse_views(&view, &crate::text::lang()).map_err(anyhow::Error::msg)?;
             let _lock = lock_folder(&dir)?;
             content.save(&dir)?;
             contours.save(&dir)?;
@@ -1008,6 +1255,7 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
                 pdf,
                 pdf_candidates,
                 training,
+                training_views,
                 pdf_scale_bar,
                 pdf_sources: pdf_sources.into(),
                 permits,
@@ -1122,6 +1370,54 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             return adapter_check::run(&dir, bbox.filter(|_| live), json, || cache.cache());
         }
         Commands::Adapters {
+            command: AdaptersCommand::Probe { json, status },
+        } => {
+            let (targets, hosts) = freemapper::probe::builtin_targets();
+            let outcomes = freemapper::probe::probe(&HttpFetcher::new(), &targets, &hosts);
+            if let Some(file) = status {
+                let previous = std::fs::read_to_string(&file)
+                    .ok()
+                    .and_then(|text| serde_json::from_str(&text).ok())
+                    .unwrap_or_default();
+                let today = freemapper::clock::today().format("%Y-%m-%d").to_string();
+                let status = freemapper::service_status::update(&outcomes, &previous, &today);
+                for line in freemapper::service_status::transitions(&status) {
+                    eprintln!("{line}");
+                }
+                println!("{}", serde_json::to_string_pretty(&status)?);
+            } else if json {
+                println!("{}", freemapper::probe::to_json(&outcomes));
+            } else {
+                for line in freemapper::probe::lines(&outcomes) {
+                    println!("{line}");
+                }
+            }
+        }
+        Commands::Sources { command } => match command {
+            SourcesCommand::List { adapter, json } => sources::list(adapter.as_deref(), json)?,
+            SourcesCommand::Get { adapter, path } => sources::get(&adapter, &path)?,
+            SourcesCommand::Set {
+                adapter,
+                path,
+                url,
+                add_host,
+            } => sources::set(&adapter, &path, &url, add_host)?,
+            SourcesCommand::Diff { adapter } => sources::diff(&adapter)?,
+            SourcesCommand::Check {
+                adapter,
+                live,
+                bbox,
+                json,
+                cache,
+            } => {
+                return sources::check(&adapter, bbox.filter(|_| live), json, || cache.cache());
+            }
+            SourcesCommand::Schema { json } => sources::schema(json)?,
+        },
+        Commands::Adapters {
+            command: AdaptersCommand::Export { adapter, dir },
+        } => adapters::export(&adapter, &dir)?,
+        Commands::Adapters {
             command: AdaptersCommand::AllowHost { adapter, host },
         } => adapters::change_allowed_host(&adapter, &host, true)?,
         Commands::Adapters {
@@ -1153,6 +1449,32 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_bare_start_on_a_windows_console_counts_as_a_double_click() {
+        assert!(opened_by_double_click(true, 1, true, true));
+        // Another system, an argument, a pipe in or out: an ordinary run.
+        assert!(!opened_by_double_click(false, 1, true, true));
+        assert!(!opened_by_double_click(true, 2, true, true));
+        assert!(!opened_by_double_click(true, 1, false, true));
+        assert!(!opened_by_double_click(true, 1, true, false));
+    }
+
+    #[test]
+    fn a_double_click_takes_the_first_free_folder_of_the_day() {
+        let root = tempfile::tempdir().unwrap();
+        let day = chrono::NaiveDate::from_ymd_opt(2026, 11, 21).unwrap();
+        let first = double_click_folder(root.path(), day);
+        assert_eq!(first, root.path().join("karte-2026-11-21"));
+        std::fs::create_dir(&first).unwrap();
+        let second = double_click_folder(root.path(), day);
+        assert_eq!(second, root.path().join("karte-2026-11-21-2"));
+        std::fs::create_dir(&second).unwrap();
+        assert_eq!(
+            double_click_folder(root.path(), day),
+            root.path().join("karte-2026-11-21-3")
+        );
+    }
 
     #[test]
     fn select_takes_the_run_flags_as_page_defaults() {
@@ -1245,6 +1567,32 @@ mod tests {
             Cli::try_parse_from(["freemapper", "select", "/tmp/p", "--adapters-from-project"])
                 .is_err()
         );
+    }
+
+    /// The daily update check follows the commands that use the network anyway, not the ones
+    /// that read or write the adapter settings.
+    #[test]
+    fn the_daily_update_check_follows_the_network_commands() {
+        let check = |args: &[&str]| {
+            Cli::try_parse_from(args.iter().copied())
+                .unwrap()
+                .command
+                .update_check()
+        };
+        assert!(check(&["freemapper", "find", "x"]).is_some());
+        assert!(check(&["freemapper", "fetch", "/tmp/p"]).is_some());
+        assert_eq!(
+            check(&["freemapper", "fetch", "/tmp/p", "--offline"]).map(|(_, offline)| offline),
+            Some(true)
+        );
+        for args in [
+            &["freemapper", "sources", "list"][..],
+            &["freemapper", "sources", "get", "a", "b"],
+            &["freemapper", "adapters", "list"],
+            &["freemapper", "derive", "/tmp/p"],
+        ] {
+            assert!(check(args).is_none(), "{args:?}");
+        }
     }
 
     #[test]

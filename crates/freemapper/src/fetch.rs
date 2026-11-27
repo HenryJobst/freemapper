@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Tile download with a shared on-disk cache keyed by tile and publication date.
 
 use crate::note::{Note, note};
@@ -18,8 +20,7 @@ pub use freemapper_adapter_api::error::CurrencyCsvError;
 pub use freemapper_adapter_api::error::FetchError;
 pub(crate) use freemapper_adapter_api::error::tile_names;
 pub use freemapper_adapter_api::error::{HostNotNamed, Remedy};
-pub(crate) use freemapper_adapter_api::fetch::status_answer_error;
-pub use freemapper_adapter_api::fetch::{ByteRange, FetchMode, FetchedTile, Fetcher};
+pub use freemapper_adapter_api::fetch::{ATTEMPTS, ByteRange, FetchMode, FetchedTile, Fetcher};
 #[cfg(test)]
 pub(crate) use freemapper_adapter_api::fetch::{
     download_with_retries, get_limited_with_retries, get_with_retries,
@@ -30,6 +31,7 @@ pub(crate) use freemapper_adapter_api::fetch::{
 };
 use freemapper_adapter_api::fetch::{megabytes, too_large};
 pub(crate) use freemapper_adapter_api::fetch::{one_line, write_inside};
+pub(crate) use freemapper_adapter_api::fetch::{status_answer_error, status_answer_error_with};
 use freemapper_adapter_api::policy::{self, UrlPolicy};
 pub use freemapper_adapter_api::policy::{
     PolicyError, REASONS as POLICY_REASONS, dns_name, redirect_target,
@@ -350,7 +352,7 @@ fn certificates(trust: &TrustAnchors) -> Vec<ureq::tls::Certificate<'static>> {
 ///
 /// A proxy from the environment is the user's own setting and may be local; its address is not
 /// judged. Behind a proxy that resolves the names itself this resolver is not asked for the
-/// target; [`TargetGuard`] still refuses a target written as an address.
+/// target; `TargetGuard` still refuses a target written as an address.
 #[derive(Debug, Default)]
 pub struct GuardedResolver<R = DefaultResolver> {
     inner: R,
@@ -445,7 +447,7 @@ impl<In: Transport> Connector<In> for TargetGuard {
     }
 }
 
-/// An agent of `config` that connects to public addresses only: [`TargetGuard`] judges the
+/// An agent of `config` that connects to public addresses only: `TargetGuard` judges the
 /// target as it is written, [`GuardedResolver`] the addresses its name resolves to. Every agent
 /// of freemapper that talks to the internet is built here.
 pub fn guarded_agent(config: ureq::config::Config) -> ureq::Agent {
@@ -842,7 +844,13 @@ impl Fetcher for HttpFetcher {
                 .as_reader()
                 .take(MAX_ERROR_BODY_BYTES)
                 .read_to_end(&mut body);
-            return Err(status_answer_error(url, status, &body));
+            // The seconds a busy service asks to wait; a date in the header is left out.
+            let retry_after = response
+                .headers()
+                .get("retry-after")
+                .and_then(|value| value.to_str().ok())
+                .and_then(|value| value.trim().parse::<u64>().ok());
+            return Err(status_answer_error_with(url, status, &body, retry_after));
         }
         // One byte more than allowed, so an oversized answer shows instead of being cut off.
         let mut bytes = Vec::new();
@@ -998,7 +1006,7 @@ pub(crate) mod test_support {
             (Product::Dtm, dtm_tiff(100, 100, &heights)),
         ] {
             fetcher.insert(
-                product.currency_csv_url(),
+                &product.currency_csv_url(),
                 currency_csv(&[(tile, published)]),
             );
             fetcher.insert(
@@ -1054,7 +1062,7 @@ pub(crate) mod test_support {
         let heights: Vec<f32> = (0..100 * 100).map(|i| (i % 100) as f32 + 12.0).collect();
         let product = Product::ImageDsm;
         fetcher.insert(
-            product.currency_csv_url(),
+            &product.currency_csv_url(),
             currency_csv(&[(tile, published)]),
         );
         fetcher.insert(
@@ -1743,7 +1751,7 @@ pub(crate) mod test_support {
     /// 2024-06-12: dense bushes about 1.6 m above the terrain of [`serve_synthetic_tile`] on
     /// [`SCHOOL_THICKET`], ground returns on [`SCHOOL_LAWN`].
     pub fn serve_synthetic_point_cloud(fetcher: &MapFetcher, tile: TileId) {
-        use freemapper_adapters_de::lgb_als::{ALS_CURRENCY_CSV, als_tile_url};
+        use freemapper_adapters_de::lgb_als::{ALS_CURRENCY_CSV, ALS_URL};
         use las::point::Classification;
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("als.laz");
@@ -1795,7 +1803,10 @@ pub(crate) mod test_support {
         zip.start_file(format!("als_{}.laz", tile.name()), options)
             .unwrap();
         zip.write_all(&std::fs::read(&path).unwrap()).unwrap();
-        fetcher.insert(&als_tile_url(tile), zip.finish().unwrap().into_inner());
+        fetcher.insert(
+            &format!("{ALS_URL}/als_{}.zip", tile.name()),
+            zip.finish().unwrap().into_inner(),
+        );
         let mut csv =
             "sheetnr;sheetname;creationdate;revisiondate;publicationdate;processstepdate\n"
                 .to_string();
@@ -1997,7 +2008,7 @@ mod tests {
 
     fn serve(fetcher: &MapFetcher, published: &str) {
         fetcher.insert(
-            PRODUCT.currency_csv_url(),
+            &PRODUCT.currency_csv_url(),
             currency_csv(&[(TILE, published)]),
         );
         fetcher.insert(
@@ -2347,7 +2358,7 @@ mod tests {
         let fetcher = MapFetcher::default();
         serve(&fetcher, "2026-01-26");
         fetcher.insert(
-            PRODUCT.currency_csv_url(),
+            &PRODUCT.currency_csv_url(),
             currency_csv(&[(TILE, "2026-01-26"), (EAST, "2026-01-26")]),
         );
         fetcher.failing.borrow_mut().push(PRODUCT.tile_url(EAST));
@@ -2743,7 +2754,7 @@ mod tests {
         fetch(&fetcher, &cache, &[TILE], FetchMode::Online).unwrap();
 
         fetcher.insert(
-            PRODUCT.currency_csv_url(),
+            &PRODUCT.currency_csv_url(),
             b"<html>captive portal</html>".to_vec(),
         );
         let err = fetch(&fetcher, &cache, &[TILE], FetchMode::Online).unwrap_err();
@@ -2832,6 +2843,36 @@ mod tests {
             )
             .unwrap_err();
         assert!(err.to_string().contains("byte range"), "{err}");
+    }
+
+    /// A server that answers 503 with `Retry-After: 7` to every request.
+    fn busy_with_retry_after() -> String {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/state.txt", listener.local_addr().unwrap());
+        std::thread::spawn(move || {
+            use std::io::{Read as _, Write as _};
+            for stream in listener.incoming().flatten() {
+                let mut stream = stream;
+                let mut request = [0u8; 1024];
+                let _ = stream.read(&mut request);
+                let _ = write!(
+                    stream,
+                    "HTTP/1.1 503 Service Unavailable\r\nRetry-After: 7\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                );
+            }
+        });
+        url
+    }
+
+    #[test]
+    fn a_retry_after_of_a_busy_service_reaches_the_error() {
+        let url = busy_with_retry_after();
+        let err = HttpFetcher::local().get(&url).unwrap_err();
+        assert!(
+            matches!(&err, FetchError::Http { message, .. } if message == "http status: 503 (retry after 7 s)"),
+            "{err}"
+        );
+        assert!(err.is_temporary());
     }
 
     /// A server answering every request with `status` and `body`; counts the connections.
@@ -3256,7 +3297,7 @@ mod tests {
     #[ignore = "network"]
     fn live_school_tile_currency() {
         let text = HttpFetcher::new()
-            .get(Product::Orthophoto.currency_csv_url())
+            .get(&Product::Orthophoto.currency_csv_url())
             .unwrap();
         let table = parse_currency_csv(&String::from_utf8(text).unwrap()).unwrap();
         assert!(table.contains_key(&TILE));

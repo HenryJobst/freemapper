@@ -1,0 +1,39 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       16.090388,
+       50.569385
+      ],
+      [
+       16.164003,
+       50.569385
+      ],
+      [
+       16.164003,
+       50.619426
+      ],
+      [
+       16.090388,
+       50.619426
+      ],
+      [
+       16.090388,
+       50.569385
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "KAT": "NPR",
+    "NAZEV": "Adršpašsko-teplické skály"
+   }
+  }
+ ]
+}

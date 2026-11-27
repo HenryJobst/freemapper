@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The golden net of the region adapter migration (ADR 0082, plan stage A). Five layers, all
 //! offline, recorded from the v0.12.0 behaviour. A refactor must leave every file under
 //! `tests/golden/adapters/` as it is; `FREEMAPPER_BLESS=1` rewrites them on purpose, see
@@ -1402,7 +1404,7 @@ fn record_state() {
 
 #[test]
 fn g5_examples_roundtrip() {
-    let mut checked = 0;
+    let (mut german, mut polish, mut czech) = (0, 0, 0);
     for entry in std::fs::read_dir(examples_dir()).unwrap() {
         let example = entry.unwrap().path();
         let Ok(original) = std::fs::read_to_string(example.join("freemapper.toml")) else {
@@ -1417,9 +1419,19 @@ fn g5_examples_roundtrip() {
             "{}: freemapper.toml is not written back as it was read",
             example.display()
         );
-        checked += 1;
+        // The examples of other countries stand in their own page (`examples/international.md`).
+        let name = example.file_name().unwrap().to_string_lossy().into_owned();
+        if name.starts_with("polska-") {
+            polish += 1;
+        } else if name.starts_with("cesko-") {
+            czech += 1;
+        } else {
+            german += 1;
+        }
     }
-    assert_eq!(checked, 30, "one sprint and one forest example per state");
+    assert_eq!(german, 30, "one sprint and one forest example per state");
+    assert_eq!(polish, 2, "one sprint and one forest example of Poland");
+    assert_eq!(czech, 2, "one sprint and one forest example of Czechia");
 }
 
 /// A project of a colleague with an adapter that is not installed here: the error names the

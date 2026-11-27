@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Permit sources that answer only at points (ADR 0139): a WMS whose GetFeatureInfo names what
 //! lies at a point, without its geometry. The fetch lays a grid of cells over the map box, at
 //! most [`MAX_CELLS`], asks at the centre of each cell and stores each answer with its cell as
@@ -9,14 +11,12 @@
 
 use std::path::Path;
 
-use freemapper_adapter_api::permits::{
-    FindingKind, PermitFinding, PermitSection, PermitSource, PermitSourceInfo, Wording,
-};
+use freemapper_adapter_api::permits::{DeclaredWfs, PermitFinding, PermitSource, PermitSourceInfo};
 use geo_types::{Coord, Rect};
 use serde_json::Value;
 
-use crate::berlin_permits::geometry;
 use crate::fetch::{FetchError, Fetcher, get_limited_with_retries};
+use crate::wfs_permits::{Reading, finding, kept, kept_all, reading, wording};
 
 /// The most cells the fetch asks at, for every query.
 pub const MAX_CELLS: usize = 25;
@@ -31,16 +31,16 @@ const POINT: f64 = 0.00001;
 const MAX_BYTES: u64 = 1 << 20;
 
 /// One GetFeatureInfo query: its key (a layer key of the source), the WMS, the layers it asks
-/// at once, the attributes a feature keeps and how a stored feature becomes a finding.
+/// at once and how a stored feature becomes a finding. A feature keeps the attributes the
+/// reading names.
 pub struct Query {
     pub key: &'static str,
     pub base: &'static str,
     pub layers: &'static str,
-    pub kept: &'static [&'static str],
     /// The layers do not overlap (the Reviere of a state): a point keeps its first feature
     /// only. Near a border a server answers for both sides.
     pub one: bool,
-    pub read: fn(&Value) -> Option<FindingKind>,
+    pub reading: Reading,
 }
 
 /// A WMS of a state asked at points.
@@ -49,30 +49,40 @@ pub struct GfiSource {
     queries: &'static [Query],
 }
 
-/// A source of `queries`, one stored layer each, in the order of `keys`.
-pub fn source(
-    key: &'static str,
-    label: Wording,
-    what: Wording,
-    credit: &'static str,
-    keys: &'static [&'static str],
-    sections: &'static [PermitSection],
-    queries: &'static [Query],
-) -> Box<dyn PermitSource> {
-    debug_assert!(
-        keys.len() == queries.len() && keys.iter().zip(queries).all(|(k, q)| *k == q.key)
+/// The source a manifest declares as `[[permits.getfeatureinfo]]` (issue #273): one query per
+/// layer. The validator gives every layer its WMS, so a declaration without one is a mistake of
+/// the program.
+pub(crate) fn declared_source(declared: &DeclaredWfs) -> Box<dyn PermitSource> {
+    let queries: &'static [Query] = kept_all(
+        declared
+            .layers
+            .iter()
+            .map(|layer| {
+                let query = layer
+                    .query
+                    .as_ref()
+                    .expect("a layer of a source asked at points names its WMS");
+                Query {
+                    key: kept(&layer.key),
+                    base: kept(&query.url),
+                    layers: kept(&query.layers),
+                    one: query.one,
+                    reading: reading(&layer.reading),
+                }
+            })
+            .collect(),
     );
     Box::new(GfiSource {
         info: PermitSourceInfo {
-            key,
-            label,
-            what,
-            credit,
-            note: None,
+            key: kept(&declared.key),
+            label: wording(&declared.label),
+            what: wording(&declared.what),
+            credit: kept(&declared.credit),
+            note: declared.note.as_deref().map(kept),
             sampled: true,
-            gaps: None,
-            layers: keys,
-            sections,
+            gaps: declared.gaps.as_ref().map(wording),
+            layers: kept_all(queries.iter().map(|q| q.key).collect()),
+            sections: kept_all(declared.sections.clone()),
             offices: None,
         },
         queries,
@@ -103,7 +113,7 @@ impl PermitSource for GfiSource {
                         })?;
                     let mut kept: Vec<Value> = Vec::new();
                     for feature in &features {
-                        let properties = kept_properties(feature, query.kept);
+                        let properties = kept_properties(feature, &query.reading.kept());
                         // A layer asked twice, or two layers with one feature, answer it twice.
                         if !kept.contains(&properties) {
                             kept.push(properties);
@@ -125,12 +135,7 @@ impl PermitSource for GfiSource {
         };
         features
             .iter()
-            .filter_map(|feature| {
-                Some(PermitFinding {
-                    kind: (query.read)(feature)?,
-                    geometry: geometry(feature)?,
-                })
-            })
+            .filter_map(|feature| finding(query.reading, feature))
             .collect()
     }
 }
@@ -200,7 +205,7 @@ fn read_answer(url: &str, bytes: &[u8]) -> Result<Vec<Value>, FetchError> {
 }
 
 /// The attributes of `feature` that `kept` names.
-fn kept_properties(feature: &Value, kept: &[&str]) -> Value {
+fn kept_properties(feature: &Value, kept: &[&'static str]) -> Value {
     Value::Object(
         kept.iter()
             .filter_map(|key| {
@@ -226,12 +231,35 @@ fn with_cell(properties: Value, cell: &Rect<f64>) -> Value {
 mod tests {
     use super::*;
     use crate::fetch::test_support::MapFetcher;
-    use freemapper_adapter_api::permits::ForestFunctionKind;
+    use freemapper_adapter_api::permits::{
+        FindingKind, ForestFunctionKind, PermitSection, Wording,
+    };
 
-    fn read_name(feature: &Value) -> Option<FindingKind> {
-        Some(FindingKind::ForestFunction {
-            kind: ForestFunctionKind::Natural,
-            name: feature["properties"]["NAME"].as_str().map(str::to_string),
+    const READ_NAME: Reading = Reading::Function {
+        kind: ForestFunctionKind::Natural,
+        name: Some("NAME"),
+    };
+
+    /// A source of `queries`, as a manifest would declare it.
+    fn source(
+        keys: &'static [&'static str],
+        sections: &'static [PermitSection],
+        queries: &'static [Query],
+    ) -> Box<dyn PermitSource> {
+        Box::new(GfiSource {
+            info: PermitSourceInfo {
+                key: "test",
+                label: Wording { en: "T", de: "T" },
+                what: Wording { en: "t", de: "t" },
+                credit: "credit",
+                note: None,
+                sampled: true,
+                gaps: None,
+                layers: keys,
+                sections,
+                offices: None,
+            },
+            queries,
         })
     }
 
@@ -239,21 +267,12 @@ mod tests {
         key: "wald",
         base: "https://example.org/wms",
         layers: "1,2",
-        kept: &["NAME"],
         one: false,
-        read: read_name,
+        reading: READ_NAME,
     }];
 
     fn source_of_test() -> Box<dyn PermitSource> {
-        source(
-            "test",
-            Wording { en: "T", de: "T" },
-            Wording { en: "t", de: "t" },
-            "credit",
-            &["wald"],
-            &[PermitSection::ForestFunctions],
-            QUERIES,
-        )
+        source(&["wald"], &[PermitSection::ForestFunctions], QUERIES)
     }
 
     fn bbox(w: f64, s: f64, e: f64, n: f64) -> Rect<f64> {
@@ -340,9 +359,8 @@ mod tests {
             key: "wald",
             base: "https://example.org/wms",
             layers: "1",
-            kept: &["NAME"],
             one: true,
-            read: read_name,
+            reading: READ_NAME,
         }];
         let fetcher = MapFetcher::default();
         fetcher.insert_prefix(
@@ -353,15 +371,7 @@ mod tests {
                 .to_vec(),
         );
         let part = tempfile::tempdir().unwrap();
-        let source = source(
-            "test",
-            Wording { en: "T", de: "T" },
-            Wording { en: "t", de: "t" },
-            "credit",
-            &["wald"],
-            &[PermitSection::ForestUnits],
-            ONE,
-        );
+        let source = source(&["wald"], &[PermitSection::ForestUnits], ONE);
         let answers = source
             .fetch(
                 &fetcher,

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! LGLN Niedersachsen open data (CC BY 4.0, "© GeoBasis-DE/LGLN"), all in EPSG:25832: the
 //! orthophoto from the WMS, DGM1 and DOM1 from the MapServer WCS, and the dates of the height
 //! models and the orthophoto from the STAC APIs (the newest item at the centre of the area).
@@ -7,7 +9,7 @@
 use freemapper_adapter_api::env::AdapterEnv;
 use freemapper_adapter_api::error::AdapterError;
 use freemapper_adapter_api::project::RasterProject;
-use freemapper_adapter_api::rasters::{ProviderInfo, RasterBackend, RasterKind};
+use freemapper_adapter_api::rasters::{ProviderInfo, RasterBackend, RasterConfig, RasterKind};
 use freemapper_adapter_api::records::AdapterId;
 use freemapper_sources::raster_fetch::{
     fetch_area_heights, fetch_wms_orthophoto, warn_beyond_state,
@@ -31,6 +33,7 @@ use crate::sources::wms::WmsService;
 /// The orthophoto WMS: the newest DOP20 (the same pixels as the tiles). MaxWidth/MaxHeight is
 /// 15000, but MapServer answers only once the whole image is ready, so the pieces stay at 4000 px
 /// (≈9 s each). An oversize request is an HTTP 200 XML exception. Bremen is left white.
+#[cfg(any(test, feature = "testing"))]
 pub const WMS: WmsService = WmsService {
     url: Cow::Borrowed("https://opendata.lgln.niedersachsen.de/doorman/noauth/dop_wms"),
     layer: Cow::Borrowed("ni_dop20"),
@@ -39,11 +42,15 @@ pub const WMS: WmsService = WmsService {
     max_px: 4000,
 };
 
-/// The STAC API of the orthophoto (collection `DOP`, every vintage).
+/// The STAC API of the orthophoto (collection `DOP`, every vintage), as the manifest of Lower
+/// Saxony declares it (`dop-stac` of its `endpoints`); the tests are held to these values.
+#[cfg(any(test, feature = "testing"))]
 pub const DOP_STAC: &str = "https://dop.stac.lgln.niedersachsen.de";
-/// The STAC API of DGM1 (collection `dgm1`).
+/// The STAC API of DGM1 (collection `dgm1`): `dgm-stac`.
+#[cfg(any(test, feature = "testing"))]
 pub const DGM_STAC: &str = "https://dgm.stac.lgln.niedersachsen.de";
-/// The STAC API of DOM1 (collection `dom1`).
+/// The STAC API of DOM1 (collection `dom1`): `dom-stac`.
+#[cfg(any(test, feature = "testing"))]
 pub const DOM_STAC: &str = "https://dom.stac.lgln.niedersachsen.de";
 
 /// The extent of `ni_dgm1` (DescribeCoverage); DOM1 has the same tiles.
@@ -54,7 +61,9 @@ pub const ENVELOPE: BoundingBox = BoundingBox {
     max_n: 5_973_000.0,
 };
 
-/// DGM1 from the WCS: a plain Float32 TIFF (LZW with the floating point predictor), NoData −9999.
+/// DGM1 from the WCS: a plain Float32 TIFF (LZW with the floating point predictor), NoData −9999;
+/// `dgm-wcs` of the `endpoints` is its address.
+#[cfg(any(test, feature = "testing"))]
 pub const DGM1_WCS: WcsService = WcsService {
     url: Cow::Borrowed("https://opendata.geoservices.lgln.niedersachsen.de/dgm_wcs"),
     coverage: Cow::Borrowed("ni_dgm1"),
@@ -64,7 +73,8 @@ pub const DGM1_WCS: WcsService = WcsService {
     max_m: WCS_MAX_M,
 };
 
-/// DOM1 from the WCS, like [`DGM1_WCS`].
+/// DOM1 from the WCS, like [`DGM1_WCS`]: `dom-wcs`.
+#[cfg(any(test, feature = "testing"))]
 pub const DOM1_WCS: WcsService = WcsService {
     url: Cow::Borrowed("https://opendata.geoservices.lgln.niedersachsen.de/dom_wcs"),
     coverage: Cow::Borrowed("ni_dom1"),
@@ -86,6 +96,8 @@ pub enum Model {
 }
 
 impl Model {
+    /// The WCS of the model with the address of the manifest of Lower Saxony.
+    #[cfg(any(test, feature = "testing"))]
     pub fn wcs(self) -> WcsService {
         match self {
             Self::Dgm1 => DGM1_WCS,
@@ -93,11 +105,21 @@ impl Model {
         }
     }
 
-    /// The STAC API with the model's tiles and dates.
+    /// The STAC API with the model's tiles and dates, at the address of the manifest of Lower
+    /// Saxony.
+    #[cfg(any(test, feature = "testing"))]
     pub fn stac(self) -> &'static str {
         match self {
             Self::Dgm1 => DGM_STAC,
             Self::Dom1 => DOM_STAC,
+        }
+    }
+
+    /// The coverage of the model on the WCS.
+    fn coverage(self) -> &'static str {
+        match self {
+            Self::Dgm1 => "ni_dgm1",
+            Self::Dom1 => "ni_dom1",
         }
     }
 
@@ -110,6 +132,58 @@ impl Model {
 }
 
 pub use freemapper_sources::dates::StacItem;
+
+/// The addresses of the services LGLN serves besides the orthophoto WMS.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Addresses {
+    /// The STAC API of the orthophoto.
+    pub dop_stac: String,
+    /// The STAC API of DGM1.
+    pub dgm_stac: String,
+    /// The STAC API of DOM1.
+    pub dom_stac: String,
+    /// The WCS of DGM1.
+    pub dgm_wcs: String,
+    /// The WCS of DOM1.
+    pub dom_wcs: String,
+}
+
+impl Addresses {
+    /// The addresses `config` states.
+    pub fn of(config: &RasterConfig) -> Result<Self, String> {
+        Ok(Self {
+            dop_stac: config.require("lgln", "dop-stac")?,
+            dgm_stac: config.require("lgln", "dgm-stac")?,
+            dom_stac: config.require("lgln", "dom-stac")?,
+            dgm_wcs: config.require("lgln", "dgm-wcs")?,
+            dom_wcs: config.require("lgln", "dom-wcs")?,
+        })
+    }
+
+    /// The STAC API with the tiles and dates of `model`.
+    fn stac(&self, model: Model) -> &str {
+        match model {
+            Model::Dgm1 => &self.dgm_stac,
+            Model::Dom1 => &self.dom_stac,
+        }
+    }
+
+    /// The WCS of `model`: the coverage, the extent and the piece size are code.
+    fn wcs(&self, model: Model) -> WcsService {
+        let url = match model {
+            Model::Dgm1 => &self.dgm_wcs,
+            Model::Dom1 => &self.dom_wcs,
+        };
+        WcsService {
+            url: Cow::Owned(url.clone()),
+            coverage: Cow::Borrowed(model.coverage()),
+            extra: Cow::Borrowed(""),
+            multipart: false,
+            envelope: ENVELOPE,
+            max_m: WCS_MAX_M,
+        }
+    }
+}
 
 /// The STAC search of `host` at the centre of `bbox` (EPSG:25832).
 pub fn stac_search_url(host: &str, bbox: &BoundingBox) -> Option<String> {
@@ -131,9 +205,10 @@ pub fn newest_item(
 /// `Ok(None)` when the STAC lists no item there; an error when the search failed.
 pub fn orthophoto_date(
     fetcher: &dyn Fetcher,
+    dop_stac: &str,
     bbox: &BoundingBox,
 ) -> Result<Option<NaiveDate>, FetchError> {
-    Ok(newest_item(fetcher, DOP_STAC, bbox)?.map(|item| item.date))
+    Ok(newest_item(fetcher, dop_stac, bbox)?.map(|item| item.date))
 }
 
 /// How much older than the orthophoto the DOM1 may be before the nDSM gets a warning. The laser
@@ -176,6 +251,7 @@ pub fn leaf_state(flight: NaiveDate) -> Note {
 ///
 /// Offline, the model stored at `out` is kept when it covers the area; nothing is asked (the
 /// STAC is not cached, the caller keeps the recorded date).
+#[cfg(any(test, feature = "testing"))]
 pub fn fetch_model(
     fetcher: &dyn Fetcher,
     mode: FetchMode,
@@ -184,13 +260,31 @@ pub fn fetch_model(
     root: &Path,
     out: &Path,
 ) -> Result<HeightModel, FetchError> {
+    let addresses = Addresses {
+        dop_stac: DOP_STAC.to_string(),
+        dgm_stac: DGM_STAC.to_string(),
+        dom_stac: DOM_STAC.to_string(),
+        dgm_wcs: DGM1_WCS.url.to_string(),
+        dom_wcs: DOM1_WCS.url.to_string(),
+    };
+    fetch_model_at(fetcher, mode, (&addresses, model), bbox, (root, out))
+}
+
+/// `fetch_model` with the services at `addresses`.
+pub fn fetch_model_at(
+    fetcher: &dyn Fetcher,
+    mode: FetchMode,
+    (addresses, model): (&Addresses, Model),
+    bbox: &BoundingBox,
+    (root, out): (&Path, &Path),
+) -> Result<HeightModel, FetchError> {
     let grid = GridSpec::covering(bbox, 1.0);
     let area = grid.bounds();
     if mode == FetchMode::Offline {
         require_stored(out, &area, model.label())?;
         return Ok(HeightModel::default());
     }
-    let wcs = model.wcs();
+    let wcs = addresses.wcs(model);
     let mut raster = Raster::filled(grid, f32::NAN);
     wcs.fill(fetcher, &mut raster, &area)?;
     if raster.data.iter().all(|z| z.is_nan()) {
@@ -201,7 +295,7 @@ pub fn fetch_model(
     }
     write_float_raster(&raster, root, out, &wcs.url)?;
     let mut warnings = Vec::new();
-    let date = match newest_item(fetcher, model.stac(), bbox) {
+    let date = match newest_item(fetcher, addresses.stac(model), bbox) {
         Ok(Some(item)) => Some(item.date.format("%Y-%m-%d").to_string()),
         Ok(None) => {
             warnings.push(note!(
@@ -232,11 +326,17 @@ const PROVIDER: &str = "lgln";
 /// The rasters of LGLN (Lower Saxony): requested for the area and stored in the project folder.
 pub struct LglnBackend {
     info: ProviderInfo,
+    /// The orthophoto WMS and the other services, as the manifest says them.
+    wms: WmsService,
+    addresses: Addresses,
 }
 
 impl LglnBackend {
-    pub fn new() -> Self {
+    /// The backend that asks `wms` for the orthophoto and the services at `addresses`.
+    pub fn with_addresses(wms: WmsService, addresses: Addresses) -> Self {
         Self {
+            wms,
+            addresses,
             info: ProviderInfo {
                 id: AdapterId::built_in(PROVIDER),
                 cache_dir: None,
@@ -247,6 +347,24 @@ impl LglnBackend {
     }
 }
 
+#[cfg(any(test, feature = "testing"))]
+impl LglnBackend {
+    /// The backend with the WMS the manifest of the state declares.
+    pub fn new() -> Self {
+        Self::with_addresses(
+            WMS,
+            Addresses {
+                dop_stac: DOP_STAC.to_string(),
+                dgm_stac: DGM_STAC.to_string(),
+                dom_stac: DOM_STAC.to_string(),
+                dgm_wcs: DGM1_WCS.url.to_string(),
+                dom_wcs: DOM1_WCS.url.to_string(),
+            },
+        )
+    }
+}
+
+#[cfg(any(test, feature = "testing"))]
 impl Default for LglnBackend {
     fn default() -> Self {
         Self::new()
@@ -264,7 +382,7 @@ impl RasterBackend for LglnBackend {
         project: &mut dyn RasterProject,
         bbox: &BoundingBox,
     ) -> Result<(), AdapterError> {
-        fetch_rasters(env, project, bbox)
+        fetch_rasters(env, project, bbox, (&self.wms, &self.addresses))
     }
 }
 
@@ -275,6 +393,7 @@ fn fetch_rasters(
     env: &mut AdapterEnv<'_>,
     project: &mut dyn RasterProject,
     bbox: &BoundingBox,
+    (wms, addresses): (&WmsService, &Addresses),
 ) -> Result<(), AdapterError> {
     let (fetcher, mode) = (env.fetcher, env.mode);
     let dir = &project.dir().to_path_buf();
@@ -283,7 +402,7 @@ fn fetch_rasters(
     warn_beyond_state(env, project, PROVIDER, "LGLN");
     // One DOP search gives the flight date and the leaf state; offline nothing is asked.
     let (flown, missing) = match mode {
-        FetchMode::Online => match orthophoto_date(fetcher, bbox) {
+        FetchMode::Online => match orthophoto_date(fetcher, &addresses.dop_stac, bbox) {
             Ok(Some(date)) => (Some(date), None),
             Ok(None) => (None, Some(note!("word-stac-no-image"))),
             Err(e) => (
@@ -299,7 +418,7 @@ fn fetch_rasters(
         env,
         project,
         bbox,
-        (&OrthophotoSource::Wms(WMS), "LGLN", &flight, None),
+        (&OrthophotoSource::Wms(wms.clone()), "LGLN", &flight, None),
     )?;
     // Without a fresh date a recent stored orthophoto is kept with its own (see
     // `fetch_wms_orthophoto`); the warning says which of the two happened.
@@ -328,7 +447,7 @@ fn fetch_rasters(
         (Model::Dgm1.label(), Model::Dom1.label()),
         &mut |surface, out, _| {
             let model = if surface { Model::Dom1 } else { Model::Dgm1 };
-            fetch_model(fetcher, mode, model, bbox, dir, out)
+            fetch_model_at(fetcher, mode, (addresses, model), bbox, (dir, out))
         },
         &mut |surface, found, project, progress| {
             for warning in &found.warnings {
@@ -472,7 +591,7 @@ mod tests {
         assert!(newest.id.ends_with("_2025-03-06"), "{}", newest.id);
         // One DOP search gives the date for the flight date and the leaf state.
         assert_eq!(
-            orthophoto_date(&fetcher, &SAMPLE).unwrap(),
+            orthophoto_date(&fetcher, DOP_STAC, &SAMPLE).unwrap(),
             Some(date("2025-03-06"))
         );
         let mut answer: Value = serde_json::from_str(STAC_DOP).unwrap();
@@ -499,7 +618,7 @@ mod tests {
         let fetcher = MapFetcher::default();
         fetcher.insert_prefix(DOP_STAC, empty);
         assert_eq!(newest_item(&fetcher, DOP_STAC, &SAMPLE).unwrap(), None);
-        assert_eq!(orthophoto_date(&fetcher, &SAMPLE).unwrap(), None);
+        assert_eq!(orthophoto_date(&fetcher, DOP_STAC, &SAMPLE).unwrap(), None);
         // Not a search answer: an error naming it.
         let fetcher = MapFetcher::default();
         fetcher.insert_prefix(DOP_STAC, b"<html>\x1b[2JBad Gateway</html>".to_vec());
@@ -509,7 +628,7 @@ mod tests {
         assert!(err.contains("not a STAC search answer"), "{err}");
         assert!(!err.contains('\x1b'), "{err:?}");
         // The caller tells a failed search from one without an item.
-        assert!(orthophoto_date(&fetcher, &SAMPLE).is_err());
+        assert!(orthophoto_date(&fetcher, DOP_STAC, &SAMPLE).is_err());
     }
 
     #[test]
@@ -845,5 +964,85 @@ mod tests {
         .unwrap_err()
         .to_string();
         assert!(err.contains("run `freemapper fetch` online first"), "{err}");
+    }
+
+    /// Each service is asked at the address the backend is given: the WCS and the STAC of the
+    /// model, and the STAC of the orthophoto.
+    #[test]
+    fn the_services_are_asked_at_the_addresses_the_backend_is_given() {
+        let addresses = Addresses {
+            dop_stac: "https://dop.example.org/stac".to_string(),
+            dgm_stac: "https://dgm.example.org/stac".to_string(),
+            dom_stac: "https://dom.example.org/stac".to_string(),
+            dgm_wcs: "https://wcs.example.org/dgm".to_string(),
+            dom_wcs: "https://wcs.example.org/dom".to_string(),
+        };
+        for (model, wcs, stac) in [
+            (
+                Model::Dgm1,
+                "https://wcs.example.org/dgm",
+                "https://dgm.example.org/stac",
+            ),
+            (
+                Model::Dom1,
+                "https://wcs.example.org/dom",
+                "https://dom.example.org/stac",
+            ),
+        ] {
+            assert_eq!(addresses.wcs(model).url, wcs);
+            assert_eq!(addresses.stac(model), stac);
+            let built = addresses.wcs(model);
+            let held = model.wcs();
+            assert_eq!(
+                (built.coverage, built.extra, built.multipart, built.max_m),
+                (held.coverage, held.extra, held.multipart, held.max_m)
+            );
+            assert_eq!(built.envelope, held.envelope);
+            let fetcher = MapFetcher::default();
+            fetcher.insert_prefix(wcs, WCS_DGM1.to_vec());
+            fetcher.insert_prefix(stac, STAC_DGM1.as_bytes().to_vec());
+            let dir = tempfile::tempdir().unwrap();
+            let out = dir.path().join("m.tif");
+            let found = fetch_model_at(
+                &fetcher,
+                FetchMode::Online,
+                (&addresses, model),
+                &SAMPLE,
+                (dir.path(), &out),
+            )
+            .unwrap();
+            assert_eq!(found.date.as_deref(), Some("2016-04-18"));
+            let log = fetcher.log.borrow();
+            assert_eq!(log.len(), 2, "{log:?}");
+            assert!(
+                log[0].starts_with(wcs) && log[1].starts_with(stac),
+                "{log:?}"
+            );
+        }
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix("https://dop.example.org/stac", STAC_DOP.as_bytes().to_vec());
+        assert!(
+            orthophoto_date(&fetcher, &addresses.dop_stac, &SAMPLE)
+                .unwrap()
+                .is_some()
+        );
+        assert!(fetcher.log.borrow()[0].starts_with("https://dop.example.org/stac/search?bbox="));
+    }
+
+    #[test]
+    fn the_config_must_name_all_five_addresses() {
+        let names = ["dop-stac", "dgm-stac", "dom-stac", "dgm-wcs", "dom-wcs"];
+        for missing in names {
+            let config = RasterConfig {
+                endpoints: names
+                    .iter()
+                    .filter(|n| **n != missing)
+                    .map(|n| (n.to_string(), format!("https://{n}.example.org")))
+                    .collect(),
+                ..RasterConfig::default()
+            };
+            let err = Addresses::of(&config).unwrap_err();
+            assert!(err.contains(&format!("`{missing}`")), "{err}");
+        }
     }
 }

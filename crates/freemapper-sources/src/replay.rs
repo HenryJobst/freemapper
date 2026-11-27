@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Recorded answers of services: one fetcher keeps what the services answer, one plays it back
 //! without a network. The golden net of the adapters and the fixtures of an adapter use them.
 //!
@@ -611,7 +613,7 @@ mod tests {
         let replay = ReplayFetcher::from_dir(dir.path())
             .unwrap()
             .with_extract(b"pbf");
-        let url = "https://download.geofabrik.de/europe/germany/hamburg-latest.osm.pbf";
+        let url = "https://download.geofabrik.de/europe/germany/hamburg/hamburg-latest.osm.pbf";
         assert_eq!(replay.get(url).unwrap(), b"pbf");
         let file = dir.path().join("out").join("extract.osm.pbf");
         replay.download_to(url, &file, 10, &mut |_| {}).unwrap();
@@ -721,5 +723,204 @@ mod tests {
         let index: Index =
             toml::from_str(&std::fs::read_to_string(dir.path().join(INDEX_FILE)).unwrap()).unwrap();
         assert!(index.response.is_empty());
+    }
+
+    /// A fetcher that answers every URL with the error its last path segment names.
+    struct Erring;
+
+    impl Fetcher for Erring {
+        fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
+            let url = url.to_string();
+            Err(match url.rsplit('/').next().unwrap() {
+                "not-found" => FetchError::NotFound(url),
+                "refused" => FetchError::Refused {
+                    url,
+                    status: 403,
+                    detail: Some("no access".to_string()),
+                },
+                "http" => FetchError::Http {
+                    url,
+                    message: "503 Service Unavailable".to_string(),
+                },
+                "range-ignored" => FetchError::RangeIgnored {
+                    url,
+                    range: "bytes=-4".to_string(),
+                    status: 200,
+                },
+                "too-large" => FetchError::TooLarge { url, limit_mb: 7 },
+                _ => FetchError::Cancelled,
+            })
+        }
+    }
+
+    /// Every error a service can answer comes back from a recording as the same error, with
+    /// what it carried; the others are not kept at all.
+    #[test]
+    fn every_kind_of_recorded_error_plays_back_as_itself() {
+        let dir = tempfile::tempdir().unwrap();
+        let recorder = RecordingFetcher::new(Erring, &dir.path().join(INDEX_FILE), dir.path());
+        let base = "https://geo.example.org/";
+        for name in [
+            "not-found",
+            "refused",
+            "http",
+            "range-ignored",
+            "too-large",
+            "local",
+        ] {
+            let url = format!("{base}{name}");
+            assert!(recorder.get(&url).is_err());
+            assert!(recorder.get_range(&url, ByteRange::Last(4)).is_err());
+        }
+        recorder.save().unwrap();
+        let replay = ReplayFetcher::from_dir(dir.path()).unwrap();
+        let err = |name: &str| {
+            replay
+                .get_range(&format!("{base}{name}"), ByteRange::Last(4))
+                .unwrap_err()
+        };
+        assert!(
+            matches!(err("not-found"), FetchError::NotFound(u) if u == format!("{base}not-found"))
+        );
+        assert!(matches!(
+            err("refused"),
+            FetchError::Refused { status: 403, detail: Some(d), .. } if d == "no access"
+        ));
+        assert!(matches!(
+            err("http"),
+            FetchError::Http { message, .. } if message == "503 Service Unavailable"
+        ));
+        assert!(matches!(
+            err("range-ignored"),
+            FetchError::RangeIgnored { status: 200, range, .. } if range == "bytes=-4"
+        ));
+        assert!(matches!(
+            err("too-large"),
+            FetchError::TooLarge { limit_mb: 7, .. }
+        ));
+        // A cancel is no answer of a service: it is not in the index, so replay does not know it.
+        assert!(
+            matches!(err("local"), FetchError::Http { message, .. } if message.contains("not in the recording"))
+        );
+    }
+
+    /// A HEAD request keeps its date, and a request asked twice keeps the better answer: a
+    /// retry that worked replaces the error, an error never replaces a good answer.
+    #[test]
+    fn a_recording_keeps_dates_and_the_better_of_two_answers() {
+        let dir = tempfile::tempdir().unwrap();
+        let services = MapFetcher::default();
+        let date = NaiveDate::from_ymd_opt(2026, 3, 9).unwrap();
+        services.insert("https://geo.example.org/a", b"first".to_vec());
+        services.set_modified("https://geo.example.org/a", date);
+        services.insert("https://geo.example.org/b", b"second".to_vec());
+        services
+            .flaky
+            .borrow_mut()
+            .insert("https://geo.example.org/b".to_string(), 1);
+        let recorder = RecordingFetcher::new(services, &dir.path().join(INDEX_FILE), dir.path());
+        assert_eq!(
+            recorder.last_modified("https://geo.example.org/a").unwrap(),
+            Some(date)
+        );
+        assert!(
+            recorder
+                .last_modified("https://geo.example.org/gone")
+                .is_err()
+        );
+        // The first try of `b` fails, the second works.
+        assert!(recorder.get("https://geo.example.org/b").is_err());
+        assert_eq!(
+            recorder.get("https://geo.example.org/b").unwrap(),
+            b"second"
+        );
+        // `a` answers; then it fails: the good answer stays.
+        assert_eq!(recorder.get("https://geo.example.org/a").unwrap(), b"first");
+        recorder
+            .inner
+            .failing
+            .borrow_mut()
+            .push("https://geo.example.org/a".to_string());
+        assert!(recorder.get("https://geo.example.org/a").is_err());
+        recorder.save().unwrap();
+        let index: Index =
+            toml::from_str(&std::fs::read_to_string(dir.path().join(INDEX_FILE)).unwrap()).unwrap();
+        let of = |method: &str, url: &str| {
+            index
+                .response
+                .iter()
+                .filter(|r| r.method == method && r.url == url)
+                .collect::<Vec<_>>()
+        };
+        let b = of("GET", "https://geo.example.org/b");
+        assert_eq!(b.len(), 1);
+        assert!(b[0].error.is_none() && b[0].body.is_some(), "{b:?}");
+        let gone = of("HEAD", "https://geo.example.org/gone");
+        assert_eq!(gone[0].error.as_deref(), Some("not-found"));
+        // Order of first asking: HEAD a, HEAD gone, GET b, GET a.
+        let order: Vec<&str> = index.response.iter().map(|r| r.url.as_str()).collect();
+        assert_eq!(
+            order,
+            [
+                "https://geo.example.org/a",
+                "https://geo.example.org/gone",
+                "https://geo.example.org/b",
+                "https://geo.example.org/a"
+            ]
+        );
+        let replay = ReplayFetcher::from_dir(dir.path()).unwrap();
+        assert_eq!(
+            replay.last_modified("https://geo.example.org/a").unwrap(),
+            Some(date)
+        );
+        assert!(matches!(
+            replay.last_modified("https://geo.example.org/gone"),
+            Err(FetchError::NotFound(_))
+        ));
+        assert_eq!(replay.get("https://geo.example.org/b").unwrap(), b"second");
+        // The error that came after the good answer of `a` did not replace it.
+        assert_eq!(replay.get("https://geo.example.org/a").unwrap(), b"first");
+    }
+
+    /// A streamed download is recorded like a body and plays back into a file; the limit of
+    /// the caller holds on replay, and a file over it is removed.
+    #[test]
+    fn a_download_to_a_file_is_recorded_and_replayed_within_its_limit() {
+        let dir = tempfile::tempdir().unwrap();
+        let services = MapFetcher::default();
+        services.insert("https://geo.example.org/big.zip", b"0123456789".to_vec());
+        let recorder = RecordingFetcher::new(services, &dir.path().join(INDEX_FILE), dir.path());
+        let source = dir.path().join("work").join("recorded.part");
+        recorder
+            .download_to("https://geo.example.org/big.zip", &source, 100, &mut |_| {})
+            .unwrap();
+        assert_eq!(recorder.log().lock().unwrap().len(), 1);
+        recorder.save().unwrap();
+        let replay = ReplayFetcher::from_dir(dir.path()).unwrap();
+        let target = dir.path().join("deep").join("copy.part");
+        replay
+            .download_to("https://geo.example.org/big.zip", &target, 100, &mut |_| {})
+            .unwrap();
+        assert_eq!(std::fs::read(&target).unwrap(), b"0123456789");
+        assert_eq!(
+            replay.trace(),
+            ["GET https://geo.example.org/big.zip [to file]"]
+        );
+        // Over the limit: an error, and no file left behind.
+        let small = dir.path().join("small.part");
+        std::fs::write(&small, b"stale").unwrap();
+        let error = replay
+            .download_to("https://geo.example.org/big.zip", &small, 5, &mut |_| {})
+            .unwrap_err();
+        assert!(matches!(error, FetchError::TooLarge { .. }), "{error:?}");
+        assert!(!small.exists());
+        // An unrecorded URL is the error of the replay, and writes nothing.
+        let none = dir.path().join("none.part");
+        assert!(
+            replay
+                .download_to("https://geo.example.org/other.zip", &none, 100, &mut |_| {})
+                .is_err()
+        );
+        assert!(!none.exists());
     }
 }

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Tests of the engine's synthetic LVermGeo SH services (Schleswig-Holstein) against the
 //! reader in `freemapper-adapters-de`.
 

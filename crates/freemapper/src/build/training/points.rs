@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Step 7 of the training level: no point symbol is drawn on a way; a point that comes too
 //! close to a symbol it keeps apart from is moved off to the nearest spot that frees it (spec
 //! 2026-11-14, "Trees", for every point symbol).
@@ -420,7 +422,7 @@ mod tests {
             .footprint(0)
             .iter()
             .flat_map(|p| p.exterior().coords())
-            .map(|c| c.x.hypot(c.y))
+            .map(|c| (c.x * c.x + c.y * c.y).sqrt())
             .fold(0.0, f64::max)
     }
 
@@ -447,7 +449,7 @@ mod tests {
 
     fn shift(from: (f64, f64), to: &MapObject) -> f64 {
         let (x, y) = mm(to);
-        (x - from.0).hypot(y - from.1)
+        ((x - from.0) * (x - from.0) + (y - from.1) * (y - from.1)).sqrt()
     }
 
     /// The pairs that keep apart and come too close on `objects`.

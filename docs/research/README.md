@@ -10,6 +10,7 @@ Hier liegen die Recherchen, auf denen Entscheidungen und Pläne von freemapper b
 | [berlin-plus](berlin-plus/BERLIN-PLUS-REFERENCE.md) | Zusätzliche Berliner Geoportal-Daten für Sprintkarten | 9.11.2026 |
 | [baden-wuerttemberg](baden-wuerttemberg/BW-REFERENCE.md) | Datenquellen und Dienste für Baden-Württemberg. Der Adapter ist gebaut (ADR 0119); der geprüfte Stand mit dem Abschnitt „As built“ steht in [`docs/regions/baden-wuerttemberg-reference.md`](../regions/baden-wuerttemberg-reference.md) | 8.11.2026 |
 | [vegetation-leaf-off](vegetation-leaf-off/2026-11-14-thickets.md) | Dickichte in laublos geflogenen Punktwolken: Flugtage, Referenz aus Sommer-Luftbildern, Vergleich der Schwellen und Maße (Grundlage von ADR 0138) | 14.11.2026 |
+| [orienteering-specifications](orienteering-specifications.md) | Referenzliste der Normen zur Darstellung von OL-Karten (ISOM, ISSprOM, Schweizer und weitere Quellen) mit Lesestand, zitierten Regeln und der Stelle im Code, gegen die sie später verglichen werden | 26.11.2026 |
 | [gym](gym/GYM-REFERENCE.md) | Hallenkarten (Gym): Symbole, Geräte, Antworten von print und courseplan | 9.11.2026 |
 
-Der ISSprOM-Normtext und die IOF-Druckvorgaben liegen nicht im Repository, weil sie urheberrechtlich geschützt sind.
+Der Normtext von ISOM und ISSprOM und die IOF-Druckvorgaben liegen nicht im Repository, weil sie urheberrechtlich geschützt sind.

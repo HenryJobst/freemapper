@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gml:FeatureCollection xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:ot="urn:gugik:specyfikacje:gmlas:bazaDanychObiektowTopograficznych10k:2.0" gml:id="GUGiK_OT_BUBD_A" xsi:schemaLocation="urn:gugik:specyfikacje:gmlas:bazaDanychObiektowTopograficznych10k:2.0 ../XSD/BDOT10k_BDOO.xsd">
+	<gml:featureMember>
+		<ot:OT_BUBD_A gml:id="id_b5ddd52d-7c93-4530-8691-7b641590cb0f">
+			<ot:lokalnyId>b5ddd52d-7c93-4530-8691-7b641590cb0f</ot:lokalnyId>
+			<ot:zrodloDanychGeometrycznych>EGiB</ot:zrodloDanychGeometrycznych>
+			<ot:kategoriaIstnienia>eksploatowany</ot:kategoriaIstnienia>
+			<ot:kodKarto10k>0010_317_1</ot:kodKarto10k>
+			<ot:kodKst>110</ot:kodKst>
+			<ot:funkcjaOgolnaBudynku>budynki mieszkalne</ot:funkcjaOgolnaBudynku>
+			<ot:funkcjaSzczegolowaBudynku>budynek wielorodzinny</ot:funkcjaSzczegolowaBudynku>
+			<ot:przewazajacaFunkcjaBudynku>budynek wielorodzinny</ot:przewazajacaFunkcjaBudynku>
+			<ot:liczbaKondygnacji>5</ot:liczbaKondygnacji>
+			<ot:identyfikatorEGiB>080505_4.0001.638/14.1_BUD</ot:identyfikatorEGiB>
+			<ot:geometria>
+				<gml:Polygon gml:id="id-d6cdbadc-24ba-49c4-9afa-9d559b3392b9-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:exterior>
+						<gml:LinearRing>
+							<gml:posList>197974.21 507561.49 197969.74 507570.92 197971.17 507571.58 197972.22 507572.07 197972.26 507571.96 197978.05 507574.75 197980.77 507569.04 197981.86 507566.73 197982.49 507565.42 197974.21 507561.49</gml:posList>
+						</gml:LinearRing>
+					</gml:exterior>
+				</gml:Polygon>
+			</ot:geometria>
+		</ot:OT_BUBD_A>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_BUBD_A gml:id="id_2DDDAEB1-F90C-1ABF-E053-CC2BA8C0C90E">
+			<ot:lokalnyId>2DDDAEB1-F90C-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:zrodloDanychGeometrycznych>EGiB</ot:zrodloDanychGeometrycznych>
+			<ot:kategoriaIstnienia>eksploatowany</ot:kategoriaIstnienia>
+			<ot:kodKarto10k>0010_317_1</ot:kodKarto10k>
+			<ot:kodKst>110</ot:kodKst>
+			<ot:funkcjaOgolnaBudynku>budynki mieszkalne</ot:funkcjaOgolnaBudynku>
+			<ot:funkcjaSzczegolowaBudynku>budynek wielorodzinny</ot:funkcjaSzczegolowaBudynku>
+			<ot:przewazajacaFunkcjaBudynku>budynek wielorodzinny</ot:przewazajacaFunkcjaBudynku>
+			<ot:liczbaKondygnacji>4</ot:liczbaKondygnacji>
+			<ot:identyfikatorEGiB>080505_4.0001.508/3.1_BUD</ot:identyfikatorEGiB>
+			<ot:geometria>
+				<gml:Polygon gml:id="id-bfb1eed4-81ee-4e7f-bc90-a142f00bd0f6-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:exterior>
+						<gml:LinearRing>
+							<gml:posList>197600.08 507751.85 197587.69 507753.44 197590.32 507772.40 197592.42 507771.93 197602.38 507769.71 197600.08 507751.85</gml:posList>
+						</gml:LinearRing>
+					</gml:exterior>
+				</gml:Polygon>
+			</ot:geometria>
+		</ot:OT_BUBD_A>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_BUBD_A gml:id="id_2DDDAEB1-FA82-1ABF-E053-CC2BA8C0C90E">
+			<ot:lokalnyId>2DDDAEB1-FA82-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:zrodloDanychGeometrycznych>EGiB</ot:zrodloDanychGeometrycznych>
+			<ot:kategoriaIstnienia>eksploatowany</ot:kategoriaIstnienia>
+			<ot:kodKarto10k>0010_320_1</ot:kodKarto10k>
+			<ot:kodKst>105</ot:kodKst>
+			<ot:funkcjaOgolnaBudynku>budynki biurowe</ot:funkcjaOgolnaBudynku>
+			<ot:funkcjaSzczegolowaBudynku>siedziba firmy lub firm</ot:funkcjaSzczegolowaBudynku>
+			<ot:przewazajacaFunkcjaBudynku>siedziba firmy lub firm</ot:przewazajacaFunkcjaBudynku>
+			<ot:liczbaKondygnacji>2</ot:liczbaKondygnacji>
+			<ot:identyfikatorEGiB>080505_4.0001.523.1_BUD</ot:identyfikatorEGiB>
+			<ot:geometria>
+				<gml:Polygon gml:id="id-83708cc0-8d82-4cba-a90b-d56b7d80a651-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:exterior>
+						<gml:LinearRing>
+							<gml:posList>197633.04 507750.77 197620.01 507752.37 197620.90 507759.48 197620.63 507759.52 197620.72 507760.23 197620.37 507760.27 197619.56 507761.28 197619.82 507763.02 197620.88 507763.76 197621.22 507763.72 197621.32 507764.37 197621.59 507764.33 197622.11 507768.23 197630.22 507767.15 197630.39 507768.33 197635.50 507768.54 197633.04 507750.77</gml:posList>
+						</gml:LinearRing>
+					</gml:exterior>
+				</gml:Polygon>
+			</ot:geometria>
+		</ot:OT_BUBD_A>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_BUBD_A gml:id="id_2DDDAEB1-F648-1ABF-E053-CC2BA8C0C90E">
+			<ot:lokalnyId>2DDDAEB1-F648-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:zrodloDanychGeometrycznych>EGiB</ot:zrodloDanychGeometrycznych>
+			<ot:kategoriaIstnienia>eksploatowany</ot:kategoriaIstnienia>
+			<ot:kodKarto10k>0010_320_1</ot:kodKarto10k>
+			<ot:kodKst>103</ot:kodKst>
+			<ot:funkcjaOgolnaBudynku>budynki handlowo-usługowe</ot:funkcjaOgolnaBudynku>
+			<ot:funkcjaSzczegolowaBudynku>obiekt handlowo-usługowy</ot:funkcjaSzczegolowaBudynku>
+			<ot:przewazajacaFunkcjaBudynku>obiekt handlowo-usługowy</ot:przewazajacaFunkcjaBudynku>
+			<ot:liczbaKondygnacji>1</ot:liczbaKondygnacji>
+			<ot:identyfikatorEGiB>080505_4.0001.629/11.1_BUD</ot:identyfikatorEGiB>
+			<ot:geometria>
+				<gml:Polygon gml:id="id-f72fe80c-3a30-4a02-b3ed-3a743613b69e-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:exterior>
+						<gml:LinearRing>
+							<gml:posList>197810.57 507591.99 197806.80 507597.16 197814.45 507602.75 197818.23 507597.57 197810.57 507591.99</gml:posList>
+						</gml:LinearRing>
+					</gml:exterior>
+				</gml:Polygon>
+			</ot:geometria>
+		</ot:OT_BUBD_A>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_BUBD_A gml:id="id_b92a1684-333b-4c6e-8651-a3a3161bade4">
+			<ot:lokalnyId>b92a1684-333b-4c6e-8651-a3a3161bade4</ot:lokalnyId>
+			<ot:zrodloDanychGeometrycznych>EGiB</ot:zrodloDanychGeometrycznych>
+			<ot:kategoriaIstnienia>eksploatowany</ot:kategoriaIstnienia>
+			<ot:kodKarto10k>0010_318_1</ot:kodKarto10k>
+			<ot:kodKst>110</ot:kodKst>
+			<ot:funkcjaOgolnaBudynku>budynki mieszkalne</ot:funkcjaOgolnaBudynku>
+			<ot:funkcjaSzczegolowaBudynku>budynek jednorodzinny</ot:funkcjaSzczegolowaBudynku>
+			<ot:funkcjaSzczegolowaBudynku>obiekt handlowo-usługowy</ot:funkcjaSzczegolowaBudynku>
+			<ot:przewazajacaFunkcjaBudynku>budynek jednorodzinny</ot:przewazajacaFunkcjaBudynku>
+			<ot:liczbaKondygnacji>2</ot:liczbaKondygnacji>
+			<ot:identyfikatorEGiB>080505_4.0001.629/47.2_BUD</ot:identyfikatorEGiB>
+			<ot:geometria>
+				<gml:Polygon gml:id="id-8be572b2-a748-4578-919a-cee074daea01-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:exterior>
+						<gml:LinearRing>
+							<gml:posList>197892.31 507643.03 197888.08 507648.31 197888.21 507648.46 197888.09 507648.68 197888.72 507649.16 197891.04 507650.94 197893.42 507652.77 197895.87 507654.66 197904.58 507654.37 197904.49 507644.80 197898.48 507645.00 197892.31 507643.03</gml:posList>
+						</gml:LinearRing>
+					</gml:exterior>
+				</gml:Polygon>
+			</ot:geometria>
+		</ot:OT_BUBD_A>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_BUBD_A gml:id="id_2DDDAEB2-1794-1ABF-E053-CC2BA8C0C90E">
+			<ot:lokalnyId>2DDDAEB2-1794-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:kategoriaIstnienia>eksploatowany</ot:kategoriaIstnienia>
+			<ot:kodKarto10k>0010_320_1</ot:kodKarto10k>
+			<ot:kodKst>105</ot:kodKst>
+			<ot:funkcjaOgolnaBudynku>budynki biurowe</ot:funkcjaOgolnaBudynku>
+			<ot:funkcjaSzczegolowaBudynku>siedziba firmy lub firm</ot:funkcjaSzczegolowaBudynku>
+			<ot:przewazajacaFunkcjaBudynku>siedziba firmy lub firm</ot:przewazajacaFunkcjaBudynku>
+			<ot:liczbaKondygnacji>1</ot:liczbaKondygnacji>
+			<ot:geometria>
+				<gml:Polygon gml:id="id-4d771178-fe6f-4dfc-b8e2-b2d5861416fc-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:exterior>
+						<gml:LinearRing>
+							<gml:posList>197535.43 507508.49 197540.20 507510.09 197542.95 507501.48 197541.62 507501.03 197542.64 507498.03 197540.07 507497.14 197541.46 507493.17 197538.45 507492.07 197535.99 507499.08 197538.17 507499.84 197535.43 507508.49</gml:posList>
+						</gml:LinearRing>
+					</gml:exterior>
+				</gml:Polygon>
+			</ot:geometria>
+		</ot:OT_BUBD_A>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_BUBD_A gml:id="id_2DDDAEB2-1A45-1ABF-E053-CC2BA8C0C90E">
+			<ot:lokalnyId>2DDDAEB2-1A45-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:zrodloDanychGeometrycznych>EGiB</ot:zrodloDanychGeometrycznych>
+			<ot:kategoriaIstnienia>eksploatowany</ot:kategoriaIstnienia>
+			<ot:kodKarto10k>0010_320_1</ot:kodKarto10k>
+			<ot:kodKst>103</ot:kodKst>
+			<ot:funkcjaOgolnaBudynku>budynki handlowo-usługowe</ot:funkcjaOgolnaBudynku>
+			<ot:funkcjaSzczegolowaBudynku>stacja paliw</ot:funkcjaSzczegolowaBudynku>
+			<ot:przewazajacaFunkcjaBudynku>stacja paliw</ot:przewazajacaFunkcjaBudynku>
+			<ot:liczbaKondygnacji>1</ot:liczbaKondygnacji>
+			<ot:identyfikatorEGiB>080504_4.0257.1365.1_BUD</ot:identyfikatorEGiB>
+			<ot:geometria>
+				<gml:Polygon gml:id="id-47a460ab-f891-4bbb-ac71-fa0e8dc3342e-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:exterior>
+						<gml:LinearRing>
+							<gml:posList>217522.24 505224.14 217517.21 505224.40 217517.56 505231.85 217522.58 505231.61 217522.24 505224.14</gml:posList>
+						</gml:LinearRing>
+					</gml:exterior>
+				</gml:Polygon>
+			</ot:geometria>
+		</ot:OT_BUBD_A>
+	</gml:featureMember>
+</gml:FeatureCollection>

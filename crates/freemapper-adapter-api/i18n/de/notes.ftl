@@ -112,27 +112,30 @@ warning-permits-osm-no-extract = Für dieses Kartengebiet ist kein OSM-Auszug im
 
 ## ALKIS
 
-warning-alkis-coverage-unknown = Unbekannt, welches Gebiet die ALKIS-Gebäude abdecken; rufen Sie `freemapper fetch` mit Netzverbindung auf, damit es vermerkt wird
-progress-alkis-buildings-download = ALKIS-Gebäude werden geladen
+warning-alkis-coverage-unknown = Unbekannt, welches Gebiet die { $cadastre }-Gebäude abdecken; rufen Sie `freemapper fetch` mit Netzverbindung auf, damit es vermerkt wird
+progress-alkis-buildings-download = { $cadastre }-Gebäude werden geladen
 progress-alkis-buildings = { $count ->
-        [one] 1 ALKIS-Gebäude
-       *[other] { $count } ALKIS-Gebäude
+        [one] 1 { $cadastre }-Gebäude
+       *[other] { $count } { $cadastre }-Gebäude
     }
-warning-alkis-no-buildings = Im Kartengebiet wurden keine ALKIS-Gebäude gefunden
+warning-alkis-no-buildings = Im Kartengebiet wurden keine { $cadastre }-Gebäude gefunden
 progress-alkis-skipped = { $count ->
-        [one] 1 ALKIS-Objekt
-       *[other] { $count } ALKIS-Objekte
+        [one] 1 { $cadastre }-Objekt
+       *[other] { $count } { $cadastre }-Objekte
     } übersprungen: { $list }
-warning-alkis-buildings-changed = Die ALKIS-Gebäude haben sich beim Anbieter geändert ({ $changes })
-progress-alkis-no-land-use-stored = Keine ALKIS-Nutzung gespeichert; rufen Sie `freemapper fetch` mit Netzverbindung auf, um Kandidaten für verbotene Gebiete zu erhalten
-progress-alkis-land-use-download = ALKIS-Nutzung wird geladen
+warning-alkis-buildings-changed = Die { $cadastre }-Gebäude haben sich beim Anbieter geändert ({ $changes })
+progress-alkis-no-land-use-stored = Keine { $cadastre }-Nutzung gespeichert; rufen Sie `freemapper fetch` mit Netzverbindung auf, um Kandidaten für verbotene Gebiete zu erhalten
+progress-alkis-land-use-download = { $cadastre }-Nutzung wird geladen
 progress-alkis-land-use-parts = { $count ->
-        [one] 1 ALKIS-Nutzungsfläche
-       *[other] { $count } ALKIS-Nutzungsflächen
+        [one] 1 { $cadastre }-Nutzungsfläche
+       *[other] { $count } { $cadastre }-Nutzungsflächen
     }
-warning-alkis-land-use-kept = ALKIS-Nutzung nicht verfügbar ({ $error }); die gespeicherte Nutzung bleibt
-warning-alkis-land-use-removed = ALKIS-Nutzung nicht verfügbar ({ $error }); die gespeicherte Nutzung deckt das Kartengebiet nicht mehr ab, freemapper hat sie deshalb entfernt
-warning-alkis-land-use-none = ALKIS-Nutzung nicht verfügbar ({ $error }); keine Kandidaten für verbotene Gebiete
+warning-alkis-land-use-kept = { $cadastre }-Nutzung nicht verfügbar ({ $error }); die gespeicherte Nutzung bleibt
+warning-alkis-land-use-removed = { $cadastre }-Nutzung nicht verfügbar ({ $error }); die gespeicherte Nutzung deckt das Kartengebiet nicht mehr ab, freemapper hat sie deshalb entfernt
+warning-alkis-land-use-none = { $cadastre }-Nutzung nicht verfügbar ({ $error }); keine Kandidaten für verbotene Gebiete
+progress-bdot-filled = { $count } { $what } aus BDOT10k ergänzt, wo EGiB keine liefert ({ $powiat })
+warning-bdot-failed = BDOT10k konnte die Lücke in EGiB nicht füllen ({ $what }): { $error }
+warning-bdot-instead = EGiB ist nicht erreichbar ({ $error }); stattdessen { $what } aus BDOT10k ({ $powiat })
 
 ## Die Berliner Ebenen
 
@@ -154,6 +157,15 @@ progress-feinkartierung-features = { $count ->
     } der Feinkartierung { $file }
 warning-feinkartierung-layer-kept = Feinkartierung { $file } nicht verfügbar ({ $detail }); die gespeicherte Ebene bleibt
 warning-feinkartierung-layer-skipped = Feinkartierung { $file } nicht verfügbar ({ $detail }); Ebene übersprungen
+progress-bdot-roads-none-stored = Keine BDOT10k-Straßen und -Wege gespeichert; rufen Sie `freemapper fetch` mit Netzverbindung auf, um die Straßen und Wege des Registers zu erhalten
+progress-bdot-roads-removing = Die gespeicherten BDOT10k-Straßen und -Wege werden entfernt: Das Kartengebiet liegt nicht mehr in Polen
+progress-bdot-roads-download = Die BDOT10k-Straßen und -Wege werden geladen
+progress-bdot-roads-features = { $count ->
+        [one] 1 Objekt
+       *[other] { $count } Objekte
+    } der BDOT10k-Ebene { $file }
+warning-bdot-roads-layer-kept = BDOT10k { $file } nicht verfügbar ({ $detail }); die gespeicherte Ebene bleibt
+warning-bdot-roads-layer-skipped = BDOT10k { $file } nicht verfügbar ({ $detail }); Ebene übersprungen
 error-extra-layer-unknown = keine Ebene von { $folder }
 warning-berlin-buildings-missing = Für dieses Gebiet in Berlin sind keine ALKIS-Gebäude gespeichert; rufen Sie `freemapper fetch` auf, um sie vom Geoportal Berlin zu laden
 
@@ -212,6 +224,7 @@ warning-trees-skipped = Baumkataster { $id } nicht verfügbar ({ $detail }); Bä
 
 progress-writing = { $path } wird geschrieben
 progress-contours-steep = Höhenlinien alle { $interval } m: Das Gelände ist so steil, dass Linien alle { $default } m zusammenlaufen würden; mit einer Äquidistanz von { $default } m im Projekt bleiben sie (`--contour-interval { $default }`)
+warning-osm-only-no-terrain = Für diese Region gibt es noch keine Geländedaten: Die Karte entsteht allein aus OpenStreetMap, ohne Höhenlinien, Vorlagen und Gebäude
 progress-no-ndsm-recorded = Kein nDSM vermerkt; rufen Sie `freemapper fetch` auf, um die nDSM-Vorlage zu erhalten
 warning-ndsm-tile-invalid = Ungültige nDSM-Kachel { $tile } in freemapper.toml; übersprungen
 warning-ndsm-not-cached = nDSM { $tile } liegt nicht im Zwischenspeicher; rufen Sie `freemapper fetch` auf
@@ -221,6 +234,7 @@ warning-surface-unusable = Oberflächenmodell nicht verwendbar ({ $error }); ruf
 ## Downloads und der Zwischenspeicher
 
 progress-downloading = { $url } wird geladen
+progress-retry-wait = Der Dienst ist ausgelastet; neuer Versuch in { $seconds } s
 progress-downloaded = { $megabytes } MB geladen
 progress-downloaded-of = { $megabytes } MB von { $total } MB geladen
 progress-tile-index-download = Kachelübersicht für { $product } wird geladen

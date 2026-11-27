@@ -1,14 +1,18 @@
-//! Drawing primitives as a one-page PDF: DeviceCMYK colours, painted by colour priority, texts in
-//! the standard fonts Helvetica / Helvetica-Bold with WinAnsi encoding. Paths go through the
-//! compact path writer of freemapper-core (`freemapper_render::pdf_path`, core ADR 0033).
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
+//! Drawing primitives as a one-page PDF: DeviceCMYK colours, painted by colour priority, texts in
+//! the font Arimo, embedded as a subset by freemapper-core (`freemapper_render::fonts`, core ADR
+//! 0045), so letters beyond WinAnsi such as ł, č or ő are shown. Paths go through the compact path
+//! writer of freemapper-core (`freemapper_render::pdf_path`, core ADR 0033).
+
+use freemapper_render::fonts::{PageFonts, face};
+use freemapper_render::pdf::PdfError;
 use freemapper_render::pdf_path::{Paint, write_path};
 use pdf_writer::types::{LineCapStyle, LineJoinStyle};
-use pdf_writer::{Content, Filter, Finish, Name, Pdf, Rect, Ref, Str, TextStr};
+use pdf_writer::{Content, Filter, Finish, Pdf, Rect, Ref, Str, TextStr};
 
 use super::draw::{Primitive, Shape};
 use super::geometry::Pt;
-use super::metrics::win_ansi;
 use super::symbols::{Cap, Join, RenderColour};
 
 /// Points per millimetre.
@@ -107,7 +111,13 @@ fn path(content: &mut Content, t: &Transform, rings: &[&[Pt]], closed: bool, pai
     let _ = write_path(content, &rings, closed, paint);
 }
 
-fn paint(content: &mut Content, t: &Transform, p: &Primitive, colours: &[RenderColour]) {
+fn paint(
+    content: &mut Content,
+    fonts: &mut PageFonts,
+    t: &Transform,
+    p: &Primitive,
+    colours: &[RenderColour],
+) {
     let [c, m, y, k] = colours
         .iter()
         .find(|c| c.priority == p.priority)
@@ -148,13 +158,11 @@ fn paint(content: &mut Content, t: &Transform, p: &Primitive, colours: &[RenderC
             text,
         } => {
             let (x, y0) = t.pt(*origin);
-            let bytes: Vec<u8> = text.chars().map(win_ansi).collect();
+            let font = face(*bold, false);
+            let bytes = fonts.encode(font, text);
             content.set_fill_cmyk(c, m, y, k);
             content.begin_text();
-            content.set_font(
-                Name(if *bold { b"F2" } else { b"F1" }),
-                (size * PT_PER_MM) as f32,
-            );
+            content.set_font(PageFonts::resource_name(font), (size * PT_PER_MM) as f32);
             content.set_text_matrix([1.0, 0.0, 0.0, 1.0, x, y0]);
             content.show(Str(&bytes));
             content.end_text();
@@ -162,14 +170,15 @@ fn paint(content: &mut Content, t: &Transform, p: &Primitive, colours: &[RenderC
     }
 }
 
-/// The PDF of `map` primitives (clipped to `clip`) and `sheet` primitives (not clipped).
+/// The PDF of `map` primitives (clipped to `clip`) and `sheet` primitives (not clipped). It fails
+/// only when the subsets of the bundled font cannot be written, which is a bug.
 pub fn write_pdf(
     map: &[Primitive],
     sheet: &[Primitive],
     clip: PaperBox,
     colours: &[RenderColour],
     title: &str,
-) -> Vec<u8> {
+) -> Result<Vec<u8>, PdfError> {
     let content_box = sheet.iter().filter_map(bounds).fold(clip, union);
     let (width, height) = (
         content_box.max.0 - content_box.min.0,
@@ -194,6 +203,7 @@ pub fn write_pdf(
     items.sort_by_key(|(p, _)| std::cmp::Reverse(p.priority));
 
     let mut content = Content::new();
+    let mut fonts = PageFonts::new();
     let (cx0, cy0) = t.pt((clip.min.0, clip.max.1));
     let (cx1, cy1) = t.pt((clip.max.0, clip.min.1));
     // One clip block for each run of consecutive map primitives.
@@ -208,21 +218,21 @@ pub fn write_pdf(
             content.restore_state();
         }
         clipping = clipped;
-        paint(&mut content, &t, primitive, colours);
+        paint(&mut content, &mut fonts, &t, primitive, colours);
     }
     if clipping {
         content.restore_state();
     }
 
-    let (catalog, pages, page, contents, regular, bold, info) = (
+    let (catalog, pages, page, contents, info) = (
         Ref::new(1),
         Ref::new(2),
         Ref::new(3),
         Ref::new(4),
         Ref::new(5),
-        Ref::new(6),
-        Ref::new(7),
     );
+    let mut next = Ref::new(6);
+    let font_objects = fonts.finish(&mut next);
     let mut pdf = Pdf::new();
     pdf.catalog(catalog).pages(pages);
     pdf.pages(pages).kids([page]).count(1);
@@ -235,16 +245,14 @@ pub fn write_pdf(
     ));
     p.parent(pages);
     p.contents(contents);
-    p.resources()
-        .fonts()
-        .pair(Name(b"F1"), regular)
-        .pair(Name(b"F2"), bold);
-    p.finish();
-    for (id, name) in [(regular, &b"Helvetica"[..]), (bold, &b"Helvetica-Bold"[..])] {
-        pdf.type1_font(id)
-            .base_font(Name(name))
-            .encoding_predefined(Name(b"WinAnsiEncoding"));
+    let mut resources = p.resources();
+    let mut font_dict = resources.fonts();
+    for (name, font) in font_objects.resources() {
+        font_dict.pair(name, font);
     }
+    font_dict.finish();
+    resources.finish();
+    p.finish();
     let compressed = miniz_oxide::deflate::compress_to_vec_zlib(&content.finish(), 6);
     pdf.stream(contents, &compressed)
         .filter(Filter::FlateDecode);
@@ -253,7 +261,125 @@ pub fn write_pdf(
         .creator(TextStr(
             "freemapper – https://github.com/HenryJobst/freemapper",
         ));
-    pdf.finish()
+    // After the content stream: the first stream of the file stays the page content.
+    font_objects.write(&mut pdf)?;
+    Ok(pdf.finish())
+}
+
+/// The text a PDF written by [`write_pdf`] shows, one line for each shown string (for tests). The
+/// glyph ids of the content are read back to characters through the `ToUnicode` table of the font
+/// each string is set in.
+#[cfg(test)]
+pub(crate) fn shown_text(pdf: &[u8]) -> String {
+    use std::collections::HashMap;
+
+    fn find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+        haystack.windows(needle.len()).position(|w| w == needle)
+    }
+    /// The number that follows `marker` in `haystack`, after spaces.
+    fn number_after(haystack: &[u8], marker: &[u8]) -> Option<u32> {
+        let rest = &haystack[find(haystack, marker)? + marker.len()..];
+        let digits: Vec<u8> = rest
+            .iter()
+            .skip_while(|b| **b == b' ' || **b == b'\n')
+            .take_while(|b| b.is_ascii_digit())
+            .copied()
+            .collect();
+        String::from_utf8(digits).ok()?.parse().ok()
+    }
+    /// The body of the object `number` (between `obj` and `endobj`).
+    fn object(pdf: &[u8], number: u32) -> &[u8] {
+        let head = format!("\n{number} 0 obj");
+        let from = find(pdf, head.as_bytes()).expect("object") + head.len();
+        let len = find(&pdf[from..], b"endobj").expect("end of object");
+        &pdf[from..from + len]
+    }
+    /// glyph id → character of the font the resource `name` (with its `/`) stands for.
+    fn table(pdf: &[u8], name: &[u8]) -> HashMap<u16, char> {
+        let font = number_after(pdf, &[name, b" "].concat()).expect("font resource");
+        let to_unicode =
+            number_after(object(pdf, font), b"/ToUnicode").expect("ToUnicode of the font");
+        let body = object(pdf, to_unicode);
+        let start = find(body, b"stream\n").expect("stream") + 7;
+        let end = find(body, b"\nendstream").expect("end of stream");
+        let cmap =
+            miniz_oxide::inflate::decompress_to_vec_zlib(&body[start..end]).expect("FlateDecode");
+        let text = String::from_utf8_lossy(&cmap);
+        let section = text
+            .split("beginbfchar")
+            .nth(1)
+            .and_then(|s| s.split("endbfchar").next())
+            .unwrap_or("");
+        let hex: Vec<u32> = section
+            .split(['<', '>'])
+            .filter_map(|t| u32::from_str_radix(t.trim(), 16).ok())
+            .collect();
+        hex.chunks(2)
+            .filter_map(|pair| Some((u16::try_from(pair[0]).ok()?, char::from_u32(*pair.get(1)?)?)))
+            .collect()
+    }
+    /// The bytes of a string operand, literal or hexadecimal.
+    fn string_bytes(operand: &[u8]) -> Vec<u8> {
+        if operand.first() == Some(&b'<') {
+            let digits: Vec<u8> = operand[1..operand.len() - 1].to_vec();
+            return digits
+                .chunks(2)
+                .map(|d| u8::from_str_radix(std::str::from_utf8(d).unwrap_or("0"), 16).unwrap_or(0))
+                .collect();
+        }
+        let inner = &operand[1..operand.len() - 1];
+        let mut out = Vec::new();
+        let mut i = 0;
+        while i < inner.len() {
+            if inner[i] != b'\\' {
+                out.push(inner[i]);
+                i += 1;
+                continue;
+            }
+            i += 1;
+            match inner[i] {
+                b'n' => out.push(b'\n'),
+                b'r' => out.push(b'\r'),
+                b't' => out.push(b'\t'),
+                b'b' => out.push(8),
+                b'f' => out.push(12),
+                d if d.is_ascii_digit() => {
+                    let mut value = 0u32;
+                    let mut taken = 0;
+                    while taken < 3 && i < inner.len() && inner[i].is_ascii_digit() {
+                        value = value * 8 + u32::from(inner[i] - b'0');
+                        i += 1;
+                        taken += 1;
+                    }
+                    out.push(value as u8);
+                    continue;
+                }
+                other => out.push(other),
+            }
+            i += 1;
+        }
+        out
+    }
+
+    let content = content_of(pdf);
+    let mut tables: HashMap<Vec<u8>, HashMap<u16, char>> = HashMap::new();
+    let mut font: Vec<u8> = Vec::new();
+    let mut shown = String::new();
+    for line in content.split(|b| *b == b'\n') {
+        if let Some(rest) = line.strip_suffix(b" Tf") {
+            font = rest.split(|b| *b == b' ').next().unwrap_or(&[]).to_vec();
+        } else if let Some(operand) = line.strip_suffix(b" Tj") {
+            let glyphs = tables
+                .entry(font.clone())
+                .or_insert_with(|| table(pdf, &font));
+            for pair in string_bytes(operand).chunks(2) {
+                let id = u16::from_be_bytes([pair[0], *pair.get(1).unwrap_or(&0)]);
+                shown.push(glyphs.get(&id).copied().unwrap_or('\u{FFFD}'));
+            }
+            shown.push('\n');
+        }
+    }
+    shown
 }
 
 /// The decompressed page content of a PDF written by [`write_pdf`] (for tests).
@@ -268,6 +394,17 @@ pub(crate) fn content_of(pdf: &[u8]) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// [`super::write_pdf`] for a test: the bundled font is always written.
+    fn write_pdf(
+        map: &[Primitive],
+        sheet: &[Primitive],
+        clip: PaperBox,
+        colours: &[RenderColour],
+        title: &str,
+    ) -> Vec<u8> {
+        super::write_pdf(map, sheet, clip, colours, title).expect("the PDF is written")
+    }
 
     fn colours() -> Vec<RenderColour> {
         vec![
@@ -352,22 +489,38 @@ mod tests {
     }
 
     #[test]
-    fn text_is_win_ansi_with_helvetica() {
-        let text = Primitive {
+    fn text_is_embedded_arimo_with_the_letters_winansi_lacks() {
+        let text = |size: f64, bold: bool, text: &str| Primitive {
             priority: 2,
             shape: Shape::Text {
                 origin: (10.0, 10.0),
-                size: 2.5,
-                bold: true,
-                text: "Maßstab ©".into(),
+                size,
+                bold,
+                text: text.into(),
             },
         };
-        let pdf = write_pdf(&[], &[text], clip(), &colours(), "Test");
-        assert!(find(&pdf, b"/Helvetica-Bold").is_some());
-        assert!(find(&pdf, b"/WinAnsiEncoding").is_some());
-        let pdf = content_of(&pdf);
-        // ß = 0xDF, © = 0xA9 in WinAnsi.
-        assert!(find(&pdf, b"<4D61DF7374616220A9> Tj").is_some());
+        let pdf = write_pdf(
+            &[],
+            &[
+                text(2.5, true, "Słubice ©"),
+                text(2.0, false, "Říčany Šiauliai"),
+            ],
+            clip(),
+            &colours(),
+            "Test",
+        );
+        assert!(find(&pdf, b"/Identity-H").is_some(), "Type0 font");
+        assert!(find(&pdf, b"Arimo").is_some(), "Arimo is embedded");
+        assert!(find(&pdf, b"/Helvetica").is_none(), "no standard font");
+        assert!(find(&pdf, b"/WinAnsiEncoding").is_none());
+        // Read back through the ToUnicode table: the letters themselves are shown.
+        let shown = shown_text(&pdf);
+        assert!(shown.contains("Słubice ©"), "{shown:?}");
+        assert!(shown.contains("Říčany Šiauliai"), "{shown:?}");
+        // The size is set in points: 2.5 mm and 2 mm.
+        let content = content_of(&pdf);
+        assert!(find(&content, b"7.086614 Tf").is_some(), "2.5 mm in points");
+        assert!(find(&content, b"5.66929").is_some(), "2 mm in points");
     }
 
     #[test]

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Lines of one symbol that meet end to end are joined into one object, so a dash pattern runs
 //! through the joint and short pieces stop being objects of their own.
 //!

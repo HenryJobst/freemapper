@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Middle lines and offsets for the training level (spec 2026-11-14, "The second half, as
 //! designed on 2026-11-15"): the geometry with which two lines side by side become their middle
 //! and a stretch of a line moves away from another. Paper mm, y down, as `conflicts::Footprints`

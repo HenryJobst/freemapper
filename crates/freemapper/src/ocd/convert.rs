@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! A freemapper map document as an OCAD 12 file (`docs/ocad/ocd12-reference.md`).
 //!
 //! OCAD has no grid scale factor, so every coordinate is re-projected: paper → EPSG:25833 with the
@@ -6,8 +8,8 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use super::file::{
-    OcdBuildError, OcdBuilder, OcdCoord, OcdObject, OcdObjectKind, OcdSymbol, TextAlign, X_CURVE_1,
-    X_CURVE_2, Y_HOLE,
+    OcdBuildError, OcdBuilder, OcdCoord, OcdObject, OcdObjectKind, OcdSymbol, OcdSymbolKind,
+    TextAlign, X_CURVE_1, X_CURVE_2, Y_HOLE,
 };
 use super::symbols::{Numbers, Placeholder, PlaceholderKind, ascii, colours, placeholders};
 use crate::crs::ProjectedPoint;
@@ -169,14 +171,43 @@ fn symbol_table(
             };
             let number = numbers.assign(&placeholder.code, kind);
             table.numbers.insert((id, align), number);
+            let mut ocd_kind = placeholder.kind.ocd_kind(align);
+            let icon_color = icon_colors
+                .get(&placeholder.kind.color())
+                .copied()
+                .unwrap_or(0);
+            // OCAD has no combined symbols: an outline is a line symbol of its own, which the
+            // area names as its border. It takes the next free number.
+            if let (
+                PlaceholderKind::Area {
+                    border: Some(border),
+                    ..
+                },
+                OcdSymbolKind::Area { border: slot, .. },
+            ) = (&placeholder.kind, &mut ocd_kind)
+            {
+                let border_number = numbers.assign(&placeholder.code, kind);
+                *slot = Some(border_number);
+                table.symbols.push(OcdSymbol {
+                    number: border_number,
+                    name: format!("{} border", placeholder.name)
+                        .chars()
+                        .take(63)
+                        .collect(),
+                    kind: OcdSymbolKind::Line {
+                        color: border.color,
+                        width: border.width,
+                        dash: border.dash,
+                        double: None,
+                    },
+                    icon_color: icon_colors.get(&border.color).copied().unwrap_or(0),
+                });
+            }
             table.symbols.push(OcdSymbol {
                 number,
                 name: placeholder.name.chars().take(63).collect(),
-                kind: placeholder.kind.ocd_kind(align),
-                icon_color: icon_colors
-                    .get(&placeholder.kind.color())
-                    .copied()
-                    .unwrap_or(0),
+                kind: ocd_kind,
+                icon_color,
             });
         }
     }
@@ -397,11 +428,13 @@ fn background_string(
 }
 
 /// OCAD's grid and zone code (`grid × 1000 + zone`, grid 8 = ETRS89/UTM, Germany), as in OOM's
-/// `ocd_georef_fields.cpp`: zone 32N 8007, zone 33N 8008.
+/// `ocd_georef_fields.cpp`: zone 32N 8007, zone 33N 8008, zone 34N 8009 (the code follows the zone minus 25;
+/// not checked in OCAD yet, like the rest of the OCAD output).
 fn ocad_grid_code(crs: crate::crs::Crs) -> u32 {
     match crs {
         crate::crs::Crs::Utm32 => 8007,
         crate::crs::Crs::Utm33 => 8008,
+        crate::crs::Crs::Utm34 => 8009,
     }
 }
 
@@ -450,7 +483,18 @@ pub fn map_to_ocd(
         objects.extend(converted);
     }
     // Only symbols that objects use: a placeholder without objects would only clutter OCAD's list.
-    let used: BTreeSet<i32> = objects.iter().map(|o| o.symbol).collect();
+    let mut used: BTreeSet<i32> = objects.iter().map(|o| o.symbol).collect();
+    // An area's outline is used wherever the area is.
+    let borders: Vec<i32> = table
+        .symbols
+        .iter()
+        .filter(|s| used.contains(&s.number))
+        .filter_map(|s| match s.kind {
+            OcdSymbolKind::Area { border, .. } => border,
+            _ => None,
+        })
+        .collect();
+    used.extend(borders);
     for symbol in table.symbols.iter().filter(|s| used.contains(&s.number)) {
         builder.add_symbol(symbol.clone())?;
     }
@@ -487,6 +531,14 @@ pub fn map_to_ocd(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ocad_grid_code_follows_the_utm_zone() {
+        use crate::crs::Crs;
+        for (crs, code) in [(Crs::Utm32, 8007), (Crs::Utm33, 8008), (Crs::Utm34, 8009)] {
+            assert_eq!(ocad_grid_code(crs), code);
+        }
+    }
     use crate::crs::LatLon;
     use crate::ocd::read::{ReadFile, read};
     use crate::omap::{MapPart, SymbolSet, closed_ring};
@@ -648,6 +700,23 @@ mod tests {
             .map(|(i, _)| i)
             .collect();
         assert_eq!(holes, [5]);
+    }
+
+    #[test]
+    fn a_building_names_its_outline_as_the_border_symbol() {
+        let (file, _) = convert(vec![path("521", closed_ring(&square(0, 0, 10_000)))]);
+        let area = file.symbols.iter().find(|s| s.number == 521_000).unwrap();
+        let border_sym = i32::from_le_bytes(area.bytes[796..800].try_into().unwrap());
+        // BorderOn follows FillOn.
+        assert_eq!(area.bytes[815], 1);
+        let border = file
+            .symbols
+            .iter()
+            .find(|s| s.number == border_sym)
+            .unwrap();
+        assert_eq!((border.otp, border.name.as_str()), (2, "Building border"));
+        // The outline symbol has no objects of its own and stays in the file only for the area.
+        assert!(file.objects.iter().all(|o| o.symbol == 521_000));
     }
 
     #[test]

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Landform candidates from the DTM: small knolls, small depressions, earth banks and cliffs.
 //!
 //! Contours at 2 m (sprint) or 1 m (schoolyard) miss the small forms of a park: a play mound, a
@@ -5,11 +7,11 @@
 //! a top, cliffs as height jumps) and omapmaker (drop measured across the steep part, the low
 //! side decides the ticks); the code is our own. Everything here is a candidate (spec §4.5).
 
-use geo::{Area as _, Contains as _, Simplify as _};
+use geo::{Area as _, Contains as _, Length as _, Simplify as _};
 
 use super::contours::{contour_lines, gaussian_smooth};
 use super::terrain::gradient;
-use crate::measure::{SymbolMm, SymbolScale};
+use crate::measure::{PaperMm2, SymbolMm, SymbolScale, metres_per_mm};
 use crate::raster::{GridSpec, Raster};
 
 /// Smoothing before knolls and depressions are looked for: DGM1 noise makes false tops.
@@ -32,6 +34,16 @@ const ELONGATED_ASPECT: f64 = 1.5;
 /// Gradient from which a cell is steep (about 27°): DGM1 at 1 m blurs a bank over 2 to 3 cells,
 /// so a 45° bank of 1.5 m comes out at about 30°.
 const STEEP_GRADIENT: f64 = 0.5;
+/// The default gradient of 0.5 as a slope angle, for the texts (26.6°).
+pub const DEFAULT_STEEP_SLOPE_DEG: f64 = 26.57;
+/// The steep slope a person may set (ADR 0198): below it banks run together with every gentle
+/// slope, above it nothing is left.
+pub const STEEP_SLOPE_RANGE_DEG: std::ops::RangeInclusive<f64> = 15.0..=80.0;
+
+/// The gradient from which a cell is steep for a slope angle in degrees; `None` is the default.
+pub fn steep_gradient(slope_deg: Option<f64>) -> f64 {
+    slope_deg.map_or(STEEP_GRADIENT, |deg| deg.to_radians().tan())
+}
 /// The drop of a steep cell is measured this far up and down the slope.
 const DROP_REACH_M: f64 = 3.0;
 /// A bank holds most of the drop of twice the reach; a plain slope only half.
@@ -53,6 +65,9 @@ const CLIFF_DROP_M: f64 = 3.0;
 const MAX_OFF_LINE_M: f64 = 2.0;
 /// From this share of cells rising to each side of the axis, a patch is two banks back to back.
 const TWO_SIDED_SHARE: f64 = 0.3;
+/// A bank or cliff runs along the contours: a line whose segments lie on average closer than this
+/// (cosine of 55°) to the fall line is the centre line of a steep patch that is no wall.
+const MAX_FALL_LINE_COS: f64 = 0.57;
 /// How often a patch is split at most.
 const MAX_SPLIT_DEPTH: u32 = 6;
 
@@ -64,6 +79,9 @@ pub enum LandformKind {
     Depression,
     Bank,
     Cliff,
+    /// A rock face seen from above: the plan shape of a gigantic boulder, a rock pillar or a
+    /// massive cliff (ISOM 206), an area.
+    RockFace,
 }
 
 impl LandformKind {
@@ -75,6 +93,7 @@ impl LandformKind {
             Self::Depression => "depression",
             Self::Bank => "bank",
             Self::Cliff => "cliff",
+            Self::RockFace => "rock-face",
         }
     }
 
@@ -85,6 +104,7 @@ impl LandformKind {
             Self::Depression,
             Self::Bank,
             Self::Cliff,
+            Self::RockFace,
         ]
         .into_iter()
         .find(|k| k.name() == name)
@@ -94,10 +114,15 @@ impl LandformKind {
     pub fn is_point(self) -> bool {
         matches!(self, Self::Knoll | Self::ElongatedKnoll | Self::Depression)
     }
+
+    /// An area symbol, whose points are a closed ring.
+    pub fn is_area(self) -> bool {
+        self == Self::RockFace
+    }
 }
 
 /// One landform candidate in the map's CRS. A point kind has one point, a line kind runs with
-/// its lower side on the right.
+/// its lower side on the right, an area kind is a closed ring.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Landform {
     pub kind: LandformKind,
@@ -301,7 +326,12 @@ fn cell_centre(grid: &GridSpec, x: i64, y: i64) -> (f64, f64) {
 
 /// Earth banks and cliffs: steep, long and narrow patches of the DTM whose drop is at least
 /// `min_height_m` and lies mostly within the patch.
-pub fn height_jumps(dtm: &Raster<f32>, scale: SymbolScale, min_height_m: f64) -> Vec<Landform> {
+pub fn height_jumps(
+    dtm: &Raster<f32>,
+    scale: SymbolScale,
+    min_height_m: f64,
+    steep_gradient: f64,
+) -> Vec<Landform> {
     let grid = dtm.grid;
     let (w, h) = (grid.width as usize, grid.height as usize);
     let px = grid.pixel_size;
@@ -316,7 +346,7 @@ pub fn height_jumps(dtm: &Raster<f32>, scale: SymbolScale, min_height_m: f64) ->
         .collect();
     let steep: Vec<bool> = gradients
         .iter()
-        .map(|g| g.is_some_and(|(de, dn)| de.hypot(dn) >= STEEP_GRADIENT))
+        .map(|g| g.is_some_and(|(de, dn)| de.hypot(dn) >= steep_gradient))
         .collect();
     let min_length_m = MIN_BANK_MM.metres(scale).max(MIN_BANK_M);
     // The height at a point, `None` off the raster or on a cell without data.
@@ -373,6 +403,9 @@ pub fn height_jumps(dtm: &Raster<f32>, scale: SymbolScale, min_height_m: f64) ->
         let mut pieces = Vec::new();
         bank_pieces(&uphill, &grid, min_length_m, 0, &mut pieces);
         for (points, uphill) in pieces {
+            if runs_down_the_slope(&points, &gradients, &steep, &grid) {
+                continue;
+            }
             // The ticks sit on the right of the line and point down: the low side on the right.
             let (first, last) = (points[0], points[points.len() - 1]);
             let direction = (last.0 - first.0, last.1 - first.1);
@@ -395,6 +428,54 @@ pub fn height_jumps(dtm: &Raster<f32>, scale: SymbolScale, min_height_m: f64) ->
         }
     }
     jumps
+}
+
+/// Whether the line `points` runs more down the slope than along the contours: sampled about every
+/// metre, the length-weighted mean of the cosine between the line and the fall line of the
+/// terrain around that point (the mean direction of the 5 × 5 cells there, `steep` ones only;
+/// samples without a steep cell around do not count) exceeds [`MAX_FALL_LINE_COS`]. The mean direction keeps the ragged cells of a real bank from
+/// deciding.
+fn runs_down_the_slope(
+    points: &[(f64, f64)],
+    gradients: &[Option<(f64, f64)>],
+    steep: &[bool],
+    grid: &GridSpec,
+) -> bool {
+    const REACH: i64 = 2;
+    let (w, h) = (grid.width as i64, grid.height as i64);
+    let (mut along, mut samples) = (0.0, 0.0);
+    for pair in points.windows(2) {
+        let (dx, dy) = (pair[1].0 - pair[0].0, pair[1].1 - pair[0].1);
+        let length = dx.hypot(dy);
+        if length == 0.0 {
+            continue;
+        }
+        let steps = length.ceil().max(1.0) as usize;
+        for i in 0..=steps {
+            let t = i as f64 / steps as f64;
+            let (px, py) = (pair[0].0 + dx * t, pair[0].1 + dy * t);
+            let x = ((px - grid.west) / grid.pixel_size).floor() as i64;
+            let y = ((grid.north - py) / grid.pixel_size).floor() as i64;
+            let mut mean = (0.0, 0.0);
+            for yy in (y - REACH).max(0)..=(y + REACH).min(h - 1) {
+                for xx in (x - REACH).max(0)..=(x + REACH).min(w - 1) {
+                    let cell = (yy * w + xx) as usize;
+                    let Some((ge, gn)) = gradients[cell].filter(|_| steep[cell]) else {
+                        continue;
+                    };
+                    let norm = ge.hypot(gn);
+                    mean = (mean.0 + ge / norm, mean.1 + gn / norm);
+                }
+            }
+            let norm = mean.0.hypot(mean.1);
+            if norm == 0.0 {
+                continue;
+            }
+            along += (dx * mean.0 + dy * mean.1).abs() / (length * norm);
+            samples += 1.0;
+        }
+    }
+    along > MAX_FALL_LINE_COS * samples
 }
 
 /// The 8-connected steep cells around `start`, marking them seen.
@@ -554,6 +635,67 @@ fn centre_line(cells: &[usize], grid: &GridSpec, min_length_m: f64) -> Option<Ve
     (line.0.len() >= 2).then(|| line.0.iter().map(|c| (c.x, c.y)).collect())
 }
 
+/// The default slope from which the ground is a rock face (degrees).
+pub const DEFAULT_FACE_SLOPE_DEG: f64 = 70.0;
+/// The face slope a person may set (ADR 0200): below 55° the faces swallow ordinary steep
+/// slopes, above 85° hardly any ground is left.
+pub const FACE_SLOPE_RANGE_DEG: std::ops::RangeInclusive<f64> = 55.0..=85.0;
+/// ISOM 2017-2, 206: the minimum area (mm² on the map) and the minimum width (mm).
+const MIN_FACE_MM2: f64 = 0.3;
+const MIN_FACE_WIDTH_MM: f64 = 0.25;
+const FACE_SIMPLIFY_M: f64 = 0.5;
+
+/// The rock faces: patches of the DTM at least `face_slope_deg` steep, traced as rings at the
+/// slope contour, at least 0.3 mm² and 0.25 mm wide on the map (ISOM 206). A patch that lies
+/// partly off the raster or beside cells without data is left out, and a ring inside a patch (a
+/// hollow in a wall) is filled.
+pub fn rock_faces(dtm: &Raster<f32>, scale: SymbolScale, face_slope_deg: f64) -> Vec<Landform> {
+    let grid = dtm.grid;
+    let (w, h) = (grid.width as usize, grid.height as usize);
+    let mut slope = Raster::filled(grid, f32::NAN);
+    for y in 1..h.saturating_sub(1) {
+        for x in 1..w.saturating_sub(1) {
+            if let Some((de, dn)) = gradient(dtm, x as u32, y as u32) {
+                slope.set(x as u32, y as u32, de.hypot(dn).atan().to_degrees() as f32);
+            }
+        }
+    }
+    let denominator = scale.scale_denominator();
+    let min_area_m2 = PaperMm2(MIN_FACE_MM2).square_metres(denominator);
+    let min_width_m = metres_per_mm(denominator) * MIN_FACE_WIDTH_MM;
+    // The contour rings of `slope` at the face slope; the multiples of it below are no rings of
+    // a face.
+    let mut faces = Vec::new();
+    for line in contour_lines(&slope, face_slope_deg) {
+        if line.height != face_slope_deg || line.points.first() != line.points.last() {
+            continue;
+        }
+        let ring = geo_types::LineString::from(line.points);
+        faces.push((geo_types::Polygon::new(ring.clone(), vec![]), ring));
+    }
+    faces
+        .into_iter()
+        .filter_map(|(polygon, ring)| {
+            // The rings of the contours run with the steeper ground on the left, so the area of a
+            // face is positive and that of a hollow inside one negative.
+            let area = polygon.signed_area();
+            let perimeter = geo::Euclidean.length(&ring);
+            // The width of a strip is twice its area over its perimeter.
+            let wide_enough = 2.0 * area >= min_width_m * perimeter;
+            (area >= min_area_m2 && wide_enough).then(|| {
+                let ring = ring.simplify(FACE_SIMPLIFY_M);
+                Landform {
+                    kind: LandformKind::RockFace,
+                    points: ring.0.iter().map(|c| (c.x, c.y)).collect(),
+                    rotation_deg: 0.0,
+                    height_m: 0.0,
+                }
+            })
+        })
+        .filter(|f| f.points.len() >= 4)
+        .collect()
+}
+
 /// The landforms as GeoJSON in the map's CRS, with `kind`, `height` and `rotation` properties.
 pub fn landforms_to_geojson(forms: &[Landform]) -> String {
     let features: Vec<serde_json::Value> = forms
@@ -561,6 +703,11 @@ pub fn landforms_to_geojson(forms: &[Landform]) -> String {
         .map(|f| {
             let geometry = if f.kind.is_point() {
                 serde_json::json!({ "type": "Point", "coordinates": [f.points[0].0, f.points[0].1] })
+            } else if f.kind.is_area() {
+                serde_json::json!({
+                    "type": "Polygon",
+                    "coordinates": [f.points.iter().map(|(e, n)| [*e, *n]).collect::<Vec<_>>()]
+                })
             } else {
                 serde_json::json!({
                     "type": "LineString",
@@ -602,6 +749,12 @@ pub fn landforms_from_geojson(text: &str) -> Result<Vec<Landform>, LandformError
                     .ok_or_else(|| LandformError(format!("feature without {key}")))
             };
             let coordinates = &f["geometry"]["coordinates"];
+            // An area is a polygon: its outer ring.
+            let coordinates = if kind.is_area() {
+                &coordinates[0]
+            } else {
+                coordinates
+            };
             let pair = |c: &serde_json::Value| Some((c.get(0)?.as_f64()?, c.get(1)?.as_f64()?));
             let points = if kind.is_point() {
                 pair(coordinates).map(|p| vec![p])
@@ -609,7 +762,7 @@ pub fn landforms_from_geojson(text: &str) -> Result<Vec<Landform>, LandformError
                 coordinates
                     .as_array()
                     .and_then(|cs| cs.iter().map(pair).collect::<Option<Vec<_>>>())
-                    .filter(|ps| ps.len() >= 2)
+                    .filter(|ps| ps.len() >= if kind.is_area() { 4 } else { 2 })
             }
             .ok_or_else(|| LandformError("invalid coordinates".to_string()))?;
             Ok(Landform {
@@ -743,7 +896,7 @@ mod tests {
         let noise = |e: f64, n: f64| 0.05 * ((e * 12.9898 + n * 78.233).sin() * 43758.5453).fract();
         let terrain = dtm(80, |e, n| 40.0 + 0.03 * n + noise(e, n));
         assert!(knolls_and_depressions(&terrain, sprint(), 1.0).is_empty());
-        assert!(height_jumps(&terrain, sprint(), 1.0).is_empty());
+        assert!(height_jumps(&terrain, sprint(), 1.0, STEEP_GRADIENT).is_empty());
     }
 
     /// A step of `drop` metres down to the east at e = 30, spread over two metres.
@@ -753,7 +906,7 @@ mod tests {
 
     #[test]
     fn a_step_is_a_bank_with_the_low_side_right() {
-        let jumps = height_jumps(&dtm(60, step(1.5)), sprint(), 1.0);
+        let jumps = height_jumps(&dtm(60, step(1.5)), sprint(), 1.0, STEEP_GRADIENT);
         assert_eq!(jumps.len(), 1, "{jumps:?}");
         let bank = &jumps[0];
         assert_eq!(bank.kind, LandformKind::Bank);
@@ -774,7 +927,7 @@ mod tests {
             let edge = 30.0 + 2.0 * ((n / 2.0).floor() as i64 % 2) as f64;
             40.0 + 1.5 / (1.0 + (-(e - edge) * 3.0).exp())
         };
-        let jumps = height_jumps(&dtm(60, ragged), sprint(), 1.0);
+        let jumps = height_jumps(&dtm(60, ragged), sprint(), 1.0, STEEP_GRADIENT);
         assert_eq!(jumps.len(), 1, "{jumps:?}");
         let points = &jumps[0].points;
         assert!(points.len() <= 4, "{points:?}");
@@ -825,6 +978,7 @@ mod tests {
             &dtm(60, terrace(|e, n| (30.0 - e).min(30.0 - n))),
             sprint(),
             1.0,
+            STEEP_GRADIENT,
         );
         follow(
             &jumps,
@@ -840,6 +994,7 @@ mod tests {
             &dtm(60, terrace(|e, n| (20.0 - e).max(e - 40.0).max(n - 35.0))),
             sprint(),
             1.0,
+            STEEP_GRADIENT,
         );
         follow(
             &jumps,
@@ -864,25 +1019,41 @@ mod tests {
 
     #[test]
     fn a_high_step_is_a_cliff() {
-        let jumps = height_jumps(&dtm(60, step(4.0)), sprint(), 1.0);
+        let jumps = height_jumps(&dtm(60, step(4.0)), sprint(), 1.0, STEEP_GRADIENT);
         assert_eq!(jumps.len(), 1, "{jumps:?}");
         assert_eq!(jumps[0].kind, LandformKind::Cliff);
     }
 
     #[test]
     fn a_low_step_is_no_bank() {
-        assert!(height_jumps(&dtm(60, step(0.6)), sprint(), 1.0).is_empty());
+        assert!(height_jumps(&dtm(60, step(0.6)), sprint(), 1.0, STEEP_GRADIENT).is_empty());
     }
 
     #[test]
     fn a_gentle_slope_gives_nothing() {
-        assert!(height_jumps(&dtm(60, |e, _| 40.0 + 0.3 * e), sprint(), 1.0).is_empty());
+        assert!(
+            height_jumps(
+                &dtm(60, |e, _| 40.0 + 0.3 * e),
+                sprint(),
+                1.0,
+                STEEP_GRADIENT
+            )
+            .is_empty()
+        );
     }
 
     #[test]
     fn a_wide_steep_hillside_gives_nothing() {
         // A uniform 40° slope: steep everywhere, but no jump.
-        assert!(height_jumps(&dtm(60, |e, _| 40.0 + 0.85 * e), sprint(), 1.0).is_empty());
+        assert!(
+            height_jumps(
+                &dtm(60, |e, _| 40.0 + 0.85 * e),
+                sprint(),
+                1.0,
+                STEEP_GRADIENT
+            )
+            .is_empty()
+        );
     }
 
     #[test]
@@ -893,7 +1064,7 @@ mod tests {
                 terrain.set(x, y, f32::NAN);
             }
         }
-        assert!(height_jumps(&terrain, sprint(), 1.0).is_empty());
+        assert!(height_jumps(&terrain, sprint(), 1.0, STEEP_GRADIENT).is_empty());
     }
 
     #[test]
@@ -917,5 +1088,369 @@ mod tests {
             forms
         );
         assert!(landforms_from_geojson(r#"{"features":[{"properties":{"kind":"x"}}]}"#).is_err());
+    }
+
+    fn forest() -> SymbolScale {
+        SymbolScale::new(MapKind::Forest, 10_000)
+    }
+
+    /// A DTM of 80 × 80 m with 1 m pixels, centred at (40, 40): a crater whose wall between the
+    /// radii `inner` and `outer` is `slope_deg` steep, flat inside and out.
+    fn crater(inner: f64, outer: f64, slope_deg: f64) -> Raster<f32> {
+        let rise = slope_deg.to_radians().tan();
+        dtm(80, |e, n| {
+            let r = (e - 40.0).hypot(n - 40.0);
+            rise * (r.clamp(inner, outer) - inner)
+        })
+    }
+
+    #[test]
+    fn a_steep_wall_is_a_rock_face_from_the_face_slope_on() {
+        let terrain = crater(0.0, 15.0, 75.0);
+        let faces = rock_faces(&terrain, forest(), 70.0);
+        assert_eq!(faces.len(), 1, "{faces:?}");
+        let face = &faces[0];
+        assert_eq!(face.kind, LandformKind::RockFace);
+        assert_eq!(face.points.first(), face.points.last());
+        let area = geo_types::Polygon::new(face.points.clone().into(), vec![]).unsigned_area();
+        assert!(
+            (area - std::f64::consts::PI * 15.0 * 15.0).abs() < 80.0,
+            "{area}"
+        );
+        assert!(rock_faces(&terrain, forest(), 80.0).is_empty());
+        assert!(rock_faces(&crater(0.0, 15.0, 65.0), forest(), 70.0).is_empty());
+    }
+
+    #[test]
+    fn a_face_below_the_minimum_area_or_width_is_left_out() {
+        // 0.3 mm² at 1:10 000 are 30 m²: a disc of 3 m radius has 28, one of 5 m has 79.
+        assert!(rock_faces(&crater(0.0, 3.0, 75.0), forest(), 70.0).is_empty());
+        assert_eq!(rock_faces(&crater(0.0, 5.0, 75.0), forest(), 70.0).len(), 1);
+        // The same disc is big enough on a sprint map at 1:4000 (4.8 m²).
+        assert_eq!(rock_faces(&crater(0.0, 3.0, 75.0), sprint(), 70.0).len(), 1);
+        // A ring 1.5 m wide is under 0.25 mm (2.5 m) wide, however long.
+        assert!(rock_faces(&crater(18.0, 19.5, 75.0), forest(), 70.0).is_empty());
+    }
+
+    #[test]
+    fn a_hollow_inside_a_rock_face_is_filled() {
+        let terrain = crater(5.0, 15.0, 75.0);
+        let faces = rock_faces(&terrain, forest(), 70.0);
+        assert_eq!(faces.len(), 1, "{faces:?}");
+        let area = geo_types::Polygon::new(faces[0].points.clone().into(), vec![]).unsigned_area();
+        assert!(area > std::f64::consts::PI * 14.0 * 14.0, "{area}");
+    }
+
+    /// A long diagonal wall is one face of its own size.
+    #[test]
+    fn a_long_diagonal_wall_is_a_face() {
+        let rise = 75f64.to_radians().tan();
+        let terrain = dtm(80, |e, n| {
+            let along = (e + n) / 2f64.sqrt() - 56.0;
+            let across = (e - n).abs() / 2f64.sqrt();
+            if across < 14.0 && (0.0..6.0).contains(&along) {
+                rise * along
+            } else {
+                0.0
+            }
+        });
+        let faces = rock_faces(&terrain, forest(), 70.0);
+        assert!(!faces.is_empty());
+        let area: f64 = faces
+            .iter()
+            .map(|f| geo_types::Polygon::new(f.points.clone().into(), vec![]).unsigned_area())
+            .sum();
+        // The strip is 28 m long and 6 m wide.
+        assert!((area - 28.0 * 6.0).abs() < 60.0, "{area}");
+    }
+
+    /// A wall is a face when it is as wide as the norm wants for the scale: the same strip is one at
+    /// 1:10 000 (2.5 m) and none at 1:20 000 (5 m).
+    #[test]
+    fn a_strip_must_be_as_wide_as_the_norm_wants() {
+        let rise = 75f64.to_radians().tan();
+        let terrain = dtm(80, |e, n| {
+            if (15.0..65.0).contains(&e) && (30.0..33.0).contains(&n) {
+                rise * (n - 30.0)
+            } else {
+                0.0
+            }
+        });
+        let faces = rock_faces(&terrain, forest(), 70.0);
+        assert_eq!(faces.len(), 1);
+        let coarse = SymbolScale::new(MapKind::Forest, 20_000);
+        assert!(rock_faces(&terrain, coarse, 70.0).is_empty());
+    }
+
+    #[test]
+    fn a_face_at_the_edge_of_the_raster_is_left_out() {
+        let terrain = dtm(30, |e, n| {
+            3.7 * (30.0 - (e - 30.0).hypot(n - 30.0)).max(0.0)
+        });
+        assert!(rock_faces(&terrain, forest(), 70.0).is_empty());
+    }
+
+    #[test]
+    fn geojson_round_trip_of_an_area() {
+        let forms = vec![Landform {
+            kind: LandformKind::RockFace,
+            points: vec![(0.0, 0.0), (8.0, 0.0), (8.0, 6.0), (0.0, 0.0)],
+            rotation_deg: 0.0,
+            height_m: 0.0,
+        }];
+        assert_eq!(
+            landforms_from_geojson(&landforms_to_geojson(&forms)).unwrap(),
+            forms
+        );
+    }
+
+    #[test]
+    fn the_steep_gradient_follows_the_angle_and_defaults_to_half() {
+        assert_eq!(steep_gradient(None), STEEP_GRADIENT);
+        assert!((steep_gradient(Some(45.0)) - 1.0).abs() < 1e-9);
+        assert!((steep_gradient(Some(DEFAULT_STEEP_SLOPE_DEG)) - STEEP_GRADIENT).abs() < 1e-3);
+        assert!(steep_gradient(Some(60.0)) > steep_gradient(Some(40.0)));
+    }
+
+    #[test]
+    fn a_higher_threshold_leaves_a_low_gradient_step_out() {
+        // A 4 m step over two metres has a gradient of about 1.4 (55°) at its steepest cell: it
+        // is steep up to 55°, not at 70°.
+        let terrain = dtm(60, step(4.0));
+        assert_eq!(
+            height_jumps(&terrain, sprint(), 1.0, steep_gradient(Some(55.0))).len(),
+            1
+        );
+        assert!(height_jumps(&terrain, sprint(), 1.0, steep_gradient(Some(70.0))).is_empty());
+    }
+
+    /// Two walls of 6 m, 13 m apart, with a ramp of 45° between them: at the default threshold
+    /// the ramp is steep too and ties both walls into one patch, so nothing is found; a higher
+    /// threshold keeps the walls apart and finds both.
+    #[test]
+    fn a_high_threshold_parts_two_walls_that_a_ramp_ties_together() {
+        let walls_and_ramp = |e: f64, _: f64| {
+            let wall = |at: f64| ((e - at) / 1.0).clamp(0.0, 1.0) * 6.0;
+            60.0 - wall(14.0) - (e - 15.0).clamp(0.0, 12.0) - wall(27.0)
+        };
+        let terrain = dtm(60, walls_and_ramp);
+        let default = height_jumps(&terrain, sprint(), 1.0, STEEP_GRADIENT);
+        let raised = height_jumps(&terrain, sprint(), 1.0, steep_gradient(Some(60.0)));
+        assert!(default.is_empty(), "{default:?}");
+        assert_eq!(raised.len(), 2, "{raised:?}");
+        assert!(raised.iter().all(|j| j.kind == LandformKind::Cliff));
+    }
+
+    /// The gradients of `terrain` and which cells are steep, as `height_jumps` takes them.
+    fn gradients_and_steep(terrain: &Raster<f32>) -> (Vec<Option<(f64, f64)>>, Vec<bool>) {
+        let (w, h) = (terrain.grid.width as usize, terrain.grid.height as usize);
+        let gradients: Vec<Option<(f64, f64)>> = (0..h)
+            .flat_map(|y| (0..w).map(move |x| (x, y)))
+            .map(|(x, y)| {
+                (x > 0 && y > 0 && x + 1 < w && y + 1 < h)
+                    .then(|| gradient(terrain, x as u32, y as u32))
+                    .flatten()
+            })
+            .collect();
+        let steep = gradients
+            .iter()
+            .map(|g| g.is_some_and(|(de, dn)| de.hypot(dn) >= STEEP_GRADIENT))
+            .collect();
+        (gradients, steep)
+    }
+
+    /// A line that runs down the slope is the centre line of a steep patch, no wall.
+    #[test]
+    fn a_line_down_the_fall_line_is_no_wall_and_one_along_the_contours_is() {
+        let terrain = dtm(60, step(4.0));
+        let (gradients, steep) = gradients_and_steep(&terrain);
+        let grid = terrain.grid;
+        // The step runs north to south at e = 30.
+        let along = [(30.0, 10.0), (30.0, 50.0)];
+        let across = [(20.0, 30.0), (40.0, 30.0)];
+        assert!(!runs_down_the_slope(&along, &gradients, &steep, &grid));
+        assert!(runs_down_the_slope(&across, &gradients, &steep, &grid));
+    }
+
+    /// The samples cover the whole line, not only its first half: the step lies at the far end of
+    /// the line.
+    #[test]
+    fn the_whole_line_is_sampled() {
+        let terrain = dtm(60, |e, _| 40.0 - 4.0 * ((e - 44.0) / 2.0).clamp(0.0, 1.0));
+        let (gradients, steep) = gradients_and_steep(&terrain);
+        let across = [(10.0, 30.0), (50.0, 30.0)];
+        assert!(runs_down_the_slope(
+            &across,
+            &gradients,
+            &steep,
+            &terrain.grid
+        ));
+    }
+
+    /// The direction of a line against the slope counts in both axes: a diagonal wall, lines along
+    /// it, along the slope and across, and one that is mostly along the north-south wall.
+    #[test]
+    fn the_direction_of_a_line_counts_in_both_axes() {
+        // A step of 4 m along the line e + n = 60: the fall line runs to the north-east.
+        let diagonal = dtm(60, |e, n| {
+            40.0 - 4.0 * (((e + n) - 60.0) / 2.0).clamp(0.0, 1.0)
+        });
+        let (gradients, steep) = gradients_and_steep(&diagonal);
+        let grid = diagonal.grid;
+        let down = [(20.0, 20.0), (40.0, 40.0)];
+        let along = [(20.0, 40.0), (40.0, 20.0)];
+        let east = [(10.0, 30.0), (50.0, 30.0)];
+        assert!(runs_down_the_slope(&down, &gradients, &steep, &grid));
+        assert!(!runs_down_the_slope(&along, &gradients, &steep, &grid));
+        // 45° to the fall line: the cosine of 0.7 is above the limit.
+        assert!(runs_down_the_slope(&east, &gradients, &steep, &grid));
+        // A wall at e = 30 and a line leaning four metres east over forty north: along the wall.
+        let wall = dtm(60, step(4.0));
+        let (gradients, steep) = gradients_and_steep(&wall);
+        let leaning = [(28.0, 10.0), (32.0, 50.0)];
+        assert!(!runs_down_the_slope(
+            &leaning, &gradients, &steep, &wall.grid
+        ));
+    }
+
+    /// A line over ground without a steep cell, or off the raster, is no line down the slope.
+    #[test]
+    fn a_line_without_slope_under_it_is_judged_a_wall_candidate() {
+        let flat = dtm(60, |_, _| 40.0);
+        let (gradients, steep) = gradients_and_steep(&flat);
+        assert!(!runs_down_the_slope(
+            &[(10.0, 10.0), (50.0, 10.0)],
+            &gradients,
+            &steep,
+            &flat.grid
+        ));
+        let wall = dtm(60, step(4.0));
+        let (gradients, steep) = gradients_and_steep(&wall);
+        let off = [(-100.0, -100.0), (-50.0, -100.0)];
+        assert!(!runs_down_the_slope(&off, &gradients, &steep, &wall.grid));
+    }
+
+    /// The grid of the terrain is not the unit grid of the other tests: shifted, not square, 2 m
+    /// cells. A step of 8 m at e = 160 runs north to south.
+    #[test]
+    fn a_shifted_grid_with_two_metre_cells_is_read_at_the_right_places() {
+        let grid = GridSpec {
+            west: 100.0,
+            north: 300.0,
+            pixel_size: 2.0,
+            width: 40,
+            height: 30,
+        };
+        let mut terrain = Raster::filled(grid, 0.0f32);
+        for y in 0..grid.height {
+            for x in 0..grid.width {
+                let e = grid.west + (f64::from(x) + 0.5) * grid.pixel_size;
+                terrain.set(
+                    x,
+                    y,
+                    (40.0 - 8.0 * ((e - 158.0) / 4.0).clamp(0.0, 1.0)) as f32,
+                );
+            }
+        }
+        let (gradients, steep) = gradients_and_steep(&terrain);
+        let across = [(140.0, 270.0), (176.0, 270.0)];
+        let along = [(160.0, 250.0), (160.0, 290.0)];
+        assert!(runs_down_the_slope(&across, &gradients, &steep, &grid));
+        assert!(!runs_down_the_slope(&along, &gradients, &steep, &grid));
+        // Just east of the wall: the window of 5 cells still reaches it.
+        assert!(runs_down_the_slope(
+            &[(164.0, 270.0), (170.0, 270.0)],
+            &gradients,
+            &steep,
+            &grid
+        ));
+        // Just west of it as well.
+        assert!(runs_down_the_slope(
+            &[(150.0, 270.0), (156.0, 270.0)],
+            &gradients,
+            &steep,
+            &grid
+        ));
+        // The south-east corner, where the window reaches past both edges.
+        assert!(!runs_down_the_slope(
+            &[(177.0, 241.0), (178.0, 243.0)],
+            &gradients,
+            &steep,
+            &grid
+        ));
+    }
+
+    /// A wall that runs east to west at n = 30, and a second at n = 10: the window around a sample
+    /// is five cells wide in both directions, and the samples move along the line in both axes.
+    #[test]
+    fn an_east_west_wall_is_found_only_near_the_line() {
+        let wall = |at: f64| move |n: f64| ((n - at) / 2.0).clamp(0.0, 1.0);
+        let terrain = dtm(60, |_, n| 40.0 - 4.0 * wall(29.0)(n) - 4.0 * wall(9.0)(n));
+        let (gradients, steep) = gradients_and_steep(&terrain);
+        let grid = terrain.grid;
+        // Crossing the wall at n = 30: down the slope. The samples run from n = 10 to n = 50.
+        assert!(runs_down_the_slope(
+            &[(45.0, 12.0), (45.0, 50.0)],
+            &gradients,
+            &steep,
+            &grid
+        ));
+        // Along the wall.
+        assert!(!runs_down_the_slope(
+            &[(10.0, 30.0), (50.0, 30.0)],
+            &gradients,
+            &steep,
+            &grid
+        ));
+        // Beside the wall, farther than the window reaches, south of it and north of it: no sample
+        // has a steep cell around it, so no verdict. The wall at n = 10 lies far to the south.
+        assert!(!runs_down_the_slope(
+            &[(45.0, 37.0), (45.0, 39.0)],
+            &gradients,
+            &steep,
+            &grid
+        ));
+        assert!(!runs_down_the_slope(
+            &[(45.0, 22.0), (45.0, 24.0)],
+            &gradients,
+            &steep,
+            &grid
+        ));
+        // The same beside a wall that runs north to south.
+        let north_south = dtm(60, step(4.0));
+        let (gradients, steep) = gradients_and_steep(&north_south);
+        assert!(!runs_down_the_slope(
+            &[(10.0, 30.0), (20.0, 30.0)],
+            &gradients,
+            &steep,
+            &north_south.grid
+        ));
+        assert!(!runs_down_the_slope(
+            &[(40.0, 30.0), (50.0, 30.0)],
+            &gradients,
+            &steep,
+            &north_south.grid
+        ));
+    }
+
+    /// A line along the last row of the raster is sampled without reading beyond it.
+    #[test]
+    fn a_line_at_the_edge_of_the_raster_is_judged() {
+        let terrain = dtm(60, step(4.0));
+        let (gradients, steep) = gradients_and_steep(&terrain);
+        let at_the_south_edge = [(30.0, 1.0), (30.0, 4.0)];
+        assert!(!runs_down_the_slope(
+            &at_the_south_edge,
+            &gradients,
+            &steep,
+            &terrain.grid
+        ));
+        let at_the_east_edge = [(59.0, 20.0), (59.0, 40.0)];
+        assert!(!runs_down_the_slope(
+            &at_the_east_edge,
+            &gradients,
+            &steep,
+            &terrain.grid
+        ));
     }
 }

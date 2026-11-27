@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! What a region adapter of freemapper works with (ADR 0082).
 //!
 //! The engine, the generic readers (`freemapper-sources`) and the adapters share these types. The

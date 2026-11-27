@@ -1,9 +1,18 @@
-# freemapper
+<p align="center"><img src="docs/banner/banner.de.svg" alt="freemapper – Orientierungslaufkarten aus offenen Geodaten"></p>
 
 [Website](https://freemapper.de) · [English version](README.en.md) · [Handbuch](docs/manual/de.md) · [Glossar](docs/glossary.md) · [Änderungen](CHANGELOG.md) · [Beispiele](examples/README.md)
 
+
+<!-- badges:start -->
+[![Version](https://img.shields.io/github/v/release/HenryJobst/freemapper?label=Version)](https://github.com/HenryJobst/freemapper/releases/latest) [![Downloads](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/HenryJobst/freemapper/badges/downloads.json)](https://github.com/HenryJobst/freemapper/releases/latest) [![Commits](https://img.shields.io/github/commit-activity/t/HenryJobst/freemapper?label=Commits)](https://github.com/HenryJobst/freemapper/commits/main) [![CI](https://img.shields.io/github/actions/workflow/status/HenryJobst/freemapper/ci.yml?branch=main&label=CI)](https://github.com/HenryJobst/freemapper/actions/workflows/ci.yml)
+
+[![Tests](https://img.shields.io/badge/Tests-3500%2B-blue)](docs/tests.json) [![Testbudget](https://img.shields.io/badge/Testbudget-15_min-blue)](docs/tests.json) [![Zeilenabdeckung](https://img.shields.io/badge/Coverage-96.3%25-brightgreen)](docs/coverage.json) [![Hygiene](https://img.shields.io/badge/Hygiene-19-brightgreen)](scripts/check.sh)
+
+[![MSRV](https://img.shields.io/badge/MSRV-1.88-blue)](Cargo.toml) [![ADRs](https://img.shields.io/badge/ADRs-200%2B-blue)](docs/adr/README.md) [![Lizenz](https://img.shields.io/badge/Lizenz-AGPL--3.0--or--later-blue)](LICENSE)
+<!-- badges:end -->
+
 <!-- claude-cost:start -->
-[![KI-Aufwand (Claude API): 4.234 $](https://img.shields.io/badge/KI--Aufwand%20%28Claude%20API%29-4.234%20%24-8A2BE2)](docs/ai-cost/history.csv)
+[![KI-Aufwand (Claude API): 4.071 $](https://img.shields.io/badge/KI--Aufwand%20%28Claude%20API%29-4.071%20%24-8A2BE2)](docs/ai-cost/history.csv)
 <!-- claude-cost:end -->
 
 <p align="center"><a href="examples/berlin-viktoriapark/preview.webp"><img src="examples/berlin-viktoriapark/preview-medium.webp" alt="Trainingskarte Viktoriapark, Berlin-Kreuzberg, von freemapper erzeugt" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (Sprint 1:4000), von freemapper aus offenen Daten erzeugt. Das Bild ist die Trainingskarte, die man so drucken und laufen kann; ein Klick zeigt sie in voller Größe, als <a href="examples/berlin-viktoriapark/berlin-viktoriapark-training.pdf">PDF</a> zum Drucken. Der <a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf">Prüfausdruck</a> zeigt alle Kandidaten lagetreu; mehr unter <a href="examples/README.md">Beispiele</a>.</sub></p>
@@ -46,6 +55,16 @@ in OOM oder OCAD.
 - Beispiele: je Bundesland ein fertiges Projekt mit OOM-Karte, OCAD-Ausgangsstand und PDF, siehe
   [Beispiele](#beispiele).
 
+## Unterstützte Länder
+
+| Land | Stand | Gebiet |
+|---|---|---|
+| Deutschland | fertig | 15 von 16 Bundesländern, Thüringen fehlt noch ([Tabelle](#regionen)) |
+| Polen | nutzbar | Sprint- und Waldkarten für ganz Polen: Höhenmodell, Luftbild, Gebäude und Landnutzung von GUGiK (Kataster EGiB), Genehmigungshinweise; [Beispiele](examples/international.md) |
+| Tschechien | Vorschau | Karten für ganz Tschechien: Höhenmodell, Oberflächenmodell, Luftbild, Gebäude (RÚIAN) und Landnutzung (ZABAGED) vom ČÚZK; Genehmigungshinweise (Schutzgebiete, Verwaltungseinheiten, Denkmäler); [Beispiele](examples/international.md) |
+
+Weitere Länder sind geplant; Liste und Fortschritt stehen in [Issue 227](https://github.com/HenryJobst/freemapper/issues/227).
+
 ## Die freemapper-Suite
 
 freemapper ist der erste Schritt einer Werkzeugkette für Orientierungslauf-Karten. Zwei Folgeprojekte
@@ -65,8 +84,8 @@ nach in einer festen Version ein, statt den Code zu kopieren.
 
 ## Status
 
-Aktuelle Version ist [v0.24.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.24.0) vom
-16. November 2026 (was sich geändert hat, steht in den [Änderungen](CHANGELOG.md)).
+Aktuelle Version ist [v0.28.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.28.0) vom
+25. November 2026 (was sich geändert hat, steht in den [Änderungen](CHANGELOG.md)).
 
 freemapper erzeugt
 Schulhof- und Sprintkarten für fünfzehn Bundesländer: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg,
@@ -93,7 +112,7 @@ Dienste Standarddienste sind, lässt sich als Ordner mit einem Manifest ergänze
 für weitere Bundesländer, zuerst Sachsen (Gewässerachsen, Hecken und Baumreihen aus dem Basis-DLM, die Bäume von Leipzig
 und Dresden), dann Sachsen-Anhalt und Hamburg. Später kommen Hallenkarten für Hallen-OL, die letzten englischen
 Reste in den deutschen Programmtexten (`--lang de`). Thüringen, das letzte Bundesland, das noch fehlt, folgt, sobald sein Server für die
-Höhendaten wieder erreichbar ist. Die Nachbarländer kommen später. Design:
+Höhendaten wieder erreichbar ist. Polen ist nutzbar: Höhenmodell, Luftbild, Gebäude und Landnutzung von GUGiK, dem Kataster EGiB, dazu Genehmigungshinweise und Beispiele (ADR 0164, 0170, 0171, 0175); Tschechien ist eine Vorschau mit Höhen-, Luftbild-, Gebäude- und Landnutzungsdaten des ČÚZK und mit Genehmigungshinweisen (ADR 0197, 0201); die übrigen Nachbarländer kommen später. Die Programmtexte gibt es auf Deutsch, Englisch und Polnisch und in 18 weiteren Sprachen, die maschinell entworfen und nicht von Muttersprachlern gelesen sind; Korrekturen sind als Issue oder Pull Request willkommen (Handbuch, Kapitel 15). Design:
 [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](https://github.com/HenryJobst/freemapper/blob/main/docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
 Auf Wunsch schreibt freemapper Hinweise zu Genehmigungen neben die Karte, in die Datei `permits.md` (`freemapper permits`, `run --permits`, auf der Gebietsseite oder über den KI-Assistenten). Sie nennt für das Kartengebiet Bundesland, Kreis, Amt und Gemeinde aus VG250 des BKG, die Schutzgebiete des BfN und Betreiber aus OpenStreetMap, jeweils mit Anteil, Quelle und Datenstand, und sagt, wen man meist fragt. Sie ist ein Hinweis und keine Rechtsauskunft. Einzelheiten stehen im [Handbuch, Kapitel 12](docs/manual/de.md#12-hinweise-zu-genehmigungen). In Berlin kommen Bezirk, Grünanlagen, Eigentum von Bundesland und Bund, Denkmale und Naturdenkmale aus dem Geoportal Berlin dazu. In Hamburg kommen Bezirk, Grünanlagen, Denkmale, Stadtwald und Wasserschutzgebiete aus dem Geoportal Hamburg. In Brandenburg, Berlin, Hamburg, Nordrhein-Westfalen, im Saarland, in Sachsen und in Schleswig-Holstein nennen die Hinweise auch die Forstdienststelle. Wasserschutzgebiete nennen sie in allen Bundesländern, Denkmale in elf, Naturdenkmale und geschützte Biotope in dreizehn, Waldfunktionen in mehreren.
@@ -164,7 +183,8 @@ freemapper ist ein einzelnes Programm ohne Installer. Es muss nicht selbst gebau
      entpackten Ordner `xattr -d com.apple.quarantine freemapper`.
    - **Linux:** keine Warnung; ggf. `chmod +x freemapper`.
 4. Prüfen im Terminal (Windows: PowerShell) im entpackten Ordner: `./freemapper --version`
-   (Windows: `.\freemapper.exe --version`).
+   (Windows: `.\freemapper.exe --version`). Unter Windows öffnet ein Doppelklick die Gebietsseite im Browser; alle anderen
+   Befehle gibt man in der PowerShell ein (im Explorer in der Adresszeile `powershell` eingeben).
 
 `freemapper update` lädt nach einer Rückfrage die neueste Version und ersetzt das Programm an
 derselben Stelle. Vorher prüft es die Signatur der Version, und das alte Programm bleibt für

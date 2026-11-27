@@ -667,8 +667,9 @@ Practical notes for "Load Colors and Symbols From" [W "Map"]:
     `Description` is UTF-16 at an even offset. Serialise field by field, never by `transmute` of a `repr(Rust)` struct.
 16. **Object Status = 1.** Status 0/3 objects are skipped by readers [O]. `ObjType` in the index must equal `Otp` in the record.
 17. **Combined symbols** (OOM 501 "with border", 521 Building = fill + outline): OCAD has no combined symbol. An area symbol can only reference one border
-    *line symbol* via `BorderSym/BorderOn` (V9+) [O `exportCombinedAreaSymbol`]. For placeholders a plain filled area is enough. Do not invent extra numbered
-    border symbols that might clash with the official set.
+    *line symbol* via `BorderSym/BorderOn` (V9+) [O `exportCombinedAreaSymbol`]. Since #232 freemapper writes the outline as a line symbol
+    of its own (the next free number after the area's, named "<name> border") and names it in `BorderSym`; an official set that replaces the area
+    by number leaves it unused.
 18. **Spurious objects** (1-point lines, <3-point areas, empty texts) are deleted by OCAD's Optimize [W].
 19. **Template positioning** must be explicit. Absolute non-Windows paths are useless (§7).
 

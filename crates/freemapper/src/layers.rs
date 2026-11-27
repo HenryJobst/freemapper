@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! What a project has and will download: download estimate, layer list and PNG previews (for the
 //! MCP server and the CLI).
 
@@ -146,13 +148,21 @@ pub(crate) fn estimate_area(
             store: Store::Cache,
         });
     }
-    items.push(EstimateItem {
-        what: "ALKIS buildings and land use".to_string(),
-        megabytes: ALKIS_MB,
-        cached: alkis_cached,
-        part: Part::MapData,
-        store: Store::Project,
-    });
+    // A region without a cadastre has none to download.
+    if !crate::project::no_cadastre(bbox) {
+        // ALKIS is the cadastre of the German states; Poland's is EGiB, Czechia's RÚIAN.
+        let what = format!(
+            "{} buildings and land use",
+            crate::project::cadastre_name(bbox)
+        );
+        items.push(EstimateItem {
+            what,
+            megabytes: ALKIS_MB,
+            cached: alkis_cached,
+            part: Part::MapData,
+            store: Store::Project,
+        });
+    }
     // The adapters the area touches bring the sets of extra layers and the raster templates
     // they fetch themselves (Berlin's registers and surveys, and its K5 map), each with its item.
     for adapter in freemapper_adapter_api::geometry::regions_for_in(registry(), bbox) {

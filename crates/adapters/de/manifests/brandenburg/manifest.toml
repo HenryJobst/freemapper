@@ -37,6 +37,12 @@ land_use = "https://ogc-api.geobasis-bb.de/alkis-vereinfacht/v1/collections/nutz
 [orthophoto]
 backend = "lgb"
 
+# Where LGB serves its tiles (the archives of the orthophoto, the DGM and the bDOM, and the nDOM point clouds) and the lists
+# of their currency (issue #273); the backend keeps the names of the files below them.
+[orthophoto.endpoints]
+data = "https://data.geobasis-bb.de/geobasis/daten"
+currency = "https://data.geobasis-bb.de/geobasis/information/aktualitaeten"
+
 [terrain]
 backend = "lgb"
 
@@ -80,6 +86,119 @@ endpoints = [
 fields = { kind = "GATTUNG", id = "BAUMNUMMER", species = "GA_LANG", crown = "KR_DURCHM" }
 attribution = "Quelle: © GeoDaten-KVA / Stadt Frankfurt (Oder), dl-de/by-2-0"
 max_bytes = 268435456
+
+# The Reviere and the forest functions of the Landesbetrieb Forst Brandenburg (issue #273). The Reviere come as GML 3.2
+# (the service refuses GeoJSON), the forest functions as GeoJSON.
+[[permits.wfs]]
+key = "reviere"
+label = { en = "Landesbetrieb Forst Brandenburg", de = "Landesbetrieb Forst Brandenburg" }
+what = { en = "forest districts (Reviere) with their Oberförsterei", de = "Forstreviere mit ihrer Oberförsterei" }
+credit = "Landesbetrieb Forst Brandenburg, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)"
+sections = ["forest-units"]
+url = "https://www.brandenburg-forst.de/geoserver/IFUEK/ows"
+output_format = "gml32"
+gml = true
+layers = [
+    { key = "reviere", type_name = "IFUEK:AM.ForestManagementArea", reading = "unit", administration = "Landesbetrieb Forst Brandenburg", prefix = "Oberförsterei ", office = "foa_name", unit_attribute = "rev_name", unit_prefix = "Revier " },
+]
+
+[[permits.wfs]]
+key = "waldfunktionen"
+label = { en = "Landesbetrieb Forst Brandenburg", de = "Landesbetrieb Forst Brandenburg" }
+what = { en = "forest functions (Naturwald, Totalreservat, closed areas, Erholungswald)", de = "Waldfunktionen (Naturwald, Totalreservat, nicht betretbare Flächen, Erholungswald)" }
+credit = "Landesbetrieb Forst Brandenburg, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)"
+sections = ["forest-functions"]
+url = "https://www.brandenburg-forst.de/geoserver/IWFK/ows"
+output_format = "application/json"
+layers = [
+    { key = "naturwald", type_name = "IWFK:wfk_nwr", reading = "function", function = "natural", name = "name" },
+    { key = "totalreservat", type_name = "IWFK:lfu_trv", reading = "function", function = "natural", name = "sg_name" },
+    { key = "nicht-betretbar", type_name = "IWFK:wfk_nbt", reading = "function", function = "closed", name = "rechtsgrund" },
+    { key = "erholungswald", type_name = "IWFK:wfk_ewf", reading = "function", function = "recreation", name = "name" },
+    { key = "erholungswald-rechtlich", type_name = "IWFK:wfk_ewr", reading = "function", function = "recreation", name = "name" },
+]
+
+# The Baudenkmale and the Bodendenkmale of the BLDAM, GML 3.2, asked in its CRS (a box in WGS 84 finds nothing there) (issue #273).
+[[permits.wfs]]
+key = "baudenkmale"
+label = { en = "BLDAM", de = "BLDAM" }
+what = { en = "Baudenkmale, Gartendenkmale, Denkmalbereiche", de = "Baudenkmale, Gartendenkmale, Denkmalbereiche" }
+credit = "© Denkmaldaten/BLDAM {year}"
+gaps = { en = "the city of Potsdam keeps its own list of monuments, which is not in these data", de = "Die Stadt Potsdam führt ihre Denkmalliste selbst; sie ist nicht in diesen Daten" }
+sections = ["monuments"]
+url = "https://gis-bldam-brandenburg.de/ows/baudenkmale"
+output_format = "application%2Fgml%2Bxml%3B%20version%3D3.2"
+gml = true
+native_crs = 25832
+layers = [
+    { key = "punkte", type_name = "ms:Baudenkmal-Punkt", reading = "monument", monument = "Baudenkmal" },
+    { key = "flaechen", type_name = "ms:Baudenkmal-Polygon", reading = "monument", monument = "Baudenkmal" },
+    { key = "gartendenkmale", type_name = "ms:Baudenkmal-Gartendenkmal", reading = "monument", monument = "Gartendenkmal" },
+    { key = "denkmalbereiche", type_name = "ms:Denkmal-mit-Flaechencharakter", reading = "monument", monument = "Denkmalbereich" },
+]
+
+[[permits.wfs]]
+key = "bodendenkmale"
+label = { en = "BLDAM", de = "BLDAM" }
+what = { en = "Bodendenkmale", de = "Bodendenkmale" }
+credit = "Quelle: © Denkmaldaten/Brandenburgisches Landesamt für Denkmalpflege und Archäologisches Landesmuseum (BLDAM), dl-de/by-2-0"
+sections = ["monuments"]
+url = "https://gis-bldam-brandenburg.de/ows/bodendenkmale"
+output_format = "application%2Fgml%2Bxml%3B%20version%3D3.2"
+gml = true
+native_crs = 25832
+layers = [
+    { key = "flaechen", type_name = "ms:Bodendenkmal-Flaechen", reading = "monument", monument = "Bodendenkmal" },
+]
+
+# The protected objects (issue #273): the Naturdenkmale and Landschaftsbestandteile of the Landkreise
+# in the forest service, and the protected biotopes of the biotope register of the LfU.
+[[permits.wfs]]
+key = "naturdenkmale"
+label = { en = "Landesbetrieb Forst Brandenburg", de = "Landesbetrieb Forst Brandenburg" }
+what = { en = "Naturdenkmale and geschützte Landschaftsbestandteile of the Landkreise", de = "Naturdenkmale und geschützte Landschaftsbestandteile der Landkreise" }
+credit = "Landesbetrieb Forst Brandenburg, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)"
+gaps = { en = "the data are of the end of 2017, later ones are missing", de = "Die Daten haben den Stand Ende 2017, spätere fehlen" }
+sections = ["protected-objects"]
+url = "https://www.brandenburg-forst.de/geoserver/IWFK/ows"
+output_format = "application/json"
+layers = [
+    { key = "naturdenkmale", type_name = "IWFK:lkrs_nd_pu", reading = "object", object = "natural-monument", name = "name", citation = "rvo_rgl" },
+    { key = "landschaftsbestandteile", type_name = "IWFK:lkrs_glb_fl", reading = "object", object = "protected-landscape-part", name = "name", citation = "rvo_rgl" },
+]
+
+[[permits.wfs]]
+key = "biotope"
+label = { en = "Landesamt für Umwelt Brandenburg", de = "Landesamt für Umwelt Brandenburg" }
+what = { en = "protected biotopes of the biotope register", de = "geschützte Biotope der Biotopkartierung" }
+credit = "© Landesamt für Umwelt Brandenburg; Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)"
+sections = ["protected-objects"]
+url = "https://inspire.brandenburg.de/services/bbk_wfs"
+output_format = "application/geo%2Bjson"
+layers = [
+    { key = "flaechen", type_name = "app:bbk_fl", reading = "object", object = "biotope", name = "biotyp_t", only_attribute = "bbgnat_t", only_values = ["geschützter Biotop nach § 18"] },
+    { key = "punkte", type_name = "app:bbk_pu", reading = "object", object = "biotope", name = "biotyp_t", only_attribute = "bbgnat_t", only_values = ["geschützter Biotop nach § 18"] },
+]
+
+# The water protection areas of the LfU, one shapefile for the state (about 4 MB, EPSG:25833), issue #273.
+[[permits.shapefile]]
+key = "wasserschutzgebiete"
+label = { en = "Landesamt für Umwelt Brandenburg", de = "Landesamt für Umwelt Brandenburg" }
+what = { en = "water protection areas", de = "Wasserschutzgebiete" }
+credit = "Landesamt für Umwelt Brandenburg (LfU), Creative Commons Namensnennung 4.0 International (CC BY 4.0)"
+sections = ["water-protection"]
+url = "https://data.geobasis-bb.de/geofachdaten/Wasser/Gewaesserbewirtschaftung/wsg.zip"
+crs = 25833
+layers = [
+    { key = "wasserschutzgebiete", reading = "water", name = "KLARNAME", zone = "SCHUTZZONE", citation = "FUNDSTELLE" },
+]
+
+# The point clouds the vegetation candidates are read from (issue #273): the backend of the state keeps the names of the
+# tiles and how it reads the answers, the manifest holds where.
+[point_cloud]
+kind = "currency-csv"
+url = "https://data.geobasis-bb.de/geobasis/daten/als/laz"
+index_url = "https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_laserscandaten_aktualitaet.csv"
 
 [preview]
 wms = "https://isk.geobasis-bb.de/mapproxy/dop20c/service/wms"

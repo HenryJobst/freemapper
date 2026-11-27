@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The tables and keys of format 1 as the TOML parser reads them: every table refuses a key it
 //! does not know, and every value keeps its place in the file for the findings of the
 //! validator. Which keys belong to which `kind` is the validator's part.
@@ -26,8 +28,11 @@ pub(crate) struct Raw {
     pub orthophoto: Option<RawRaster>,
     pub terrain: Option<RawRaster>,
     pub surface: Option<RawRaster>,
+    pub point_cloud: Option<RawPointCloud>,
     #[serde(default)]
     pub extra: RawExtra,
+    #[serde(default)]
+    pub permits: RawPermits,
     pub preview: Option<RawPreview>,
     #[serde(default)]
     pub estimate: RawEstimate,
@@ -141,12 +146,22 @@ pub(crate) struct RawRaster {
     pub coverage: Option<Text>,
     pub crs: Option<Spanned<i64>>,
     pub params: Option<Spanned<Params>>,
+    pub endpoints: Option<Spanned<Params>>,
     pub max_px: Option<Spanned<i64>>,
     pub multipart: Option<Spanned<bool>>,
     pub envelope: Option<Spanned<Vec<f64>>>,
     pub max_m: Option<Spanned<f64>>,
     pub date: Option<Spanned<RawDate>>,
     pub source_label: Option<Text>,
+}
+
+/// `[point_cloud]`: where the LAZ tiles of the vegetation come from.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct RawPointCloud {
+    pub kind: Text,
+    pub url: Text,
+    pub index_url: Option<Text>,
 }
 
 /// `date` of a raster table: the keys of all date kinds.
@@ -215,6 +230,131 @@ pub(crate) struct RawTreeFields {
     pub species: Option<Text>,
     pub crown: Option<Text>,
     pub gone: Option<Text>,
+}
+
+/// `[permits]`: the sources of the permit notes the adapter declares.
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct RawPermits {
+    #[serde(default)]
+    pub wfs: Vec<RawPermitWfs>,
+    /// `[[permits.shapefile]]`: the same keys, but a zip instead of a service.
+    #[serde(default)]
+    pub shapefile: Vec<RawPermitWfs>,
+    /// `[[permits.geojson]]`: the same keys, but one GeoJSON file for the state instead of a
+    /// service.
+    #[serde(default)]
+    pub geojson: Vec<RawPermitWfs>,
+    /// `[[permits.arcgis]]`: an ArcGIS REST map service; a layer's `type_name` is its number.
+    #[serde(default)]
+    pub arcgis: Vec<RawPermitWfs>,
+    /// `[[permits.getfeatureinfo]]`: a WMS asked at points; every layer names its service.
+    #[serde(default)]
+    pub getfeatureinfo: Vec<RawPermitWfs>,
+}
+
+/// `[[permits.wfs]]`: a WFS service read by a table of its layers.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct RawPermitWfs {
+    pub key: Text,
+    pub label: RawWording,
+    pub what: RawWording,
+    pub credit: Text,
+    pub gaps: Option<RawWording>,
+    pub sections: Vec<Text>,
+    pub url: Option<Text>,
+    pub output_format: Option<Text>,
+    /// A shapefile's CRS.
+    pub crs: Option<Spanned<i64>>,
+    pub gml: Option<Spanned<bool>>,
+    pub native_crs: Option<Spanned<i64>>,
+    pub offices: Option<Text>,
+    pub note: Option<Text>,
+    pub layers: Vec<RawPermitLayer>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct RawWording {
+    pub en: Text,
+    pub de: Text,
+}
+
+/// `[[permits.wfs.layers]]`: the keys of all readings.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct RawPermitLayer {
+    pub key: Text,
+    pub type_name: Option<Text>,
+    pub reading: Text,
+    pub name: Option<Text>,
+    pub zone: Option<Text>,
+    pub citation: Option<Text>,
+    pub planned_attribute: Option<Text>,
+    pub planned_value: Option<Text>,
+    pub function: Option<Text>,
+    pub administration: Option<Text>,
+    pub prefix: Option<Text>,
+    pub office: Option<Text>,
+    pub owner: Option<Text>,
+    pub object: Option<Text>,
+    pub only_attribute: Option<Text>,
+    pub only_values: Option<Vec<Text>>,
+    pub monument: Option<Text>,
+    pub kind_from: Option<Text>,
+    pub link_attribute: Option<Text>,
+    pub link_prefix: Option<Text>,
+    pub administration_attribute: Option<Text>,
+    pub fallback: Option<Text>,
+    pub district_attribute: Option<Text>,
+    pub districts: Option<Vec<Text>>,
+    pub unit_attribute: Option<Text>,
+    pub unit_prefix: Option<Text>,
+    pub authority: Option<Text>,
+    pub planned_label: Option<Text>,
+    pub name_form: Option<Text>,
+    pub dedication: Option<Text>,
+    pub owner_attribute: Option<Text>,
+    pub owners: Option<Vec<Text>>,
+    pub point_names: Option<Vec<Text>>,
+    pub office_unless: Option<Text>,
+    pub office_exceptions: Option<Vec<RawOfficeException>>,
+    pub office_renames: Option<Vec<RawOfficeRename>>,
+    /// A source asked at points: the WMS, its layers and whether they do not overlap.
+    pub url: Option<Text>,
+    pub wms_layers: Option<Text>,
+    pub one: Option<Spanned<bool>>,
+    pub code_attribute: Option<Text>,
+    pub codes: Option<Vec<RawCode>>,
+    pub water_prefix: Option<Text>,
+    pub water_length: Option<Spanned<i64>>,
+    pub zone_after: Option<Text>,
+}
+
+/// A code of a forest function.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct RawCode {
+    pub code: Text,
+    pub function: Text,
+    pub label: Option<Text>,
+}
+
+/// A start of a forest office's name and the name it stands for.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct RawOfficeRename {
+    pub starts_with: Text,
+    pub name: Text,
+}
+
+/// A name of a forest office and the prefix it gets instead of the usual one.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct RawOfficeException {
+    pub name: Text,
+    pub prefix: Text,
 }
 
 #[derive(Debug, Deserialize)]

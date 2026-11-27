@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The library's errors in the language of the run (ADR 0092, stage 2).
 //!
 //! The error types of the library keep their English `Display` texts for logs and tests. This
@@ -121,6 +123,16 @@ impl Localize for ProjectError {
                 "error-project-invalid-contour-interval",
                 &[("interval", v(interval))],
             ),
+            ProjectError::InvalidSteepSlope(slope) => text(
+                lang,
+                "error-project-invalid-steep-slope",
+                &[("slope", v(slope))],
+            ),
+            ProjectError::InvalidFaceSlope(slope) => text(
+                lang,
+                "error-project-invalid-face-slope",
+                &[("slope", v(slope))],
+            ),
             ProjectError::InvalidScale(scale) => {
                 text(lang, "error-project-invalid-scale", &[("scale", v(scale))])
             }
@@ -169,6 +181,9 @@ impl Localize for ProjectError {
                 "error-project-ocd",
                 &[("message", v(e.localize(lang)))],
             ),
+            ProjectError::Pdf(e) => {
+                text(lang, "error-project-pdf", &[("message", v(e.to_string()))])
+            }
             ProjectError::TemplateOutdated(file) => {
                 text(lang, "error-project-template-outdated", &[path(file)])
             }
@@ -214,6 +229,12 @@ impl Localize for ProjectError {
                 "error-project-outside-coverage",
                 &[("states", v(crate::text::states(lang)))],
             ),
+            ProjectError::AreaCrossesCountry => {
+                text(lang, "error-project-area-crosses-country", &[])
+            }
+            ProjectError::PermitsNotForRegion => {
+                text(lang, "error-project-permits-not-for-region", &[])
+            }
             ProjectError::NotEnoughSpace(shortfall) => shortfall.localize(lang),
         }
     }
@@ -356,6 +377,15 @@ impl Localize for FetchError {
     fn localize(&self, lang: &Lang) -> String {
         let url = |url: &String| ("url", v(url));
         match self {
+            FetchError::Http { url: from, message } if self.is_temporary() => text(
+                lang,
+                "error-fetch-http-temporary",
+                &[
+                    url(from),
+                    ("message", v(message)),
+                    ("attempts", n(freemapper::fetch::ATTEMPTS as usize)),
+                ],
+            ),
             FetchError::Http { url: from, message } => text(
                 lang,
                 "error-fetch-http",
@@ -438,8 +468,9 @@ impl Localize for FetchError {
                 // The region in the language of the run; the error carries the English name.
                 let name = freemapper::adapters::registry()
                     .get(&refused.adapter)
-                    .filter(|_| lang.code() == "de")
-                    .map_or(&refused.name, |adapter| &adapter.info().names.de);
+                    .map_or(refused.name.as_str(), |adapter| {
+                        adapter.info().names.in_lang(&lang.code())
+                    });
                 let from = refused.from.as_ref().map_or_else(String::new, |from| {
                     text(lang, "error-fetch-host-redirected-from", &[url(from)])
                 });
@@ -696,6 +727,14 @@ mod tests {
                 url: url(),
                 message: "timeout".into(),
             },
+            FetchError::Http {
+                url: url(),
+                message: "http status: 503".into(),
+            },
+            FetchError::Http {
+                url: url(),
+                message: "http status: 502".into(),
+            },
             FetchError::Io(PathBuf::from("a/b.zip"), missing()),
             FetchError::Io(PathBuf::from("a/b.zip"), disk_full()),
             FetchError::CorruptArchive {
@@ -874,6 +913,8 @@ mod tests {
                 height_m: 120.6,
             },
             ProjectError::OutsideCoverage,
+            ProjectError::AreaCrossesCountry,
+            ProjectError::PermitsNotForRegion,
         ];
         errors.extend(area_errors().into_iter().map(ProjectError::Area));
         errors.extend(georef_errors().into_iter().map(ProjectError::Georef));
@@ -881,6 +922,7 @@ mod tests {
         errors.extend(fetch_errors().into_iter().map(ProjectError::Fetch));
         errors.extend(derive_errors().into_iter().map(ProjectError::Derive));
         errors.extend(ocd_errors().into_iter().map(ProjectError::Ocd));
+        errors.push(ProjectError::Pdf(freemapper::project::PdfError::NotFinite));
         errors.extend(
             PARTS
                 .into_iter()
@@ -1091,5 +1133,18 @@ mod tests {
     /// The reasons as the library lists them.
     fn freemapper_adapter_api_reasons() -> [&'static str; 12] {
         freemapper::fetch::POLICY_REASONS
+    }
+
+    #[test]
+    fn a_failure_that_does_not_pass_does_not_blame_the_service() {
+        let http = |message: &str| FetchError::Http {
+            url: "https://example.org/a.zip".to_owned(),
+            message: message.to_owned(),
+        };
+        let lost = http("connection refused").localize(&de());
+        assert!(lost.contains("connection refused"), "{lost}");
+        assert!(!lost.contains("überlastet"), "{lost}");
+        let busy = http("http status: 503").localize(&de());
+        assert!(busy.contains("überlastet"), "{busy}");
     }
 }

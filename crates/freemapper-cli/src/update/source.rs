@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The network of the self-update: an [`UpdateSource`] over its own HTTP agent, which follows
 //! redirects by hand so that every hop passes the host rule (spec 3.8, D15).
 

@@ -1,0 +1,283 @@
+<?xml version='1.0' encoding="UTF-8" ?>
+<schema
+   targetNamespace="http://www.gugik.gov.pl" 
+   xmlns:gugik="http://www.gugik.gov.pl" 
+   xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+   xmlns="http://www.w3.org/2001/XMLSchema"
+   xmlns:gml="http://www.opengis.net/gml/3.2"
+   elementFormDefault="qualified" version="0.1" >
+
+  <import namespace="http://www.opengis.net/gml/3.2"
+          schemaLocation="http://schemas.opengis.net/gml/3.2.1/gml.xsd" />
+
+  <element name="SkorowidzNMT2018" 
+           type="gugik:SkorowidzNMT2018Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzNMT2018Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="asortyment" minOccurs="0" type="string"/>
+          <element name="format" minOccurs="0" type="string"/>
+          <element name="char_przestrz" minOccurs="0" type="string"/>
+          <element name="blad_sr_wys" minOccurs="0" type="double"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="uklad_h" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="blad_sr_syt" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzNMT2019" 
+           type="gugik:SkorowidzNMT2019Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzNMT2019Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="asortyment" minOccurs="0" type="string"/>
+          <element name="format" minOccurs="0" type="string"/>
+          <element name="char_przestrz" minOccurs="0" type="string"/>
+          <element name="blad_sr_wys" minOccurs="0" type="double"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="uklad_h" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="blad_sr_syt" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzNMT2020" 
+           type="gugik:SkorowidzNMT2020Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzNMT2020Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="asortyment" minOccurs="0" type="string"/>
+          <element name="format" minOccurs="0" type="string"/>
+          <element name="char_przestrz" minOccurs="0" type="string"/>
+          <element name="blad_sr_wys" minOccurs="0" type="double"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="uklad_h" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="blad_sr_syt" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzNMT2021" 
+           type="gugik:SkorowidzNMT2021Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzNMT2021Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="asortyment" minOccurs="0" type="string"/>
+          <element name="format" minOccurs="0" type="string"/>
+          <element name="char_przestrz" minOccurs="0" type="string"/>
+          <element name="blad_sr_wys" minOccurs="0" type="double"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="uklad_h" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="blad_sr_syt" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzNMT2022" 
+           type="gugik:SkorowidzNMT2022Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzNMT2022Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="asortyment" minOccurs="0" type="string"/>
+          <element name="format" minOccurs="0" type="string"/>
+          <element name="char_przestrz" minOccurs="0" type="string"/>
+          <element name="blad_sr_wys" minOccurs="0" type="double"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="uklad_h" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="blad_sr_syt" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzNMT2023" 
+           type="gugik:SkorowidzNMT2023Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzNMT2023Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="asortyment" minOccurs="0" type="string"/>
+          <element name="format" minOccurs="0" type="string"/>
+          <element name="char_przestrz" minOccurs="0" type="string"/>
+          <element name="blad_sr_wys" minOccurs="0" type="double"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="uklad_h" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="blad_sr_syt" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzNMT2024" 
+           type="gugik:SkorowidzNMT2024Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzNMT2024Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="asortyment" minOccurs="0" type="string"/>
+          <element name="format" minOccurs="0" type="string"/>
+          <element name="char_przestrz" minOccurs="0" type="string"/>
+          <element name="blad_sr_wys" minOccurs="0" type="double"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="uklad_h" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="blad_sr_syt" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzNMT2025" 
+           type="gugik:SkorowidzNMT2025Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzNMT2025Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="asortyment" minOccurs="0" type="string"/>
+          <element name="format" minOccurs="0" type="string"/>
+          <element name="char_przestrz" minOccurs="0" type="string"/>
+          <element name="blad_sr_wys" minOccurs="0" type="double"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="uklad_h" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="blad_sr_syt" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzNMT2026" 
+           type="gugik:SkorowidzNMT2026Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzNMT2026Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="asortyment" minOccurs="0" type="string"/>
+          <element name="format" minOccurs="0" type="string"/>
+          <element name="char_przestrz" minOccurs="0" type="string"/>
+          <element name="blad_sr_wys" minOccurs="0" type="double"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="uklad_h" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="blad_sr_syt" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+</schema>

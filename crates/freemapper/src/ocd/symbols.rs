@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Colours and placeholder symbols for OCAD, read from the OOM symbol set, and the freemapper code
 //! → OCAD symbol number table.
 //!
@@ -29,7 +31,7 @@ const NUMBERS: [(&str, i32); 11] = [
 
 /// The OCAD number of a freemapper symbol code. OCAD reads the part after the dot as a three-place
 /// decimal ("501.1" = 501.100); the hedge is 411.002 in ISSprOM 2019-2 but 410.002 in the school
-/// set, which follows the first 2019 edition. The exceptions of [`NUMBERS`] belong to the ISSprOM
+/// set, which follows the first 2019 edition. The exceptions of `NUMBERS` belong to the ISSprOM
 /// sets; a forest map's ISOM codes follow the decimal rule.
 pub fn ocad_number(code: &str, kind: MapKind) -> Option<i32> {
     if code == "410.1" && kind == MapKind::Schoolyard {
@@ -100,8 +102,9 @@ impl OcdColour {
     }
 }
 
-/// ASCII for parameter strings and symbol names: German letters transliterated, other non-ASCII
-/// characters dropped, tabs replaced by spaces.
+/// ASCII for parameter strings and symbol names: German letters transliterated, Polish letters
+/// written as the letter they are formed from, other non-ASCII characters dropped, tabs replaced
+/// by spaces.
 pub fn ascii(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     for c in text.chars() {
@@ -114,11 +117,18 @@ pub fn ascii(text: &str) -> String {
             'Ü' => out.push_str("Ue"),
             '©' => out.push_str("(c)"),
             'ß' => out.push_str("ss"),
+            'ó' => out.push('o'),
+            'Ó' => out.push('O'),
             '–' | '—' => out.push('-'),
             '·' => out.push('-'),
             '\t' => out.push(' '),
             c if c.is_ascii() && !c.is_ascii_control() || c == '\r' || c == '\n' => out.push(c),
-            _ => {}
+            c => out.extend(
+                crate::render::metrics::POLISH_BASE
+                    .iter()
+                    .find(|(letter, _)| *letter == c)
+                    .map(|&(_, base)| char::from(base)),
+            ),
         }
     }
     out
@@ -159,17 +169,24 @@ pub fn colours(set: &SymbolSet) -> Vec<OcdColour> {
 /// What a placeholder looks like, in OCAD units (0.01 mm).
 #[derive(Debug, Clone, PartialEq)]
 pub enum PlaceholderKind {
+    /// A dot of `diameter` (0 for none) with an optional ring around it.
     Point {
         color: i16,
         diameter: i16,
+        ring: Option<Ring>,
     },
     Line {
         color: i16,
         width: i16,
         dash: Option<(i16, i16)>,
+        double: Option<Double>,
     },
     Area {
         color: i16,
+        /// Whether the colour fills the area; false when only hatching or the border draws it.
+        fill: bool,
+        hatch: Option<Hatch>,
+        border: Option<Border>,
     },
     Text {
         color: i16,
@@ -178,12 +195,53 @@ pub enum PlaceholderKind {
     },
 }
 
+/// The edge lines of a line symbol: OCAD calls them a double line. Sizes in OCAD units (0.01 mm).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Double {
+    /// Of the edge lines, on both sides.
+    pub color: i16,
+    pub edge_width: i16,
+    /// Between the edge lines, as OCAD counts it: the line width less the edge width plus twice
+    /// the shift of the edges.
+    pub distance: i16,
+    pub dash: Option<(i16, i16)>,
+}
+
+/// A circle line of a point symbol, in OCAD units (0.01 mm).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Ring {
+    pub color: i16,
+    pub width: i16,
+    /// Of the centre line: the outer diameter less the width.
+    pub diameter: i16,
+}
+
+/// Parallel lines in an area, in OCAD units (0.01 mm; the angle in 0.1°).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Hatch {
+    pub color: i16,
+    pub width: i16,
+    /// Centre to centre.
+    pub distance: i16,
+    pub angle: i16,
+    /// The angle of a second set of lines, which makes a cross hatch.
+    pub cross_angle: Option<i16>,
+}
+
+/// The outline of an area, drawn as a line symbol of its own.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Border {
+    pub color: i16,
+    pub width: i16,
+    pub dash: Option<(i16, i16)>,
+}
+
 impl PlaceholderKind {
     pub fn color(&self) -> i16 {
         match self {
             Self::Point { color, .. }
             | Self::Line { color, .. }
-            | Self::Area { color }
+            | Self::Area { color, .. }
             | Self::Text { color, .. } => *color,
         }
     }
@@ -191,9 +249,38 @@ impl PlaceholderKind {
     /// The OCAD symbol kind; texts get the alignment of their objects.
     pub fn ocd_kind(&self, align: TextAlign) -> OcdSymbolKind {
         match *self {
-            Self::Point { color, diameter } => OcdSymbolKind::Point { color, diameter },
-            Self::Line { color, width, dash } => OcdSymbolKind::Line { color, width, dash },
-            Self::Area { color } => OcdSymbolKind::Area { color },
+            Self::Point {
+                color,
+                diameter,
+                ring,
+            } => OcdSymbolKind::Point {
+                color,
+                diameter,
+                ring,
+            },
+            Self::Line {
+                color,
+                width,
+                dash,
+                double,
+            } => OcdSymbolKind::Line {
+                color,
+                width,
+                dash,
+                double,
+            },
+            Self::Area {
+                color,
+                fill,
+                hatch,
+                border,
+            } => OcdSymbolKind::Area {
+                color,
+                fill,
+                hatch,
+                // The symbol table gives the border its number.
+                border: border.map(|_| 0),
+            },
             Self::Text { color, size, bold } => OcdSymbolKind::Text {
                 color,
                 size,
@@ -231,8 +318,12 @@ struct OomSymbol {
     kind: u32,
     line: Option<OomLine>,
     border: Option<(i16, f64)>,
+    /// Shift and dashes (dash, gap) of `border`, in OOM 0.001 mm.
+    border_edge: (f64, Option<(f64, f64)>),
     area_color: Option<i16>,
     pattern_color: Option<i16>,
+    /// Hatch patterns: (angle rad, spacing, width, colour).
+    hatches: Vec<(f64, f64, f64, i16)>,
     point: Option<(i16, f64, i16, f64)>,
     first_color: Option<i16>,
     text: Option<(f64, bool)>,
@@ -316,6 +407,13 @@ fn oom_symbols(set: &SymbolSet) -> HashMap<u32, OomSymbol> {
                     "border" if symbol.border.is_none() => {
                         if let Some(c) = color_of(&e, "color") {
                             symbol.border = Some((c, num(&e, "width").unwrap_or(0.0)));
+                            let dash = (attr(&e, "dashed").as_deref() == Some("true")).then(|| {
+                                (
+                                    num(&e, "dash_length").unwrap_or(0.0),
+                                    num(&e, "break_length").unwrap_or(0.0),
+                                )
+                            });
+                            symbol.border_edge = (num(&e, "shift").unwrap_or(0.0), dash);
                         }
                     }
                     "area_symbol"
@@ -323,8 +421,20 @@ fn oom_symbols(set: &SymbolSet) -> HashMap<u32, OomSymbol> {
                     {
                         symbol.area_color = color_of(&e, "inner_color");
                     }
-                    "pattern" if symbol.pattern_color.is_none() => {
-                        symbol.pattern_color = color_of(&e, "color");
+                    "pattern" => {
+                        if symbol.pattern_color.is_none() {
+                            symbol.pattern_color = color_of(&e, "color");
+                        }
+                        if num(&e, "type") == Some(1.0)
+                            && let Some(color) = color_of(&e, "color")
+                        {
+                            symbol.hatches.push((
+                                num(&e, "angle").unwrap_or(0.0),
+                                num(&e, "line_spacing").unwrap_or(0.0),
+                                num(&e, "line_width").unwrap_or(0.0),
+                                color,
+                            ));
+                        }
                     }
                     "point_symbol" if symbol.point.is_none() && depth == 0 => {
                         symbol.point = Some((
@@ -361,21 +471,73 @@ fn oom_symbols(set: &SymbolSet) -> HashMap<u32, OomSymbol> {
     symbols
 }
 
+/// An area symbol: its fill colour or hatching and the given outline.
+fn area_kind(s: &OomSymbol, border: Option<Border>) -> PlaceholderKind {
+    let hatch = s.hatches.first().map(|&(angle, spacing, width, color)| {
+        let deci_degrees = |rad: f64| (rad.to_degrees() * 10.0).round() as i16;
+        Hatch {
+            color,
+            width: ocad_units(width),
+            distance: ocad_units(spacing),
+            angle: deci_degrees(angle),
+            cross_angle: s
+                .hatches
+                .get(1)
+                .filter(|h| h.1 == spacing && h.2 == width && h.3 == color)
+                .map(|h| deci_degrees(h.0)),
+        }
+    });
+    PlaceholderKind::Area {
+        color: s
+            .area_color
+            .or(hatch.map(|h| h.color))
+            .or(s.pattern_color)
+            .unwrap_or(s.first_color.unwrap_or(0)),
+        fill: s.area_color.is_some() || hatch.is_none(),
+        hatch,
+        border,
+    }
+}
+
 fn placeholder_kind(symbols: &HashMap<u32, OomSymbol>, s: &OomSymbol) -> Option<PlaceholderKind> {
     let fallback = s.first_color.unwrap_or(0);
     match s.kind {
         1 => {
-            let (inner, radius, outer, outer_width) = s.point.unwrap_or((-1, 0.0, -1, 0.0));
-            let (color, diameter) = if outer >= 0 && outer_width > 0.0 {
-                (outer, 2.0 * (radius + outer_width))
-            } else if inner >= 0 && radius > 0.0 {
-                (inner, 2.0 * radius)
-            } else {
-                (fallback, f64::from(DEFAULT_DOT) * 10.0)
+            let (inner, radius, outer, outer_width) = s.point.unwrap_or_default();
+            let dot = (inner >= 0 && radius > 0.0).then_some((inner, 2.0 * radius));
+            let ring = (outer >= 0 && outer_width > 0.0).then_some(outer);
+            let (color, diameter, ring) = match (dot, ring) {
+                // A ring around nothing is a disc, which a circle element cannot draw.
+                (None, Some(outer)) if radius <= 0.0 => (outer, 2.0 * outer_width, None),
+                (None, Some(outer)) => (
+                    outer,
+                    0.0,
+                    Some(Ring {
+                        color: outer,
+                        width: ocad_units(outer_width),
+                        diameter: ocad_units(2.0 * radius + outer_width),
+                    }),
+                ),
+                (Some((color, diameter)), Some(outer)) => (
+                    color,
+                    diameter,
+                    Some(Ring {
+                        color: outer,
+                        width: ocad_units(outer_width),
+                        diameter: ocad_units(2.0 * radius + outer_width),
+                    }),
+                ),
+                (Some((color, diameter)), None) => (color, diameter, None),
+                (None, None) => (fallback, f64::from(DEFAULT_DOT) * 10.0, None),
             };
             Some(PlaceholderKind::Point {
                 color,
-                diameter: ocad_units(diameter),
+                diameter: if diameter > 0.0 {
+                    ocad_units(diameter)
+                } else {
+                    0
+                },
+                ring,
             })
         }
         2 => {
@@ -386,15 +548,38 @@ fn placeholder_kind(symbols: &HashMap<u32, OomSymbol>, s: &OomSymbol) -> Option<
                     _ => (fallback, f64::from(DEFAULT_WIDTH) * 10.0, None),
                 },
             };
+            // Edge lines beside a main line: both sides alike, the way OOM writes one `<border>`.
+            let double = match (s.line, s.border) {
+                (Some((_, line_width, _)), Some((edge_color, edge_width)))
+                    if line_width > 0.0 && edge_width > 0.0 =>
+                {
+                    let (shift, edge_dash) = s.border_edge;
+                    Some(Double {
+                        color: edge_color,
+                        edge_width: ocad_units(edge_width),
+                        distance: ocad_units(line_width - edge_width + 2.0 * shift),
+                        dash: edge_dash.map(|(d, g)| (ocad_units(d), ocad_units(g))),
+                    })
+                }
+                _ => None,
+            };
             Some(PlaceholderKind::Line {
                 color,
                 width: ocad_units(width),
                 dash: dash.map(|(d, g)| (ocad_units(d), ocad_units(g))),
+                double,
             })
         }
-        4 => Some(PlaceholderKind::Area {
-            color: s.area_color.or(s.pattern_color).unwrap_or(fallback),
-        }),
+        4 => Some(area_kind(
+            s,
+            s.border
+                .filter(|&(_, width)| width > 0.0)
+                .map(|(color, width)| Border {
+                    color,
+                    width: ocad_units(width),
+                    dash: None,
+                }),
+        )),
         8 => {
             let (size_um, bold) = s.text.unwrap_or((4000.0, false));
             // Em size in mm → points × 10.
@@ -413,25 +598,45 @@ fn placeholder_kind(symbols: &HashMap<u32, OomSymbol>, s: &OomSymbol) -> Option<
                 .filter_map(|part| placeholder_kind(symbols, part))
                 .collect();
             let own = [
-                s.area_color.map(|color| PlaceholderKind::Area { color }),
+                s.area_color.map(|_| area_kind(s, None)),
                 s.line.map(|(color, width, dash)| PlaceholderKind::Line {
                     color: if color >= 0 { color } else { fallback },
                     width: ocad_units(width.max(f64::from(DEFAULT_WIDTH) * 10.0)),
                     dash: dash.map(|(d, g)| (ocad_units(d), ocad_units(g))),
+                    double: None,
                 }),
             ];
             let parts: Vec<PlaceholderKind> =
                 parts.into_iter().chain(own.into_iter().flatten()).collect();
-            parts
-                .iter()
-                .find(|k| matches!(k, PlaceholderKind::Area { .. }))
-                .or_else(|| {
-                    parts
-                        .iter()
-                        .find(|k| matches!(k, PlaceholderKind::Line { .. }))
-                })
-                .or(parts.first())
-                .cloned()
+            // OCAD has no combined symbols: the area carries the first line part as its border.
+            let line = parts.iter().find_map(|k| match *k {
+                PlaceholderKind::Line {
+                    color, width, dash, ..
+                } => Some(Border { color, width, dash }),
+                _ => None,
+            });
+            let area = parts.iter().find_map(|k| match *k {
+                PlaceholderKind::Area { .. } => Some(k.clone()),
+                _ => None,
+            });
+            match area {
+                Some(PlaceholderKind::Area {
+                    color,
+                    fill,
+                    hatch,
+                    border,
+                }) => Some(PlaceholderKind::Area {
+                    color,
+                    fill,
+                    hatch,
+                    border: border.or(line),
+                }),
+                _ => parts
+                    .iter()
+                    .find(|k| matches!(k, PlaceholderKind::Line { .. }))
+                    .or(parts.first())
+                    .cloned(),
+            }
         }
         _ => None,
     }
@@ -560,7 +765,14 @@ mod tests {
         assert_eq!(ocad_number("990", MapKind::Sprint), Some(990_000));
         let all = placeholders(&set);
         let walkable = all.values().find(|p| p.code == "990").unwrap();
-        assert_eq!(walkable.kind, PlaceholderKind::Area { color: 32 });
+        assert!(matches!(
+            walkable.kind,
+            PlaceholderKind::Area {
+                color: 32,
+                fill: true,
+                ..
+            }
+        ));
         assert_eq!(walkable.name, "Walkable area (base fill)");
     }
 
@@ -572,6 +784,216 @@ mod tests {
         );
         assert_eq!(ascii("© GeoBasis-DE/LGB"), "(c) GeoBasis-DE/LGB");
         assert_eq!(ascii("Ω"), "");
+        assert_eq!(
+            ascii("Świnoujście Łódź, Żółć Wągrów"),
+            "Swinoujscie Lodz, Zolc Wagrow"
+        );
+    }
+
+    #[test]
+    fn areas_keep_their_outline_and_hatching() {
+        let set = SymbolSet::issprom_2019().with_sheet_symbols();
+        let all = placeholders(&set);
+        let by_code = |code: &str| {
+            all.values()
+                .find(|p| p.code == code)
+                .unwrap_or_else(|| panic!("{code}"))
+                .kind
+                .clone()
+        };
+        let PlaceholderKind::Area { border, .. } = by_code("521") else {
+            panic!("a building is an area");
+        };
+        assert!(border.is_some_and(|b| b.width > 0), "{border:?}");
+        let PlaceholderKind::Area { hatch, .. } = by_code("408.1") else {
+            panic!("408.1 is an area");
+        };
+        let hatch = hatch.expect("the dense vegetation is hatched");
+        assert_eq!((hatch.distance, hatch.width, hatch.angle), (150, 40, 900));
+    }
+
+    #[test]
+    fn area_fill_and_cross_hatch_follow_the_symbol() {
+        let hatched = |inner: Option<i16>, hatches: Vec<(f64, f64, f64, i16)>| OomSymbol {
+            area_color: inner,
+            hatches,
+            ..OomSymbol::default()
+        };
+        let area = |s: &OomSymbol| match area_kind(s, None) {
+            PlaceholderKind::Area {
+                color, fill, hatch, ..
+            } => (color, fill, hatch),
+            other => panic!("{other:?}"),
+        };
+        let line = (0.0, 600.0, 100.0, 5);
+        // Hatching alone leaves the area unfilled; a fill colour or no hatching fills it.
+        assert_eq!(area(&hatched(None, vec![line])).0, 5);
+        assert!(!area(&hatched(None, vec![line])).1);
+        assert!(area(&hatched(Some(3), vec![line])).1);
+        assert_eq!(area(&hatched(Some(3), vec![line])).0, 3);
+        assert!(area(&hatched(None, vec![])).1);
+        // A second set of the same spacing, width and colour makes a cross hatch.
+        let across = (std::f64::consts::FRAC_PI_2, 600.0, 100.0, 5);
+        let cross = area(&hatched(None, vec![line, across])).2.unwrap();
+        assert_eq!((cross.angle, cross.cross_angle), (0, Some(900)));
+        for other in [
+            (0.5, 700.0, 100.0, 5),
+            (0.5, 600.0, 200.0, 5),
+            (0.5, 600.0, 100.0, 6),
+        ] {
+            let plain = area(&hatched(None, vec![line, other])).2.unwrap();
+            assert_eq!(plain.cross_angle, None, "{other:?}");
+        }
+    }
+
+    #[test]
+    fn line_edges_follow_the_border() {
+        let line = |line_width: f64, border: Option<(i16, f64)>| {
+            let s = OomSymbol {
+                kind: 2,
+                line: Some((14, line_width, None)),
+                border,
+                border_edge: (50.0, Some((2000.0, 250.0))),
+                ..OomSymbol::default()
+            };
+            match placeholder_kind(&HashMap::new(), &s) {
+                Some(PlaceholderKind::Line { double, .. }) => double,
+                other => panic!("{other:?}"),
+            }
+        };
+        // Width 350, edges 100 wide and 50 off the line: 350 - 100 + 2 * 50, in 0.01 mm.
+        assert_eq!(
+            line(350.0, Some((15, 100.0))),
+            Some(Double {
+                color: 15,
+                edge_width: 10,
+                distance: 35,
+                dash: Some((200, 25))
+            })
+        );
+        assert_eq!(line(350.0, Some((15, 0.0))), None);
+        assert_eq!(line(0.0, Some((15, 100.0))), None);
+        assert_eq!(line(350.0, None), None);
+    }
+
+    #[test]
+    fn point_rings_and_dots() {
+        let point = |inner: i16, radius: f64, outer: i16, width: f64| {
+            let s = OomSymbol {
+                kind: 1,
+                point: Some((inner, radius, outer, width)),
+                first_color: Some(1),
+                ..OomSymbol::default()
+            };
+            placeholder_kind(&HashMap::new(), &s)
+        };
+        let ring = |color, width, diameter| {
+            Some(Ring {
+                color,
+                width,
+                diameter,
+            })
+        };
+        // Radius 300 and ring width 100 (OOM 0.001 mm): the centre line has Ø 70, in 0.01 mm.
+        assert_eq!(
+            point(2, 300.0, 5, 100.0),
+            Some(PlaceholderKind::Point {
+                color: 2,
+                diameter: 60,
+                ring: ring(5, 10, 70)
+            })
+        );
+        assert_eq!(
+            point(-1, 300.0, 5, 100.0),
+            Some(PlaceholderKind::Point {
+                color: 5,
+                diameter: 0,
+                ring: ring(5, 10, 70)
+            })
+        );
+        // Without a point element the symbol is a 0.5 mm dot in its first colour.
+        let bare = OomSymbol {
+            kind: 1,
+            first_color: Some(8),
+            ..OomSymbol::default()
+        };
+        assert_eq!(
+            placeholder_kind(&HashMap::new(), &bare),
+            Some(PlaceholderKind::Point {
+                color: 8,
+                diameter: 50,
+                ring: None
+            })
+        );
+        // A ring around nothing is a disc of the ring's outer diameter.
+        assert_eq!(
+            point(-1, 0.0, 5, 100.0),
+            Some(PlaceholderKind::Point {
+                color: 5,
+                diameter: 20,
+                ring: None
+            })
+        );
+        assert_eq!(
+            point(2, 300.0, -1, 0.0),
+            Some(PlaceholderKind::Point {
+                color: 2,
+                diameter: 60,
+                ring: None
+            })
+        );
+    }
+
+    #[test]
+    fn an_area_border_needs_a_width() {
+        let area = |width: f64| OomSymbol {
+            kind: 4,
+            area_color: Some(2),
+            border: Some((7, width)),
+            ..OomSymbol::default()
+        };
+        let border = |width: f64| match placeholder_kind(&HashMap::new(), &area(width)) {
+            Some(PlaceholderKind::Area { border, .. }) => border,
+            other => panic!("{other:?}"),
+        };
+        assert_eq!(
+            border(200.0),
+            Some(Border {
+                color: 7,
+                width: 20,
+                dash: None
+            })
+        );
+        assert_eq!(border(0.0), None);
+    }
+
+    #[test]
+    fn placeholder_colour_is_the_symbols_colour() {
+        let kinds = [
+            PlaceholderKind::Point {
+                color: 3,
+                diameter: 10,
+                ring: None,
+            },
+            PlaceholderKind::Line {
+                color: 4,
+                width: 10,
+                dash: None,
+                double: None,
+            },
+            PlaceholderKind::Area {
+                color: 5,
+                fill: true,
+                hatch: None,
+                border: None,
+            },
+            PlaceholderKind::Text {
+                color: 6,
+                size: 100,
+                bold: false,
+            },
+        ];
+        assert_eq!(kinds.map(|k| k.color()), [3, 4, 5, 6]);
     }
 
     #[test]
@@ -589,15 +1011,29 @@ mod tests {
             PlaceholderKind::Line {
                 color: 14,
                 width: 35,
-                dash: None
+                dash: None,
+                double: Some(Double {
+                    color: 15,
+                    edge_width: 10,
+                    distance: 35,
+                    dash: Some((200, 25))
+                })
             }
         );
-        assert_eq!(by_code("520").kind, PlaceholderKind::Area { color: 22 });
+        assert!(matches!(
+            by_code("520").kind,
+            PlaceholderKind::Area { color: 22, .. }
+        ));
         assert_eq!(
             by_code("418").kind,
             PlaceholderKind::Point {
-                color: 3,
-                diameter: 80
+                color: 21,
+                diameter: 20,
+                ring: Some(Ring {
+                    color: 3,
+                    width: 30,
+                    diameter: 50
+                })
             }
         );
         assert_eq!(

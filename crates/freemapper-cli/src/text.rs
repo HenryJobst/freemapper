@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Program texts from Fluent files (ADR 0092).
 //!
 //! The program independent part (languages, lookup with English fallback, language detection,
@@ -26,6 +28,25 @@ const ENGLISH: &str = include_str!("../i18n/en/freemapper.ftl");
 pub static TEXTS: Catalog = Catalog::new(&[
     ("en", ENGLISH),
     ("de", include_str!("../i18n/de/freemapper.ftl")),
+    ("pl", include_str!("../i18n/pl/freemapper.ftl")),
+    ("cs", include_str!("../i18n/cs/freemapper.ftl")),
+    ("nl", include_str!("../i18n/nl/freemapper.ftl")),
+    ("da", include_str!("../i18n/da/freemapper.ftl")),
+    ("fr", include_str!("../i18n/fr/freemapper.ftl")),
+    ("sv", include_str!("../i18n/sv/freemapper.ftl")),
+    ("nb", include_str!("../i18n/nb/freemapper.ftl")),
+    ("fi", include_str!("../i18n/fi/freemapper.ftl")),
+    ("sk", include_str!("../i18n/sk/freemapper.ftl")),
+    ("et", include_str!("../i18n/et/freemapper.ftl")),
+    ("it", include_str!("../i18n/it/freemapper.ftl")),
+    ("sl", include_str!("../i18n/sl/freemapper.ftl")),
+    ("hu", include_str!("../i18n/hu/freemapper.ftl")),
+    ("lt", include_str!("../i18n/lt/freemapper.ftl")),
+    ("lv", include_str!("../i18n/lv/freemapper.ftl")),
+    ("es", include_str!("../i18n/es/freemapper.ftl")),
+    ("pt", include_str!("../i18n/pt/freemapper.ftl")),
+    ("ru", include_str!("../i18n/ru/freemapper.ftl")),
+    ("uk", include_str!("../i18n/uk/freemapper.ftl")),
 ]);
 
 /// The language of this run, set once at start.
@@ -145,12 +166,13 @@ pub fn text(id: &str, args: &[(&str, FluentValue)]) -> String {
 /// The names of the supported states in `lang`, in the order of the registry and joined by
 /// commas: for a list in parentheses.
 pub fn states(lang: &Lang) -> String {
-    freemapper::adapters::region_names(lang.code() == "de").join(", ")
+    freemapper::adapters::region_names(&lang.code()).join(", ")
 }
 
-/// [`states`] for the middle of a sentence: the last name follows the word for "and".
+/// [`states`] for the middle of a sentence: the last name follows the word for "and". Only the
+/// regions with official geodata of their own: the sentence says whose geodata freemapper uses.
 pub fn states_in_a_sentence(lang: &Lang) -> String {
-    let names = freemapper::adapters::region_names(lang.code() == "de");
+    let names = freemapper::adapters::region_names_with_geodata(&lang.code());
     match names.split_last() {
         Some((last, first)) if !first.is_empty() => TEXTS.text(
             lang,
@@ -205,6 +227,7 @@ mod tests {
             ("program", v("open")),
             ("files", v("a.omap")),
             ("message", v("m")),
+            ("attempts", n(3)),
             ("scale", v(4000)),
             ("kind", v("k")),
             ("allowed", v("1:4000")),
@@ -227,6 +250,10 @@ mod tests {
             ("others", v("berlin")),
             ("capability", v("rasters")),
             ("host", v("cdn.example.net")),
+            (
+                "findings",
+                v("manifest.toml:3: adapter.id: not a name [manifest.id]"),
+            ),
             ("file", v("/config/freemapper/allowed-hosts.toml")),
             ("from", v("")),
             ("adapters", v("brandenburg, berlin")),
@@ -279,6 +306,7 @@ mod tests {
             ("total", v(3)),
             // An invalid contour interval in freemapper.toml.
             ("interval", v(0.0)),
+            ("slope", v(0.0)),
             // The content setting (`--content`).
             ("summary", v("balanced, walls=map")),
             ("detail", v("unknown profile `huge`")),
@@ -298,7 +326,8 @@ mod tests {
             ("joined", n(3)),
             ("shifted", n(2)),
             // The line ends left free (`cli-training-free-ends`).
-            ("count", n(3)),
+            ("ways", n(2)),
+            ("others", n(1)),
             ("length", v("12.3")),
             // The permit notes (`permits.rs`, `errors.rs`).
             ("missing", v("bfn: HTTP 503")),
@@ -308,6 +337,7 @@ mod tests {
             ("year", v(2024)),
             ("title", v("Verordnung")),
             ("class", v("4")),
+            ("code", v("0805")),
             ("operator", v("Stadt Buckow")),
             ("roles", v("both")),
             ("objects", v("`leisure=park`")),
@@ -315,6 +345,8 @@ mod tests {
             ("kreis", v("Landkreis Märkisch-Oderland")),
             ("amt", v("Amt Märkische Schweiz")),
             ("gemeinde", v("Buckow")),
+            ("gmina", v("gmina miejska Słubice")),
+            ("orp", v("ORP Broumov")),
             ("text", v("Alte Eichen")),
             ("district", v("Friedrichshain-Kreuzberg")),
             ("owner", v("Land Berlin")),
@@ -332,6 +364,7 @@ mod tests {
             ("authority", v("Landratsamt Ludwigsburg")),
             ("links", v("yes")),
             ("known", v("no")),
+            ("view", v("no-paths")),
             (
                 "gaps",
                 v("Die Stadt Potsdam führt ihre Denkmalliste selbst"),
@@ -379,6 +412,7 @@ mod tests {
             include_str!("update/background.rs"),
             include_str!("update/command.rs"),
             include_str!("update/source.rs"),
+            include_str!("sources.rs"),
         ] {
             for id in freemapper_text::ids_in_source(source, &PREFIXES) {
                 assert!(english.contains(&id), "{id} is used but not in the catalog");
@@ -407,6 +441,7 @@ mod tests {
             include_str!("update/background.rs"),
             include_str!("update/command.rs"),
             include_str!("update/source.rs"),
+            include_str!("sources.rs"),
         ]
         .iter()
         .flat_map(|source| freemapper_text::ids_in_source(source, &PREFIXES))
@@ -440,19 +475,19 @@ mod tests {
             states(&english),
             "Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, \
              Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate, \
-             Saarland, Baden-Württemberg, Bremen, Bavaria"
+             Saarland, Baden-Württemberg, Bremen, Bavaria, Poland, Czechia"
         );
         assert_eq!(
             states_in_a_sentence(&english),
             "Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, \
              Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate, \
-             Saarland, Baden-Württemberg, Bremen and Bavaria"
+             Saarland, Baden-Württemberg, Bremen, Bavaria, Poland and Czechia"
         );
         assert_eq!(
             states_in_a_sentence(&german),
             "Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, \
              Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen, Rheinland-Pfalz, \
-             Saarland, Baden-Württemberg, Bremen und Bayern"
+             Saarland, Baden-Württemberg, Bremen, Bayern, Polen und Tschechien"
         );
         let instructions = TEXTS.text(
             &english,
@@ -461,7 +496,7 @@ mod tests {
         );
         assert!(
             instructions.contains("geodata of Brandenburg, Berlin, Saxony,")
-                && instructions.contains("Bremen and Bavaria, and from OSM"),
+                && instructions.contains("Poland and Czechia, and from OSM"),
             "{instructions}"
         );
     }
@@ -553,17 +588,28 @@ mod tests {
             "en"
         );
         // A language without texts passes to the next source.
-        assert_eq!(code(&[("FREEMAPPER_LANG", "fr"), ("LANG", "de_AT")]), "de");
+        assert_eq!(code(&[("FREEMAPPER_LANG", "ja"), ("LANG", "de_AT")]), "de");
         assert_eq!(code(&[("LANG", "C")]), "en");
-        assert!(TEXTS.parse_lang_arg("fr").is_err());
+        assert!(TEXTS.parse_lang_arg("ja").is_err());
         assert_eq!(TEXTS.parse_lang_arg("DE").unwrap().code(), "de");
         // English by default is not a named language; English by `LANG` is.
         let named = |pairs| names_a_lang(None, &env(pairs));
         assert!(!named(&[]));
         assert!(!named(&[("LANG", "C")]));
-        assert!(!named(&[("LANG", "fr_FR.UTF-8")]));
+        assert!(!named(&[("LANG", "ja_JP.UTF-8")]));
         assert!(named(&[("LANG", "en_US.UTF-8")]));
         assert!(named(&[("FREEMAPPER_LANG", "de")]));
         assert!(names_a_lang(Some("en"), &env(&[])));
+    }
+
+    #[test]
+    fn pl_is_chosen_by_lang_arg_and_by_system_language() {
+        assert_eq!(TEXTS.parse_lang_arg("pl").unwrap().code(), "pl");
+        assert_eq!(TEXTS.parse_lang_arg("PL").unwrap().code(), "pl");
+        let env = |name: &str| (name == "LANG").then(|| "pl_PL.UTF-8".to_owned());
+        assert_eq!(TEXTS.detect_lang(None, &env).code(), "pl");
+        // Others still fall back to English.
+        let env = |name: &str| (name == "LANG").then(|| "ja_JP.UTF-8".to_owned());
+        assert_eq!(TEXTS.detect_lang(None, &env).code(), "en");
     }
 }

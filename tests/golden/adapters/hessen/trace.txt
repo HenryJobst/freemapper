@@ -41,6 +41,6 @@ GET https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/atkis-bdlm/nas/wfs?SERVICE=
 GET https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/atkis-bdlm/nas/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_DammWallDeich&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=483526,5628594,483783,5628851,urn:ogc:def:crs:EPSG::25832&COUNT=100000&NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1) [to file]
 GET https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/atkis-bdlm/nas/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_Turm&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=483526,5628594,483783,5628851,urn:ogc:def:crs:EPSG::25832&COUNT=100000&NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1) [to file]
 GET https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/atkis-bdlm/nas/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_Gewaesserachse&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=483526,5628594,483783,5628851,urn:ogc:def:crs:EPSG::25832&COUNT=100000&NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1) [to file]
-GET https://download.geofabrik.de/europe/germany/hessen-updates/state.txt
-GET https://download.geofabrik.de/europe/germany/hessen-latest.osm.pbf [to file]
+GET https://download.geofabrik.de/europe/germany/hessen/updates/state.txt
+GET https://download.geofabrik.de/europe/germany/hessen/hessen-latest.osm.pbf [to file]
 result: fetched
