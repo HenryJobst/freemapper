@@ -18,6 +18,7 @@ pub mod alkis;
 pub mod boundary;
 pub mod check;
 pub mod dates;
+pub mod edit;
 pub mod error;
 pub mod estimate;
 pub mod extras;
