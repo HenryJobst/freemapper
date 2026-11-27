@@ -14,8 +14,8 @@ use freemapper::fetch::{Cache, HttpFetcher};
 use freemapper::layers::{LayerRole, estimate_download, list_layers, preview_png};
 use freemapper::places::{find_places, place_area};
 use freemapper::project::{
-    MapKind, ProjectFile, check_contour_interval, check_steep_slope, init_project, set_content,
-    set_contour_interval, set_steep_slope,
+    MapKind, ProjectFile, check_contour_interval, check_face_slope, check_steep_slope,
+    init_project, set_content, set_contour_interval, set_face_slope, set_steep_slope,
 };
 use rmcp::handler::server::tool::ToolCallContext;
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
@@ -65,6 +65,16 @@ fn save_steep_slope(dir: &std::path::Path, asked: Option<f64>) -> Result<(), Str
     };
     let slope = (asked != 0.0).then_some(asked);
     set_steep_slope(dir, slope).map_err(|e| describe(&e))?;
+    Ok(())
+}
+
+/// Saves the face slope a call asks for (`0`: the default); nothing without one.
+fn save_face_slope(dir: &std::path::Path, asked: Option<f64>) -> Result<(), String> {
+    let Some(asked) = asked else {
+        return Ok(());
+    };
+    let slope = (asked != 0.0).then_some(asked);
+    set_face_slope(dir, slope).map_err(|e| describe(&e))?;
     Ok(())
 }
 
@@ -120,6 +130,11 @@ struct CreateProject {
     /// towns and gorges, where almost every slope is steep and banks and cliffs run together
     /// into one patch. Saved in the project; the next derive looks for banks and cliffs with it.
     steep_slope: Option<f64>,
+    /// Slope angle in degrees from which the ground is a rock face (black area, symbol 206),
+    /// e.g. 75; 0 goes back to the default of 70°. 65 gives more and larger faces, also on
+    /// steep slopes; 75 keeps only true walls. Saved in the project; the next derive looks for
+    /// rock faces with it.
+    face_slope: Option<f64>,
 }
 
 #[derive(Deserialize, rmcp::schemars::JsonSchema)]
@@ -180,6 +195,11 @@ struct StartPipeline {
     /// towns and gorges, where almost every slope is steep and banks and cliffs run together
     /// into one patch. Saved in the project; the next derive looks for banks and cliffs with it.
     steep_slope: Option<f64>,
+    /// Slope angle in degrees from which the ground is a rock face (black area, symbol 206),
+    /// e.g. 75; 0 goes back to the default of 70°. 65 gives more and larger faces, also on
+    /// steep slopes; 75 keeps only true walls. Saved in the project; the next derive looks for
+    /// rock faces with it.
+    face_slope: Option<f64>,
     /// Also write the permit notes (permits.md and permits.json) after the map: administrative
     /// units, protected areas and who runs the land. A failure there is a warning, not a failed
     /// job. Default false.
@@ -562,6 +582,11 @@ impl FreemapperServer {
         {
             return failure(describe(&e));
         }
+        if let Some(slope) = req.face_slope.filter(|s| *s != 0.0)
+            && let Err(e) = check_face_slope(slope)
+        {
+            return failure(describe(&e));
+        }
         let today = chrono::Local::now().date_naive();
         match init_project(&dir, &area, kind, req.scale, today, req.title) {
             Ok(project) => {
@@ -572,6 +597,7 @@ impl FreemapperServer {
                 )
                 .and_then(|()| save_contour_interval(&dir, req.contour_interval))
                 .and_then(|()| save_steep_slope(&dir, req.steep_slope))
+                .and_then(|()| save_face_slope(&dir, req.face_slope))
                 {
                     return failure(e);
                 }
@@ -654,6 +680,7 @@ impl FreemapperServer {
         )
         .and_then(|()| save_contour_interval(&dir, req.contour_interval))
         .and_then(|()| save_steep_slope(&dir, req.steep_slope))
+        .and_then(|()| save_face_slope(&dir, req.face_slope))
         {
             return failure(e);
         }

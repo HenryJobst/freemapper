@@ -140,7 +140,9 @@ flat land and 10 m in steep land); the next derive traces the contours at it. Wh
 a line; `--contour-interval 5` keeps 5 m. They also take `--steep-slope <degrees>|auto` (saved as `steep_slope_deg` in
 `freemapper.toml`, 15 to 80, default about 27): the slope from which terrain counts as steep when banks and cliffs are
 looked for; in rock towns and gorges, where almost every slope is steep, 55 to 60 finds the walls one by one (manual,
-chapter on forest maps). All commands that download take `--cache-dir <folder>`.
+chapter on forest maps). Likewise `--face-slope <degrees>|auto` (saved as `face_slope_deg`, 55 to 85, default 70): the
+slope from which terrain is a rock face area (206); 65 gives more and larger areas, 75 only real walls. The MCP
+parameters are `steep_slope` and `face_slope` (0: default) of `create_project` and `start_pipeline`. All commands that download take `--cache-dir <folder>`.
 
 `adapters check <dir>` checks the folder of one adapter and asks no server: exit code 0 when it would load
 (warnings or not), 1 with findings, 2 when the check cannot run. `--json` prints `passed`, `adapter`, `findings`

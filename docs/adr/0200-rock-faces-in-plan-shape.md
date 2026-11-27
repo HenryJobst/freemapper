@@ -22,9 +22,15 @@ terrain model of Adršpach (1.6 km², 2026-11-27): ground at least 70° steep is
 - The landform kind `rock-face` is an area (`LandformKind::is_area`, a GeoJSON polygon of its outer ring). `build`
   draws it as 206, tagged like the other landforms: a candidate of the terrain layer in the group `landforms`.
 - A bank or cliff that runs mostly within 2 m of a face is dropped (`in_a_face`): the area shows it already.
-- The limit is a constant for now. Not built: the setting in `freemapper.toml`, the CLI and the area page (as the
-  steepness threshold of ADR 0198 has), contours broken at the black area (ISOM 0.15 mm gap), and white lanes through
-  a face.
+- Not built: contours broken at the black area (ISOM 0.15 mm gap), and white lanes through a face.
+
+### Addendum 2026-11-27: the setting
+
+The limit is a setting of the project, built like the steepness threshold of ADR 0198: `face_slope_deg` in
+`freemapper.toml` (55° to 85°; none: the default of 70°), `--face-slope <degrees>|auto` on `init`, `derive` and `run`,
+`face_slope` in the MCP tools `create_project` and `start_pipeline` (0: default), the field "Face threshold" on the
+area page (automatic 70°, 65°, 75°). It counts for the project fingerprint. `DEFAULT_FACE_SLOPE_DEG` stays the default,
+so existing maps and the golden files do not change.
 
 ## Consequences
 

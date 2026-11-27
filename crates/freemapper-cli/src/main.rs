@@ -36,8 +36,8 @@ use freemapper::project::{
     MapKind, MapOutcome, OcadOutcome, PdfSources, ProjectFile, TrainingOutcome, derive_project,
     export_candidates_pdf_from, export_map_preview_or_warn, export_ocad_from, export_pdf_from,
     export_starter_project_from, export_training_from, export_training_views, fetch_project,
-    init_project, map_path, parse_contour_interval, parse_steep_slope, set_content,
-    set_contour_interval, set_steep_slope, starter_documents,
+    init_project, map_path, parse_contour_interval, parse_face_slope, parse_steep_slope,
+    set_content, set_contour_interval, set_face_slope, set_steep_slope, starter_documents,
 };
 
 use text::{n, text, v};
@@ -736,13 +736,19 @@ struct ContourArgs {
     /// into one patch. Saved in freemapper.toml; derive looks for banks and cliffs with it
     #[arg(long = "steep-slope", value_name = "DEGREES")]
     steep_slope: Option<String>,
+    /// Slope angle in degrees from which the ground is a rock face (black area, symbol 206),
+    /// e.g. `75`, or `auto` for the default of 70°. 65 gives more and larger faces, also on
+    /// steep slopes; 75 keeps only true walls. Saved in freemapper.toml; derive looks for rock
+    /// faces with it
+    #[arg(long = "face-slope", value_name = "DEGREES")]
+    face_slope: Option<String>,
 }
 
 impl ContourArgs {
     /// Saves the interval asked for in the project of `dir`; nothing when none was asked.
     fn save(&self, dir: &std::path::Path) -> anyhow::Result<()> {
         let Some(asked) = &self.contour_interval else {
-            return self.save_steep_slope(dir);
+            return self.save_slopes(dir);
         };
         let interval = parse_contour_interval(asked)?;
         set_contour_interval(dir, interval)?;
@@ -753,7 +759,27 @@ impl ContourArgs {
             ),
             None => println!("{}", text("cli-contour-interval-auto", &[])),
         }
-        self.save_steep_slope(dir)
+        self.save_slopes(dir)
+    }
+
+    /// Saves the steep slope and the face slope asked for.
+    fn save_slopes(&self, dir: &std::path::Path) -> anyhow::Result<()> {
+        self.save_steep_slope(dir)?;
+        self.save_face_slope(dir)
+    }
+
+    /// Saves the face slope asked for; nothing when none was asked.
+    fn save_face_slope(&self, dir: &std::path::Path) -> anyhow::Result<()> {
+        let Some(asked) = &self.face_slope else {
+            return Ok(());
+        };
+        let slope = parse_face_slope(asked)?;
+        set_face_slope(dir, slope)?;
+        match slope {
+            Some(slope) => println!("{}", text("cli-face-slope-saved", &[("slope", v(slope))])),
+            None => println!("{}", text("cli-face-slope-auto", &[])),
+        }
+        Ok(())
     }
 
     /// Saves the steep slope asked for; nothing when none was asked.
@@ -984,6 +1010,9 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             }
             if let Some(asked) = &contours.steep_slope {
                 parse_steep_slope(asked)?;
+            }
+            if let Some(asked) = &contours.face_slope {
+                parse_face_slope(asked)?;
             }
             let today = chrono::Local::now().date_naive();
             let project = init_project(&dir, &area, kind.into(), scale, today, title)?;

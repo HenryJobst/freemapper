@@ -265,6 +265,40 @@ fn mcp_creates_a_forest_project_with_a_steepness_threshold() {
 }
 
 #[test]
+fn mcp_creates_a_forest_project_with_a_face_threshold() {
+    let cache = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("forest");
+    let mut session = Session::start(cache.path());
+    let (error, text) = session.call(
+        "create_project",
+        json!({ "dir": project, "geojson": FIXTURE, "kind": "forest", "face_slope": 75.0 }),
+    );
+    assert!(!error, "{text}");
+    let written = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
+    assert!(written.contains("face_slope_deg = 75.0"), "{written}");
+    assert!(!written.contains("steep_slope_deg"), "{written}");
+    // 0 means the default: nothing is saved.
+    let zero = dir.path().join("zero");
+    let (error, text) = session.call(
+        "create_project",
+        json!({ "dir": zero, "geojson": FIXTURE, "kind": "forest", "face_slope": 0.0 }),
+    );
+    assert!(!error, "{text}");
+    let written = std::fs::read_to_string(zero.join("freemapper.toml")).unwrap();
+    assert!(!written.contains("face_slope_deg"), "{written}");
+    for (name, bad_slope) in [("bad", 5.0), ("high", 90.0)] {
+        let other = dir.path().join(name);
+        let (error, text) = session.call(
+            "create_project",
+            json!({ "dir": other, "geojson": FIXTURE, "kind": "forest", "face_slope": bad_slope }),
+        );
+        assert!(error, "{text}");
+        assert!(!other.exists(), "a refused threshold creates no project");
+    }
+}
+
+#[test]
 fn mcp_creates_a_project_and_lists_layers() {
     let cache = tempfile::tempdir().unwrap();
     let dir = tempfile::tempdir().unwrap();

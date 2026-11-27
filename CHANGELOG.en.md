@@ -8,6 +8,8 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Added
 
+- The example `cesko-adrspach-forest` is rebuilt: the training map now shows the rock face areas (206) between the boulders, and the terrain candidate layer has 312 more candidates.
+- Face threshold for rock face areas (ADR 0200): `--face-slope <degrees>|auto` on `init`, `derive` and `run`, `face_slope` in the MCP tools `create_project` and `start_pipeline`, the field "Face threshold" on the area page and `face_slope_deg` in `freemapper.toml`. The default stays 70°, 55° to 85° are allowed. On Adršpach 65° makes 8.4 % of the ground black, 70° 5.2 % and 75° 2.5 %.
 - Rock face areas (ADR 0200): a connected patch of the terrain model at least 70° steep is offered as a black area in plan shape (206) when it reaches the norm's minimum sizes (0.3 mm², 0.25 mm wide). Banks and cliffs that run along such an area are dropped. Adršpach gets 310 areas.
 - Boulder clusters (ADR 0199): when three or more boulders on a rock area stand so close that their symbols would leave less than the minimum gap of 0.15 mm (0.55 mm centre to centre), they are merged into one boulder cluster (207) at their centre.
 - Boulders on rock areas (ADR 0199): a knoll of 1 m or more that lies in an OpenStreetMap rock area (`natural=bare_rock`) is offered as a boulder (204) and, from 2 m, as a large boulder (205) instead of a brown knoll. A rock town such as Adršpach becomes a field of black dots, as real maps show it.

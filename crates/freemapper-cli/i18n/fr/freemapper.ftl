@@ -257,6 +257,9 @@ page-contour-auto = automatique
 page-steep-slope = Seuil de pente
 page-steep-slope-auto = automatique (27°)
 page-steep-slope-hint = À partir de cet angle de pente, le terrain est considéré comme raide lors de la recherche des talus et des falaises. 27° (automatique) convient aux collines, aux parcs et aux villes. Dans les villes de rochers, les gorges et les carrières, presque chaque pente est raide : talus et falaises se fondent alors en une seule tache et aucun n'est trouvé ; de 55° à 65°, ils sont séparés. Une valeur trop élevée ne garde que les parois les plus raides.
+page-face-slope = Seuil de paroi
+page-face-slope-auto = automatique (70°)
+page-face-slope-hint = À partir de cet angle de pente, le terrain est dessiné en surface noire de paroi rocheuse. 70° (automatique) convient aux villes de rochers comme Adršpach (5,2 % de la surface). 65° donne plus de surfaces noires et plus grandes, pentes raides comprises (8,4 %). 75° ne garde que les vraies parois, aux bords effilochés (2,5 %). Une valeur trop haute ne laisse presque aucune surface.
 page-settings-fixed = Le projet existe déjà ; le type de carte, l'échelle et le titre se trouvent dans freemapper.toml. L'équidistance peut encore être modifiée.
 page-save = Enregistrer
 page-saving = Enregistrement …
@@ -471,6 +474,7 @@ error-project-map-exists = la carte existe déjà (elle peut contenir votre trav
 error-project-invalid-scale = échelle 1:{ $scale } non valide
 error-project-invalid-contour-interval = équidistance { $interval } m non valide dans freemapper.toml ; elle doit être supérieure à 0
 error-project-invalid-steep-slope = seuil de pente { $slope }° non valide dans freemapper.toml ; il doit être compris entre 15° et 80°
+error-project-invalid-face-slope = seuil de paroi { $slope }° non valide dans freemapper.toml ; il doit être compris entre 55° et 85°
 error-project-scale-not-allowed = l'échelle 1:{ $scale } n'est pas autorisée pour les cartes de type { $kind } ; utilisez { $allowed }
 error-project-scale-not-allowed-enlarge = l'échelle 1:{ $scale } n'est pas autorisée pour les cartes de type { $kind } ; utilisez { $allowed }. Dessinez à 1:4000, freemapper-print agrandit à 1:3000 à l'impression
 word-kind-schoolyard = cour d'école
@@ -799,8 +803,11 @@ cli-contour-interval-saved = Équidistance enregistrée dans freemapper.toml : {
 cli-contour-interval-auto = Équidistance dans freemapper.toml : automatique (celle du type de carte ; une carte de forêt a 2,5 m en terrain plat et 10 m en terrain raide)
 cli-steep-slope-saved = Seuil de pente enregistré dans freemapper.toml : { $slope }° ; derive cherche avec lui les talus et les falaises
 cli-steep-slope-auto = Seuil de pente dans freemapper.toml : par défaut (environ 27°)
+cli-face-slope-saved = Seuil de paroi enregistré dans freemapper.toml : { $slope }° ; derive cherche avec lui les surfaces de paroi rocheuse
+cli-face-slope-auto = Seuil de paroi dans freemapper.toml : par défaut (70°)
 help-arg-contour-interval = Équidistance en mètres, p. ex. `2.5`, ou `auto` pour celle du type de carte (carte de forêt : 5 m, 2,5 m en terrain plat, 10 m en terrain raide). Enregistrée dans freemapper.toml ; derive trace les courbes de niveau avec elle
 help-arg-steep-slope = Angle de pente en degrés à partir duquel le terrain est considéré comme raide lors de la recherche des talus et des falaises, p. ex. `55`, ou `auto` pour la valeur par défaut de 27°. Relève-le (55 à 65) dans les villes de rochers et les gorges, où presque chaque pente est raide et où talus et falaises se fondent en une seule tache. Enregistré dans freemapper.toml ; derive cherche avec lui les talus et les falaises
+help-arg-face-slope = Angle de pente en degrés à partir duquel le terrain est une paroi rocheuse (surface noire, symbole 206), par ex. `75`, ou `auto` pour la valeur par défaut de 70°. 65 donne plus de surfaces et de plus grandes, aussi sur les pentes raides ; 75 ne garde que les vraies parois. Enregistré dans freemapper.toml ; derive cherche avec lui les parois rocheuses
 cli-content-saved = Réglage du contenu enregistré dans freemapper.toml : { $summary }
 cli-content-invalid = Impossible de lire le réglage du contenu : { $detail }
 help-arg-content = Ce qui va directement sur la carte : `safe` laisse chaque objet là où l'assemblage de la carte le place, `balanced` (par défaut) met sur la carte les objets du cadastre et des registres, `full` met tout sur la carte. Le choix est enregistré dans freemapper.toml
@@ -809,10 +816,12 @@ mcp-param-create-project-content = Ce qui va directement sur la carte : "safe", 
 mcp-param-create-project-content-set = Groupes envoyés ailleurs que selon le profil, sous la forme "groupe=lieu" avec le lieu map, candidates ou off, p. ex. "walls=map". Groupes : walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets.
 mcp-param-create-project-contour-interval = Équidistance en mètres, p. ex. 2.5 ; 0 revient au choix automatique (celui du type de carte ; une carte de forêt a 2,5 m en terrain plat et 10 m en terrain raide). Enregistrée dans le projet ; le prochain derive trace les courbes de niveau avec elle.
 mcp-param-create-project-steep-slope = Angle de pente en degrés à partir duquel le terrain est considéré comme raide lors de la recherche des talus et des falaises, p. ex. 55 ; 0 revient à la valeur par défaut de 27°. Relève-le (55 à 65) dans les villes de rochers et les gorges, où presque chaque pente est raide et où talus et falaises se fondent en une seule tache. Enregistré dans le projet ; le prochain derive cherche avec lui les talus et les falaises.
+mcp-param-create-project-face-slope = Angle de pente en degrés à partir duquel le terrain est une paroi rocheuse (surface noire, symbole 206), par ex. 75 ; 0 revient à la valeur par défaut de 70°. 65 donne plus de surfaces et de plus grandes, aussi sur les pentes raides ; 75 ne garde que les vraies parois. Enregistré dans le projet ; le prochain derive cherche avec lui les parois rocheuses.
 mcp-param-start-pipeline-content = Modifie avant l'exécution ce qui va directement sur la carte : "safe", "balanced" ou "full". Enregistré dans le projet. Par défaut : le réglage du projet, sinon balanced.
 mcp-param-start-pipeline-content-set = Groupes envoyés ailleurs que selon le profil, sous la forme "groupe=lieu" avec le lieu map, candidates ou off, p. ex. "fences=candidates". Enregistré dans le projet.
 mcp-param-start-pipeline-contour-interval = Équidistance en mètres, p. ex. 2.5 ; 0 revient au choix automatique (celui du type de carte ; une carte de forêt a 2,5 m en terrain plat et 10 m en terrain raide). Enregistrée dans le projet ; le prochain derive trace les courbes de niveau avec elle.
 mcp-param-start-pipeline-steep-slope = Angle de pente en degrés à partir duquel le terrain est considéré comme raide lors de la recherche des talus et des falaises, p. ex. 55 ; 0 revient à la valeur par défaut de 27°. Relève-le (55 à 65) dans les villes de rochers et les gorges, où presque chaque pente est raide et où talus et falaises se fondent en une seule tache. Enregistré dans le projet ; le prochain derive cherche avec lui les talus et les falaises.
+mcp-param-start-pipeline-face-slope = Angle de pente en degrés à partir duquel le terrain est une paroi rocheuse (surface noire, symbole 206), par ex. 75 ; 0 revient à la valeur par défaut de 70°. 65 donne plus de surfaces et de plus grandes, aussi sur les pentes raides ; 75 ne garde que les vraies parois. Enregistré dans le projet ; le prochain derive cherche avec lui les parois rocheuses.
 mcp-error-content = Impossible de lire le réglage du contenu : { $detail }
 
 ## Permit notes (`freemapper permits`, `run --permits`, ADR 0117). The ids `permits-hint-*`

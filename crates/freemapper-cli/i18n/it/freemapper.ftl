@@ -257,6 +257,9 @@ page-contour-auto = automatica
 page-steep-slope = Soglia di pendenza
 page-steep-slope-auto = automatica (27°)
 page-steep-slope-hint = Da questo angolo di pendenza in poi il terreno è considerato ripido nella ricerca di scarpate e pareti rocciose. 27° (automatica) va bene per colline, parchi e città. Nelle città di roccia, nelle gole e nelle cave quasi ogni pendio è ripido, quindi scarpate e pareti si fondono in un'unica macchia e nessuna viene trovata; da 55° a 65° le separa. Un valore troppo alto conserva solo le pareti più ripide.
+page-face-slope = Soglia di parete
+page-face-slope-auto = automatica (70°)
+page-face-slope-hint = Da questo angolo di pendenza in poi il terreno è disegnato come superficie nera di parete rocciosa. 70° (automatica) va bene per le città di roccia come Adršpach (5,2 % della superficie). 65° dà più superfici nere e più grandi, anche sui pendii ripidi (8,4 %). 75° lascia solo vere pareti, con bordi frastagliati (2,5 %). Un valore troppo alto lascia quasi nessuna superficie.
 page-settings-fixed = Il progetto esiste già; tipo di carta, scala e titolo sono in freemapper.toml. L'equidistanza delle curve di livello si può ancora cambiare.
 page-save = Salva
 page-saving = Salvataggio …
@@ -471,6 +474,7 @@ error-project-map-exists = la carta esiste già (può contenere il tuo lavoro); 
 error-project-invalid-scale = scala 1:{ $scale } non valida
 error-project-invalid-contour-interval = equidistanza delle curve di livello { $interval } m non valida in freemapper.toml; deve essere maggiore di 0
 error-project-invalid-steep-slope = soglia di pendenza { $slope }° non valida in freemapper.toml; deve essere compresa tra 15° e 80°
+error-project-invalid-face-slope = soglia di parete { $slope }° non valida in freemapper.toml; deve essere compresa tra 55° e 85°
 error-project-scale-not-allowed = la scala 1:{ $scale } non è consentita per le carte di tipo { $kind }; usa { $allowed }
 error-project-scale-not-allowed-enlarge = la scala 1:{ $scale } non è consentita per le carte di tipo { $kind }; usa { $allowed }. Disegna a 1:4000, freemapper-print ingrandisce a 1:3000 in stampa
 word-kind-schoolyard = cortile scolastico
@@ -801,8 +805,11 @@ cli-contour-interval-saved = Equidistanza delle curve di livello salvata in free
 cli-contour-interval-auto = Equidistanza delle curve di livello in freemapper.toml: automatica (quella del tipo di carta; una carta da bosco ha 2,5 m in pianura e 10 m in terreno ripido)
 cli-steep-slope-saved = Soglia di pendenza salvata in freemapper.toml: { $slope }°; derive cerca con essa scarpate e pareti rocciose
 cli-steep-slope-auto = Soglia di pendenza in freemapper.toml: predefinita (circa 27°)
+cli-face-slope-saved = Soglia di parete salvata in freemapper.toml: { $slope }°; derive cerca con essa le superfici di parete rocciosa
+cli-face-slope-auto = Soglia di parete in freemapper.toml: predefinita (70°)
 help-arg-contour-interval = Equidistanza delle curve di livello in metri, es. `2.5`, oppure `auto` per quella del tipo di carta (una carta da bosco: 5 m, 2,5 m dove è pianeggiante, 10 m dove è ripido). Salvata in freemapper.toml; derive traccia le curve di livello con essa
 help-arg-steep-slope = Angolo di pendenza in gradi a partire dal quale il terreno è considerato ripido nella ricerca di scarpate e pareti rocciose, es. `55`, oppure `auto` per il valore predefinito di 27°. Alzala (da 55 a 65) nelle città di roccia e nelle gole, dove quasi ogni pendio è ripido e scarpate e pareti si fondono in un'unica macchia. Salvata in freemapper.toml; derive cerca con essa scarpate e pareti rocciose
+help-arg-face-slope = Angolo di pendenza in gradi da cui il terreno è una parete rocciosa (superficie nera, simbolo 206), ad es. `75`, oppure `auto` per il valore predefinito di 70°. 65 dà più superfici e più grandi, anche sui pendii ripidi; 75 lascia solo vere pareti. Salvato in freemapper.toml; derive cerca con essa le pareti rocciose
 cli-content-saved = Impostazione dei contenuti salvata in freemapper.toml: { $summary }
 cli-content-invalid = Impossibile leggere l'impostazione dei contenuti: { $detail }
 help-arg-content = Cosa va direttamente sulla carta: `safe` lascia ogni oggetto dove lo mette la generazione, `balanced` (predefinito) mette sulla carta gli oggetti del catasto e dei registri, `full` mette tutto sulla carta. La scelta è salvata in freemapper.toml
@@ -811,10 +818,12 @@ mcp-param-create-project-content = Cosa va direttamente sulla carta: "safe", "ba
 mcp-param-create-project-content-set = Gruppi mandati altrove rispetto a quanto dice il profilo, come "group=place" con place map, candidates oppure off, es. "walls=map". Gruppi: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets.
 mcp-param-create-project-contour-interval = Equidistanza delle curve di livello in metri, es. 2.5; 0 torna alla scelta automatica (quella del tipo di carta; una carta da bosco ha 2,5 m in pianura e 10 m in terreno ripido). Salvata nel progetto; il prossimo derive traccia le curve di livello con essa.
 mcp-param-create-project-steep-slope = Angolo di pendenza in gradi a partire dal quale il terreno è considerato ripido nella ricerca di scarpate e pareti rocciose, es. 55; 0 torna al valore predefinito di 27°. Alzala (da 55 a 65) nelle città di roccia e nelle gole, dove quasi ogni pendio è ripido e scarpate e pareti si fondono in un'unica macchia. Salvata nel progetto; il prossimo derive cerca con essa scarpate e pareti rocciose.
+mcp-param-create-project-face-slope = Angolo di pendenza in gradi da cui il terreno è una parete rocciosa (superficie nera, simbolo 206), ad es. 75; 0 torna al valore predefinito di 70°. 65 dà più superfici e più grandi, anche sui pendii ripidi; 75 lascia solo vere pareti. Salvato nel progetto; il prossimo derive cerca con essa le pareti rocciose.
 mcp-param-start-pipeline-content = Cambia prima dell'esecuzione cosa va direttamente sulla carta: "safe", "balanced" o "full". Salvato nel progetto. Predefinito: l'impostazione del progetto, altrimenti balanced.
 mcp-param-start-pipeline-content-set = Gruppi mandati altrove rispetto a quanto dice il profilo, come "group=place" con place map, candidates oppure off, es. "fences=candidates". Salvato nel progetto.
 mcp-param-start-pipeline-contour-interval = Equidistanza delle curve di livello in metri, es. 2.5; 0 torna alla scelta automatica (quella del tipo di carta; una carta da bosco ha 2,5 m in pianura e 10 m in terreno ripido). Salvata nel progetto; il prossimo derive traccia le curve di livello con essa.
 mcp-param-start-pipeline-steep-slope = Angolo di pendenza in gradi a partire dal quale il terreno è considerato ripido nella ricerca di scarpate e pareti rocciose, es. 55; 0 torna al valore predefinito di 27°. Alzala (da 55 a 65) nelle città di roccia e nelle gole, dove quasi ogni pendio è ripido e scarpate e pareti si fondono in un'unica macchia. Salvata nel progetto; il prossimo derive cerca con essa scarpate e pareti rocciose.
+mcp-param-start-pipeline-face-slope = Angolo di pendenza in gradi da cui il terreno è una parete rocciosa (superficie nera, simbolo 206), ad es. 75; 0 torna al valore predefinito di 70°. 65 dà più superfici e più grandi, anche sui pendii ripidi; 75 lascia solo vere pareti. Salvato nel progetto; il prossimo derive cerca con essa le pareti rocciose.
 mcp-error-content = Impossibile leggere l'impostazione dei contenuti: { $detail }
 
 ## Permit notes (`freemapper permits`, `run --permits`, ADR 0117). The ids `permits-hint-*`

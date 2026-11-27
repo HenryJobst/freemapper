@@ -1262,6 +1262,8 @@ pub fn project_fingerprint(project: &ProjectFile) -> Result<String, ProjectError
         contour_interval_m: &'a Option<f64>,
         #[serde(skip_serializing_if = "Option::is_none")]
         steep_slope_deg: &'a Option<f64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        face_slope_deg: &'a Option<f64>,
     }
     let ProjectFile {
         map_kind,
@@ -1274,6 +1276,7 @@ pub fn project_fingerprint(project: &ProjectFile) -> Result<String, ProjectError
         provider,
         contour_interval_m,
         steep_slope_deg,
+        face_slope_deg,
         title: _,
         tiles: _,
         buildings: _,
@@ -1302,6 +1305,7 @@ pub fn project_fingerprint(project: &ProjectFile) -> Result<String, ProjectError
         provider,
         contour_interval_m,
         steep_slope_deg,
+        face_slope_deg,
     };
     let text = toml::to_string(&counted).map_err(|e| ProjectError::Toml(e.to_string()))?;
     Ok(sha2::Sha256::digest(text.as_bytes())

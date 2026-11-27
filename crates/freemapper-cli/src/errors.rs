@@ -128,6 +128,11 @@ impl Localize for ProjectError {
                 "error-project-invalid-steep-slope",
                 &[("slope", v(slope))],
             ),
+            ProjectError::InvalidFaceSlope(slope) => text(
+                lang,
+                "error-project-invalid-face-slope",
+                &[("slope", v(slope))],
+            ),
             ProjectError::InvalidScale(scale) => {
                 text(lang, "error-project-invalid-scale", &[("scale", v(scale))])
             }
