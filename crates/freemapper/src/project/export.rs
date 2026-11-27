@@ -380,13 +380,7 @@ pub(super) fn write_starter_project(
     for (layer, doc) in documents.candidate_layers() {
         write_document(dir, &doc, &dir.join(layer.relpath()))?;
     }
-    // The paper frames follow the project file on every export, also beside a kept map: print
-    // must never find frames that are no longer stored.
-    let paper_frame = dir.join(PAPER_FRAME_RELPATH);
-    match &documents.paper_frames {
-        Some(doc) => write_document(dir, doc, &paper_frame)?,
-        None => freemapper_fs::remove_inside(dir, &paper_frame),
-    }
+    write_paper_frame_template(dir, documents)?;
     let old_candidates = dir.join(OLD_CANDIDATES_RELPATH);
     match map_write {
         MapWrite::Write { .. } => {
@@ -404,6 +398,32 @@ pub(super) fn write_starter_project(
     let attribution = format!("{attribution_text}\n\n{FREEMAPPER_CREDIT}\n");
     write_inside(dir, &dir.join("ATTRIBUTION.txt"), attribution.as_bytes())?;
     Ok(map_path)
+}
+
+/// Writes the paper frame template ([`PAPER_FRAME_RELPATH`]) of `documents`, or removes it when
+/// the project stores no frames. Every export does this, also one that keeps the map: print must
+/// never find frames that are no longer stored. Returns whether frames were written.
+pub fn write_paper_frame_template(
+    dir: &Path,
+    documents: &StarterDocuments,
+) -> Result<bool, ProjectError> {
+    let path = dir.join(PAPER_FRAME_RELPATH);
+    match &documents.paper_frames {
+        Some(doc) => {
+            write_document(dir, doc, &path)?;
+            Ok(true)
+        }
+        None => {
+            freemapper_fs::remove_inside(dir, &path);
+            Ok(false)
+        }
+    }
+}
+
+/// Whether the kept map with the text `map_text` should get the word on the paper frames: frames
+/// were written, and the map does not name their template (it is never edited to add it).
+pub fn kept_map_lacks_paper_frames(documents: &StarterDocuments, map_text: &str) -> bool {
+    documents.paper_frames.is_some() && !map_text.contains(PAPER_FRAME_RELPATH)
 }
 
 /// What to do when the map to back up is a link; ends the error of [`back_up`].

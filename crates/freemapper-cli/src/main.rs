@@ -37,8 +37,9 @@ use freemapper::project::{
     MapKind, MapOutcome, OcadOutcome, PdfSources, ProjectFile, TrainingOutcome, derive_project,
     export_candidates_pdf_from, export_map_preview_or_warn, export_ocad_from, export_pdf_from,
     export_starter_project_from, export_training_from, export_training_views, fetch_project,
-    init_project, map_path, parse_contour_interval, parse_face_slope, parse_steep_slope,
-    set_content, set_contour_interval, set_face_slope, set_steep_slope, starter_documents,
+    init_project, kept_map_lacks_paper_frames, map_path, parse_contour_interval, parse_face_slope,
+    parse_steep_slope, set_content, set_contour_interval, set_face_slope, set_steep_slope,
+    starter_documents, write_paper_frame_template,
 };
 
 use text::{n, text, v};
@@ -1128,6 +1129,17 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             let existing = map_path(&dir);
             if (ocad || pdf || pdf_candidates || training) && existing.exists() && !force {
                 kept(&existing);
+                // The kept map is not touched, but its paper frame template follows the project
+                // file, as on every export.
+                if write_paper_frame_template(&dir, &documents)? {
+                    if let Some(note) = documents.paper_frame_note() {
+                        report_note(note);
+                    }
+                    let map_text = String::from_utf8_lossy(&std::fs::read(&existing)?).into_owned();
+                    if kept_map_lacks_paper_frames(&documents, &map_text) {
+                        println!("{}", text("cli-paper-frame-kept-map", &[]));
+                    }
+                }
             } else {
                 wrote(&export_starter_project_from(&dir, &documents, force)?);
                 if let Some(note) = documents.paper_frame_note() {

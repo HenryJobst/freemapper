@@ -2876,7 +2876,7 @@ pub fn run_project_steps_cancellable(
             references_images: text.contains(ORTHOPHOTO_RELPATH),
             missing_buildings: map_lacks_buildings(dir, &text)?,
             missing_canopies: map_lacks_canopies(dir, &text)?,
-            paper_frames: documents.paper_frames.is_some() && !text.contains(PAPER_FRAME_RELPATH),
+            paper_frames: kept_map_lacks_paper_frames(&documents, &text),
             map: existing,
         }
     } else {
