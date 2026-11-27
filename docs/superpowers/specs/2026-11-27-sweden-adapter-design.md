@@ -37,6 +37,13 @@ pending and their format is unmeasured.
   transformation is needed for either the tiles or the map. The adapter states its CRS as 25833.
 - `UrlPolicy`: the adapter asks `api.lantmateriet.se` (STAC, open) and `dl1.lantmateriet.se` (downloads, Basic) and
   OSM hosts, nothing else. Requests carry the fixed User-Agent only.
+- **No address in Rust code (issue #273, ADR 0189).** Every address of the adapter (STAC catalogue, download host,
+  Marktäcke, OSM extract) stands in its manifest `manifest.toml`, read with `include_str!` like the German states,
+  and the hosts in `[net] hosts`. Production code holds no `https://` literal; tests may. Another session is moving
+  the remaining addresses of the existing adapters into manifests and is not finished on `main`: this adapter
+  follows the tables as they stand when it is built, and a table the manifest format lacks is added to the format
+  (validator, `docs/adapters/manifest-v1.*.md`, `adapters check`) in the same pull request, after looking at what
+  that session has merged by then.
 - Download limits are unpublished (a cap per period, HTTP 429, and a cap on concurrent STAC downloads per user).
   Fetch tile by tile, never more than a handful at a time, and treat 429 as the existing retry policy does.
 - A Laserdata tile is a COPC file of about 80 MB (2.5 km); the terrain model tile is 10 km, 300 MB, read by range.
@@ -57,8 +64,15 @@ pending and their format is unmeasured.
 
 ## Design
 
+0. **Manifest first.** The adapter ships `manifest.toml` with `[adapter]`, `[net] hosts`
+   (`api.lantmateriet.se`, `dl1.lantmateriet.se`, the OSM extract host), `[boundary]`, `[[osm.extract]]`,
+   `[attribution]`, `[terrain]` and `[point_cloud]` as the format has them today, plus new tables for what it lacks
+   (the STAC catalogue address and collections, the Marktäcke product, the host that takes Basic credentials).
+   The code keeps the readers and the names of fields, the manifest holds where. A new table needs its validator
+   rule, a findings code, the manifest docs (DE/EN) and a test, and is checked against a Czech- or Polish-style
+   adapter to avoid a second dialect.
 1. **Credentials.** `freemapper` reads the two variables once at start (CLI and MCP) and builds the fetcher with
-   `with_basic_auth("dl1.lantmateriet.se", …)`. The password is held in a type with no `Debug` and no `Display`.
+   `with_basic_auth(<host the manifest names>, …)`; the host is data, not a literal in the code. The password is held in a type with no `Debug` and no `Display`.
    Reading them is the only place that touches the environment.
 2. **STAC lookup** (`freemapper_sources::stac` if none exists, else the existing one): items of `stac-hojd` for a
    bounding box and a product, giving the tile id and its asset URL. The adapter never builds a URL from a tile name.
@@ -98,6 +112,8 @@ pending and their format is unmeasured.
 
 ## Open risks
 
+- The manifest format is moving under another session (#273). A conflict in `manifest-v1.*.md`, the validator or
+  the ADR numbers is likely; rebase on `main` before each larger step and renumber the ADRs then.
 - The download cap per period may stop a large map; the first live run shows it, and the error must say so.
 - The point cloud tile size makes the first map slow and large (80 MB per 2.5 km square).
 - `Tiles { grid_km }` and `PointCloudInfo::grid_km` are whole kilometres; a change to either touches the German
