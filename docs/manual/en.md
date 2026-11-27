@@ -341,7 +341,7 @@ on the area, or in the middle of the map if there is no area yet. Drag it with t
 or the orientation, it changes with them. The frame is the whole sheet, without margins: A4 portrait at 1:15000
 covers 3150 × 4455 m, A6 landscape at 1:4000 covers 592 × 420 m.
 
-A frame does not change the area, the scale or any object. It only helps you choose them. Leave some room
+A frame changes nothing on the map or in the project; it helps you choose the area and the scale. Leave some room
 around what you need, because the printed map is a little smaller than the sheet.
 
 - *Keep frame* puts the frame in the list below, with a *Delete* button for each. The page draws kept frames with a
@@ -354,7 +354,10 @@ around what you need, because the printed map is a little smaller than the sheet
 - A run that keeps an existing map does not edit it. It writes the file and says so in one line.
   Then open the file yourself with *Templates › Open template…*, or replace the map with `--force` (the old one stays
   as `.omap.bak`).
-- If you delete every frame, the next run removes the file.
+- If you delete every frame, the next run removes the file. A kept map that already lists the template then
+  shows OpenOrienteering Mapper's mark for a missing template until you remove the template there.
+- If a frame lies too far from the map's reference point for OpenOrienteering Mapper's coordinate range, the run
+  leaves it out of the template and says so in a warning.
 
 The page draws the frame on its web map, so in OOM the frame can sit turned by a degree or two against the one on
 the page. The one in OOM is exact. The PDFs, the check print and the training map do not show the frames. The OCAD

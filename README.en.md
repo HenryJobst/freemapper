@@ -155,8 +155,8 @@ freemapper select my-schoolyard --kind schoolyard
 
 On the page you search a place or draw a rectangle or polygon. The background is OpenStreetMap or the
 orthophoto of the state. The page shows the size with buffer and the estimated download. A paper frame from A6
-to A2 shows how much ground a sheet covers at the chosen scale; kept frames end up in the map as a hidden
-template ([user manual, chapter 6](docs/manual/en.md#paper-frames)). "Save" creates the
+to A2 shows how much ground a sheet covers at the chosen scale; the next run writes kept frames to a hidden
+template map next to the map, and a newly written map lists it ([user manual, chapter 6](docs/manual/en.md#paper-frames)). "Save" creates the
 project. Below it, "Create map" makes the map with the options OCAD, PDF, check print, training map, scale bar, source
 lines and "cache only", shows the progress, can be cancelled and opens the folder at the end. No terminal is
 needed for that. The page runs on this computer only (127.0.0.1). More in the

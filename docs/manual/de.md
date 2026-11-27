@@ -353,7 +353,7 @@ dieses Blatts erscheint auf dem Gebiet, oder in der Mitte der Karte, solange es 
 mit der Maus. Ändern Sie Maßstab oder Ausrichtung, ändert es sich mit. Der Rahmen ist das ganze Blatt, ohne Ränder:
 A4 hoch deckt bei 1:15000 3150 × 4455 m ab, A6 quer bei 1:4000 592 × 420 m.
 
-Ein Rahmen ändert weder das Gebiet noch den Maßstab noch ein Objekt. Er hilft nur bei der Wahl. Lassen Sie
+Ein Rahmen ändert nichts an der Karte oder am Projekt; er hilft Ihnen, Gebiet und Maßstab zu wählen. Lassen Sie
 um das, was Sie brauchen, etwas Luft, denn die gedruckte Karte ist etwas kleiner als das Blatt.
 
 - *Rahmen übernehmen* setzt den Rahmen in die Liste darunter, jeden mit einem Knopf *Löschen*. Übernommene Rahmen
@@ -367,7 +367,10 @@ um das, was Sie brauchen, etwas Luft, denn die gedruckte Karte ist etwas kleiner
 - Behält der Lauf eine vorhandene Karte, bearbeitet er sie nicht. Er schreibt die Datei und sagt das in einer
   Zeile. Öffnen Sie die Datei dann selbst mit *Vorlagen › Vorlage öffnen …*, oder ersetzen Sie
   die Karte mit `--force` (die alte bleibt als `.omap.bak` erhalten).
-- Löschen Sie alle Rahmen, entfernt der nächste Lauf die Datei.
+- Löschen Sie alle Rahmen, entfernt der nächste Lauf die Datei. Eine behaltene Karte, die die Vorlage schon nennt,
+  zeigt dann in OpenOrienteering Mapper das Zeichen für eine fehlende Vorlage, bis Sie die Vorlage dort entfernen.
+- Liegt ein Rahmen für den Koordinatenbereich von OpenOrienteering Mapper zu weit vom Bezugspunkt der Karte
+  entfernt, lässt der Lauf ihn in der Vorlage weg und meldet das mit einer Warnung.
 
 Die Seite zeichnet den Rahmen auf ihrer Webkarte, deshalb kann der Rahmen in OOM um ein oder zwei Grad gedreht
 dagegen wirken. Der in OOM ist der genaue. Die PDFs, der Prüfausdruck und die Trainingskarte zeigen die Rahmen
