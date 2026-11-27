@@ -384,7 +384,8 @@ Token-Ablaufs [doc, Support]. Dazu passt die Antwort von `dl1`, die einen `Basic
 `206 Partial Content` auf einen Range-Aufruf, `accept-ranges: bytes`; die Berechtigung kommt mit der Bestellung des
 Produkts (Lieferstatus „Erfolgreich“). Ein erstes `401` trotz gültiger Berechtigung verschwand erst, nachdem das
 Geotorget-Passwort neu gesetzt worden war; das alte Passwort wurde von `dl1` abgelehnt, im Geotorget selbst aber
-angenommen. Die Ursache ist nicht geklärt (der Support bestätigte dieselben Zugangsdaten für beide). Für einen Adapter heißt das: ein `Authorization: Basic`-Header genügt,
+angenommen. Die Ursache ist nicht geklärt (der Support bestätigte dieselben Zugangsdaten für
+beide). Für einen Adapter heißt das: ein `Authorization: Basic`-Header genügt,
 kein Token-Provider mit Ablauf und Erneuerung; die Zugangsdaten selbst bleiben aber ebenso außerhalb des
 Projektordners (§8.1).
 
