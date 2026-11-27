@@ -458,15 +458,17 @@ Im Projektordner liegen danach unter anderem:
 sie ein und aus. Die **Kandidaten** liegen darüber, in sieben Vorlagenkarten, einer je Objektart. So
 können Sie sich eine Art nach der anderen ansehen:
 
-| Layer | Datei | Inhalt |
-|---|---|---|
-| Gelände | `templates/candidates-terrain.omap` | Böschungen, Felsen, Kuppen und Senken, Höhenlinien |
-| Gewässer | `templates/candidates-water.omap` | Bäche, Gräben, Quellen, Brunnen, Teiche |
-| Vegetation | `templates/candidates-vegetation.omap` | offenes Gelände (auch die Grünstreifen der Straßenbefahrung), Vegetationsflächen, Bäume, Hecken |
-| Wege | `templates/candidates-paths.omap` | Wege, Straßen, befestigte Flächen, Treppen, Durchgänge, Brücken |
-| Barrieren | `templates/candidates-barriers.omap` | Mauern, Zäune |
-| Objekte | `templates/candidates-features.omap` | Türme, Denkmäler, Bänke und andere Stadtmöbel, Gebäude, Überdachungen |
-| Sperrgebiete | `templates/candidates-out-of-bounds.omap` | Flächen, die nicht betreten werden dürfen |
+| Layer | Datei | Inhalt | Bild |
+|---|---|---|---|
+| Gelände | `templates/candidates-terrain.omap` | Böschungen, Felsen, Kuppen und Senken, Höhenlinien | [![terrain](images/layer-terrain-thumb.webp)](images/layer-terrain.webp) |
+| Gewässer | `templates/candidates-water.omap` | Bäche, Gräben, Quellen, Brunnen, Teiche | [![water](images/layer-water-thumb.webp)](images/layer-water.webp) |
+| Vegetation | `templates/candidates-vegetation.omap` | offenes Gelände (auch die Grünstreifen der Straßenbefahrung), Vegetationsflächen, Bäume, Hecken | [![vegetation](images/layer-vegetation-thumb.webp)](images/layer-vegetation.webp) |
+| Wege | `templates/candidates-paths.omap` | Wege, Straßen, befestigte Flächen, Treppen, Durchgänge, Brücken | [![paths](images/layer-paths-thumb.webp)](images/layer-paths.webp) |
+| Barrieren | `templates/candidates-barriers.omap` | Mauern, Zäune | [![barriers](images/layer-barriers-thumb.webp)](images/layer-barriers.webp) |
+| Objekte | `templates/candidates-features.omap` | Türme, Denkmäler, Bänke und andere Stadtmöbel, Gebäude, Überdachungen | [![features](images/layer-features-thumb.webp)](images/layer-features.webp) |
+| Sperrgebiete | `templates/candidates-out-of-bounds.omap` | Flächen, die nicht betreten werden dürfen | [![out-of-bounds](images/layer-out-of-bounds-thumb.webp)](images/layer-out-of-bounds.webp) |
+
+Die Bilder zeigen die Layer des Beispiels Viktoriapark; ein Klick zeigt sie in voller Größe. Der Layer Gewässer ist dort leer.
 
 Die Layer starten ausgeblendet, die Karte zeigt beim Öffnen also nur ihre sicheren Objekte. In der Liste
 der Vorlagen (Menü *Vorlagen*) blenden Sie jeden Layer mit seinem Häkchen ein und aus und stellen seine

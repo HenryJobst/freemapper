@@ -442,15 +442,17 @@ Open the `.omap` file in OOM. The templates are already linked; show and hide th
 menu. The **candidates** lie on top in seven template maps, one per kind of object, so that you can look
 at one kind at a time:
 
-| Layer | File | Holds |
-|---|---|---|
-| terrain | `templates/candidates-terrain.omap` | banks, cliffs, knolls and depressions, contours |
-| water | `templates/candidates-water.omap` | brooks, ditches, springs, fountains, ponds |
-| vegetation | `templates/candidates-vegetation.omap` | open land (the green strips of the street survey too), vegetation areas, trees, hedges |
-| paths | `templates/candidates-paths.omap` | paths, streets, paved areas, stairs, passages, bridges |
-| barriers | `templates/candidates-barriers.omap` | walls, fences |
-| features | `templates/candidates-features.omap` | towers, monuments, benches and other street furniture, buildings, canopies |
-| out-of-bounds | `templates/candidates-out-of-bounds.omap` | areas that shall not be entered |
+| Layer | File | Holds | Bild |
+|---|---|---|---|
+| terrain | `templates/candidates-terrain.omap` | banks, cliffs, knolls and depressions, contours | [![terrain](images/layer-terrain-thumb.webp)](images/layer-terrain.webp) |
+| water | `templates/candidates-water.omap` | brooks, ditches, springs, fountains, ponds | [![water](images/layer-water-thumb.webp)](images/layer-water.webp) |
+| vegetation | `templates/candidates-vegetation.omap` | open land (the green strips of the street survey too), vegetation areas, trees, hedges | [![vegetation](images/layer-vegetation-thumb.webp)](images/layer-vegetation.webp) |
+| paths | `templates/candidates-paths.omap` | paths, streets, paved areas, stairs, passages, bridges | [![paths](images/layer-paths-thumb.webp)](images/layer-paths.webp) |
+| barriers | `templates/candidates-barriers.omap` | walls, fences | [![barriers](images/layer-barriers-thumb.webp)](images/layer-barriers.webp) |
+| features | `templates/candidates-features.omap` | towers, monuments, benches and other street furniture, buildings, canopies | [![features](images/layer-features-thumb.webp)](images/layer-features.webp) |
+| out-of-bounds | `templates/candidates-out-of-bounds.omap` | areas that shall not be entered | [![out-of-bounds](images/layer-out-of-bounds-thumb.webp)](images/layer-out-of-bounds.webp) |
+
+The images show the layers of the Viktoriapark example; a click shows them at full size. The water layer is empty there.
 
 The layers start hidden, so the map opens with its sure objects only. In the list of templates (menu
 *Templates*) you switch each layer on and off with its checkbox and set its opacity; it is 70 % to start
