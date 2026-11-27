@@ -333,6 +333,34 @@ contributors.*
 
 The page runs only on your computer. With its buffer, an area may be at most 4 km × 4 km.
 
+### Paper frames
+
+The page can show how much ground a sheet covers at the chosen scale. Next to the scale, pick a format under
+"Paper frame" (A6, A5, A4, A3 or A2) and an orientation (landscape or portrait). A rectangle of that sheet appears
+on the area, or in the middle of the map if there is no area yet. Drag it with the mouse. When you change the scale
+or the orientation, it changes with them. The frame is the whole sheet, without margins: A4 portrait at 1:15000
+covers 3150 × 4455 m, A6 landscape at 1:4000 covers 592 × 420 m.
+
+A frame does not change the area, the scale or any object. It only helps you choose them. Leave some room
+around what you need, because the printed map is a little smaller than the sheet.
+
+- *Keep frame* puts the frame in the list below, with a *Delete* button for each. The page draws kept frames with a
+  thinner line. A new project saves them with *Save*; in an existing project the page saves every change at
+  once. freemapper stores them in `freemapper.toml` under `paper_frames`.
+- The next run (or `freemapper export`) writes the kept frames to `templates/paper-frame.omap`: one closed
+  line per frame, in a colour of its own, named for example "A4 portrait". A newly written map lists this
+  template after the candidate layers, hidden like them. In OpenOrienteering Mapper you switch on `paper-frame`
+  in the list of templates (menu *Templates*).
+- A run that keeps an existing map does not edit it. It writes the file and says so in one line.
+  Then open the file yourself with *Templates › Open template…*, or replace the map with `--force` (the old one stays
+  as `.omap.bak`).
+- If you delete every frame, the next run removes the file.
+
+The page draws the frame on its web map, so in OOM the frame can sit turned by a degree or two against the one on
+the page. The one in OOM is exact. The PDFs, the check print and the training map do not show the frames. The OCAD
+output does not have them yet; with `--ocad` a warning says so. freemapper-print will read the frames from this
+file and offer a sheet for each; its manual says from which version.
+
 ### Create the map in the browser
 
 Below the settings sits the block "Create the map". It needs no terminal.
@@ -429,6 +457,7 @@ Among other files, the project folder then holds:
 |---|---|
 | `<name>.omap` | the map for OpenOrienteering Mapper, georeferenced, with buildings, canopies, water and the peripheral information |
 | `templates/` | the templates: orthophoto, hillshade, slope, local relief, nDSM and the seven candidate layers, in Berlin also the K5 (chapter 13) |
+| `templates/paper-frame.omap` | only when you kept paper frames on the area page: the frames as a hidden template ([chapter 6](#paper-frames)) |
 | `ocad/` | with `--ocad`: the OCAD map and its templates |
 | `<name>.pdf` | with `--pdf`: the print-ready map without candidates |
 | `<name>-candidates.pdf` | with `--pdf-candidates`: the check print, the map with every candidate |

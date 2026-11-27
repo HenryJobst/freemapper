@@ -154,7 +154,9 @@ freemapper select my-schoolyard --kind schoolyard
 [![Area selection in the browser](docs/manual/images/area-selector-thumb.webp)](docs/manual/images/area-selector.jpg)
 
 On the page you search a place or draw a rectangle or polygon. The background is OpenStreetMap or the
-orthophoto of the state. The page shows the size with buffer and the estimated download. "Save" creates the
+orthophoto of the state. The page shows the size with buffer and the estimated download. A paper frame from A6
+to A2 shows how much ground a sheet covers at the chosen scale; kept frames end up in the map as a hidden
+template ([user manual, chapter 6](docs/manual/en.md#paper-frames)). "Save" creates the
 project. Below it, "Create map" makes the map with the options OCAD, PDF, check print, training map, scale bar, source
 lines and "cache only", shows the progress, can be cancelled and opens the folder at the end. No terminal is
 needed for that. The page runs on this computer only (127.0.0.1). More in the
@@ -265,6 +267,8 @@ Result in the project folder:
   contours, and out-of-bounds areas (520) from the ALKIS land use: on the schoolyard map everything but
   the school's own parcel, on the sprint map private land (residential, commercial, mixed-use and
   railway land)
+- `templates/paper-frame.omap` – only with kept paper frames: the frames as a hidden template map, one
+  closed line per sheet
 - magnetic north lines over the map content, as map objects in the map part "default part"
 - peripheral information below the map content (map part "peripheral information"): the title
   (`--title`, else the folder name), scale and contour interval, a bar scale, the attribution of the

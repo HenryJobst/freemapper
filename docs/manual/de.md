@@ -345,6 +345,35 @@ freemapper-courseplan zeigen so denselben Titel. Ändern Sie ihn bei Bedarf in d
 
 Die Seite läuft nur auf Ihrem Rechner. Ein Gebiet darf mit Puffer höchstens 4 km × 4 km groß sein.
 
+### Papierrahmen
+
+Die Seite kann zeigen, wie viel Gelände ein Blatt im gewählten Maßstab abdeckt. Wählen Sie neben dem Maßstab unter
+„Papierrahmen“ ein Format (A6, A5, A4, A3 oder A2) und eine Ausrichtung (Querformat oder Hochformat). Ein Rechteck
+dieses Blatts erscheint auf dem Gebiet, oder in der Mitte der Karte, solange es noch kein Gebiet gibt. Ziehen Sie es
+mit der Maus. Ändern Sie Maßstab oder Ausrichtung, ändert es sich mit. Der Rahmen ist das ganze Blatt, ohne Ränder:
+A4 hoch deckt bei 1:15000 3150 × 4455 m ab, A6 quer bei 1:4000 592 × 420 m.
+
+Ein Rahmen ändert weder das Gebiet noch den Maßstab noch ein Objekt. Er hilft nur bei der Wahl. Lassen Sie
+um das, was Sie brauchen, etwas Luft, denn die gedruckte Karte ist etwas kleiner als das Blatt.
+
+- *Rahmen übernehmen* setzt den Rahmen in die Liste darunter, jeden mit einem Knopf *Löschen*. Übernommene Rahmen
+  zeichnet die Seite mit dünnerer Linie. Ein neues Projekt speichert sie mit *Speichern*; in einem bestehenden
+  Projekt speichert die Seite jede Änderung sofort. Sie stehen in `freemapper.toml` unter `paper_frames`.
+- Der nächste Lauf (oder `freemapper export`) schreibt die übernommenen Rahmen in
+  `templates/paper-frame.omap`: eine geschlossene Linie je Rahmen, in einer eigenen Farbe, benannt zum Beispiel
+  „A4 portrait“. Eine neu geschriebene Karte nennt diese Vorlage nach den Kandidaten-Layern, wie diese
+  ausgeblendet. In OpenOrienteering Mapper blenden Sie `paper-frame` in der Liste der Vorlagen ein (Menü
+  *Vorlagen*).
+- Behält der Lauf eine vorhandene Karte, bearbeitet er sie nicht. Er schreibt die Datei und sagt das in einer
+  Zeile. Öffnen Sie die Datei dann selbst mit *Vorlagen › Vorlage öffnen …*, oder ersetzen Sie
+  die Karte mit `--force` (die alte bleibt als `.omap.bak` erhalten).
+- Löschen Sie alle Rahmen, entfernt der nächste Lauf die Datei.
+
+Die Seite zeichnet den Rahmen auf ihrer Webkarte, deshalb kann der Rahmen in OOM um ein oder zwei Grad gedreht
+dagegen wirken. Der in OOM ist der genaue. Die PDFs, der Prüfausdruck und die Trainingskarte zeigen die Rahmen
+nicht. Die OCAD-Ausgabe hat sie noch nicht; mit `--ocad` sagt das eine Warnung. freemapper-print wird die Rahmen
+aus dieser Datei lesen und für jeden ein Blatt anbieten; ab welcher Version, steht in seinem Handbuch.
+
 ### Karte im Browser erzeugen
 
 Unter den Einstellungen steht der Block „Karte erzeugen“. Er braucht kein Terminal.
@@ -445,6 +474,7 @@ Im Projektordner liegen danach unter anderem:
 |---|---|
 | `<name>.omap` | die Karte für OpenOrienteering Mapper, georeferenziert, mit Gebäuden, Überdachungen, Gewässern und Randangaben |
 | `templates/` | die Vorlagen: Luftbild, Schummerung, Hangneigung, lokales Relief, nDOM und die sieben Kandidaten-Layer, in Berlin auch die K5 (Kapitel 13) |
+| `templates/paper-frame.omap` | nur wenn Sie auf der Gebietsseite Papierrahmen übernommen haben: die Rahmen als ausgeblendete Vorlage ([Kapitel 6](#papierrahmen)) |
 | `ocad/` | mit `--ocad`: die OCAD-Karte und ihre Vorlagen |
 | `<name>.pdf` | mit `--pdf`: die druckfertige Karte ohne Kandidaten |
 | `<name>-candidates.pdf` | mit `--pdf-candidates`: der Prüfausdruck, die Karte mit allen Kandidaten |
