@@ -694,6 +694,7 @@ fn print_written(written: pipeline::Written, sources: PdfSources) {
                     references_images,
                     missing_buildings,
                     missing_canopies,
+                    paper_frames,
                 } => {
                     kept(map);
                     if let Some(line) = pipeline::light_kept(&outcome.light, "cli-map-light-kept") {
@@ -710,6 +711,9 @@ fn print_written(written: pipeline::Written, sources: PdfSources) {
                     }
                     if *missing_canopies {
                         println!("{}", text("cli-map-lacks-canopies", &[]));
+                    }
+                    if *paper_frames {
+                        println!("{}", text("cli-paper-frame-kept-map", &[]));
                     }
                 }
             }
@@ -1126,6 +1130,9 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
                 kept(&existing);
             } else {
                 wrote(&export_starter_project_from(&dir, &documents, force)?);
+                if let Some(note) = documents.paper_frame_note() {
+                    report_note(note);
+                }
                 if let Some(line) = pipeline::light_summary(documents.light(), "cli-map-light") {
                     println!("{line}");
                 }

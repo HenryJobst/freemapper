@@ -352,7 +352,8 @@ pub(super) enum MapWrite {
     Keep { old_candidates: bool },
 }
 
-/// Writes the candidate layers and the attribution, and the map unless it is kept. Candidates
+/// Writes the candidate layers, the paper frame template ([`PAPER_FRAME_RELPATH`], removed when
+/// no frames are stored) and the attribution, and the map unless it is kept. Candidates
 /// are templates that always follow the current map area. A written map names the layers, and
 /// the candidates template of an older freemapper goes; a kept map that still names it gets it
 /// refreshed with every candidate (ADR 0156).
@@ -378,6 +379,13 @@ pub(super) fn write_starter_project(
     }
     for (layer, doc) in documents.candidate_layers() {
         write_document(dir, &doc, &dir.join(layer.relpath()))?;
+    }
+    // The paper frames follow the project file on every export, also beside a kept map: print
+    // must never find frames that are no longer stored.
+    let paper_frame = dir.join(PAPER_FRAME_RELPATH);
+    match &documents.paper_frames {
+        Some(doc) => write_document(dir, doc, &paper_frame)?,
+        None => freemapper_fs::remove_inside(dir, &paper_frame),
     }
     let old_candidates = dir.join(OLD_CANDIDATES_RELPATH);
     match map_write {
@@ -422,7 +430,7 @@ pub struct OcadOutcome {
     pub skipped: usize,
     /// Degenerate line parts and hole rings left out of written objects.
     pub dropped_parts: usize,
-    /// Templates left out of the OCAD map.
+    /// Templates left out of the OCAD map, the paper frames among them.
     pub warnings: Vec<Note>,
     /// The kind of the map, which names the official symbol set to load in OCAD.
     pub map_kind: MapKind,
@@ -457,7 +465,13 @@ pub fn export_ocad_from(
     check_folders(dir, &[OCAD_DIR])?;
     std::fs::create_dir_all(&ocad_dir).map_err(|e| ProjectError::Io(ocad_dir.clone(), e))?;
     let name = ocad_name(dir);
-    let (mut backgrounds, warnings) = copy_backgrounds(dir, &ocad_dir, &documents.map.templates)?;
+    // The paper frame template is a template map, which the image backgrounds leave out; the OCAD
+    // starting point has no frames yet, and the user hears it.
+    let (mut backgrounds, mut warnings) =
+        copy_backgrounds(dir, &ocad_dir, &documents.map.templates)?;
+    if documents.paper_frames.is_some() {
+        warnings.push(note!("warning-ocad-no-paper-frames"));
+    }
     let mut candidates = Vec::new();
     for (layer, doc) in documents.candidate_layers() {
         let file_name = format!("{name}-candidates-{}.ocd", layer.name());
@@ -1444,12 +1458,28 @@ pub struct StarterDocuments {
     pub(super) training: crate::build::training::TrainingInput,
     /// What the light level took off the map (ADR 0157).
     pub(super) light: crate::build::light::LightReport,
+    /// The template map of the paper frames ([`PAPER_FRAME_RELPATH`]); none when the project
+    /// stores no frames.
+    pub(super) paper_frames: Option<MapDocument>,
+    /// Stored frames the template map could not hold (beyond the coordinates of OOM).
+    pub(super) paper_frames_left_out: usize,
 }
 
 impl StarterDocuments {
     /// What the light level did to the map of these documents (ADR 0157).
     pub fn light(&self) -> &crate::build::light::LightReport {
         &self.light
+    }
+
+    /// The warning that some stored paper frames lie too far from the map for the template;
+    /// none when it holds every frame.
+    pub fn paper_frame_note(&self) -> Option<Note> {
+        (self.paper_frames_left_out > 0).then(|| {
+            note!(
+                "warning-paper-frames-left-out",
+                count = self.paper_frames_left_out
+            )
+        })
     }
 
     /// The candidates cut into the template maps of the candidate layers, every layer in its
@@ -1506,6 +1536,9 @@ pub struct BuiltProject {
     /// The walkable area (sprint only) and the sheet, which no content setting changes.
     base_part: Option<MapPart>,
     sheet_part: MapPart,
+    /// The paper frames of the project file. They are no part of the fingerprint: a build kept
+    /// for the previews of the area page may carry older frames, which only an export writes.
+    paper_frames: Vec<PaperFrame>,
 }
 
 impl BuiltProject {
@@ -1599,6 +1632,19 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
         opacity: CANDIDATE_LAYER_OPACITY,
         behind_map: false,
     }));
+    // The paper frames after the candidate layers, hidden as they are, only when frames are
+    // stored: a map without frames stays as before.
+    if !project.paper_frames.is_empty() {
+        templates.push(TemplateRef {
+            kind: TemplateKind::Map,
+            relpath: PAPER_FRAME_RELPATH.to_string(),
+            georeferenced: true,
+            crs_spec: None,
+            visible: false,
+            opacity: CANDIDATE_LAYER_OPACITY,
+            behind_map: false,
+        });
+    }
     let content = PaperRect::of_bbox(&project.bbox()?, georef)?;
     let mut attribution = vec![OSM_ATTRIBUTION_DE.to_string()];
     attribution.extend(sheet_credit_lines(&project, &registers));
@@ -1631,6 +1677,7 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
         info,
         base_part,
         sheet_part,
+        paper_frames: project.paper_frames,
     })
 }
 
@@ -1736,6 +1783,19 @@ pub fn place(
         parts,
         templates: built.templates.clone(),
     };
+    // On the georeferencing and the symbol set of the candidates, as a template map of the map.
+    let paper_frames = (!built.paper_frames.is_empty()).then(|| {
+        crate::build::paper_frames::paper_frame_document(
+            &built.paper_frames,
+            built.info.scale_denominator,
+            &candidates.georef,
+            &candidates,
+        )
+    });
+    let paper_frames_left_out = paper_frames.as_ref().map_or(0, |doc| {
+        let drawn: usize = doc.parts.iter().map(|p| p.objects.len()).sum();
+        built.paper_frames.len().saturating_sub(drawn)
+    });
 
     Ok(StarterDocuments {
         map,
@@ -1746,6 +1806,8 @@ pub fn place(
         content_settings: content.clone(),
         training: placed.training,
         light: placed.light,
+        paper_frames,
+        paper_frames_left_out,
     })
 }
 
@@ -1766,6 +1828,10 @@ fn content_settings(project: &ProjectFile) -> crate::build::content::ContentSett
 /// The one candidates template of freemapper before the candidate layers (ADR 0156): written
 /// only while a kept map names it, removed when the map is replaced.
 pub(crate) const OLD_CANDIDATES_RELPATH: &str = "templates/candidates.omap";
+
+/// The template map of the paper frames of the area page: freemapper's own output, rewritten by
+/// every export and removed when no frames are stored.
+pub const PAPER_FRAME_RELPATH: &str = "templates/paper-frame.omap";
 
 /// The opacity of a candidate layer when it is switched on.
 pub(crate) const CANDIDATE_LAYER_OPACITY: f32 = 0.7;

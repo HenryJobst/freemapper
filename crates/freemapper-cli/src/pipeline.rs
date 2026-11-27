@@ -799,6 +799,7 @@ fn map_summary(outcome: &RunOutcome) -> String {
             references_images,
             missing_buildings,
             missing_canopies,
+            paper_frames,
         } => {
             lines.push(text("cli-summary-kept-map", &[("path", v(map.display()))]));
             lines.extend(light_kept(&outcome.light, "cli-summary-map-light-kept"));
@@ -813,6 +814,9 @@ fn map_summary(outcome: &RunOutcome) -> String {
             }
             if *missing_canopies {
                 lines.push(text("cli-summary-map-lacks-canopies", &[]));
+            }
+            if *paper_frames {
+                lines.push(text("cli-summary-paper-frame-kept-map", &[]));
             }
         }
     }
@@ -1210,6 +1214,7 @@ mod tests {
                 references_images: true,
                 missing_buildings: false,
                 missing_canopies: true,
+                paper_frames: false,
             },
             preview: None,
             light: LightReport::default(),
@@ -1233,6 +1238,7 @@ mod tests {
                 references_images: true,
                 missing_buildings: false,
                 missing_canopies: false,
+                paper_frames: false,
             },
             preview: None,
             light: LightReport::default(),
@@ -1240,6 +1246,31 @@ mod tests {
         let text = map_summary(&outcome);
         assert!(text.contains("templates/candidates.omap"), "{text}");
         assert!(text.contains("force"), "{text}");
+    }
+
+    #[test]
+    fn a_kept_map_with_new_paper_frames_says_once_to_open_the_template() {
+        let kept = |paper_frames| RunOutcome {
+            templates: Vec::new(),
+            map: MapOutcome::Kept {
+                map: PathBuf::from("/tmp/x/x.omap"),
+                old_candidates: false,
+                references_images: true,
+                missing_buildings: false,
+                missing_canopies: false,
+                paper_frames,
+            },
+            preview: None,
+            light: LightReport::default(),
+        };
+        let text = map_summary(&kept(true));
+        assert_eq!(
+            text.matches("templates/paper-frame.omap").count(),
+            1,
+            "{text}"
+        );
+        assert!(text.contains("Templates > Open template"), "{text}");
+        assert!(!map_summary(&kept(false)).contains("paper-frame"));
     }
 
     #[test]
@@ -1269,6 +1300,7 @@ mod tests {
                 references_images: true,
                 missing_buildings: false,
                 missing_canopies: false,
+                paper_frames: false,
             },
             ..written.clone()
         };

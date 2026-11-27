@@ -2762,6 +2762,9 @@ pub enum MapOutcome {
         /// ALKIS canopies (522 map objects) are stored for the project, but the kept map has
         /// none (it was written before them).
         missing_canopies: bool,
+        /// The run wrote the paper frame template ([`PAPER_FRAME_RELPATH`]), and the kept map
+        /// does not name it: the user opens it in OOM.
+        paper_frames: bool,
     },
 }
 
@@ -2859,6 +2862,10 @@ pub fn run_project_steps_cancellable(
     let mut preview = None;
     let documents = starter_documents(dir)?;
     let light = documents.light().clone();
+    // Once per run, from the documents the map step writes.
+    if let Some(note) = documents.paper_frame_note() {
+        progress(note);
+    }
     let map = if existing.exists() && !force {
         let text = std::fs::read_to_string(&existing)
             .map_err(|e| ProjectError::Io(existing.clone(), e))?;
@@ -2869,6 +2876,7 @@ pub fn run_project_steps_cancellable(
             references_images: text.contains(ORTHOPHOTO_RELPATH),
             missing_buildings: map_lacks_buildings(dir, &text)?,
             missing_canopies: map_lacks_canopies(dir, &text)?,
+            paper_frames: documents.paper_frames.is_some() && !text.contains(PAPER_FRAME_RELPATH),
             map: existing,
         }
     } else {
@@ -7693,6 +7701,322 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         }
     }
 
+    /// An A4 portrait frame on the centre of the map area of `dir`.
+    fn frame_on_the_area(dir: &Path) -> PaperFrame {
+        use crate::paper::{Orientation, PaperFormat};
+        let centre = ProjectFile::load(dir).unwrap().area().unwrap().centroid();
+        frame(
+            PaperFormat::A4,
+            Orientation::Portrait,
+            centre.lon,
+            centre.lat,
+        )
+    }
+
+    /// Whether `bytes` is well-formed XML to its end.
+    fn well_formed(bytes: &[u8]) -> bool {
+        let mut reader = quick_xml::Reader::from_reader(bytes);
+        let mut buf = Vec::new();
+        loop {
+            match reader.read_event_into(&mut buf) {
+                Ok(quick_xml::events::Event::Eof) => return true,
+                Ok(_) => buf.clear(),
+                Err(_) => return false,
+            }
+        }
+    }
+
+    /// Every file under `dir` with its bytes, by its path relative to `dir`.
+    fn files_of(dir: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
+        let mut files = BTreeMap::new();
+        let mut folders = vec![dir.to_path_buf()];
+        while let Some(folder) = folders.pop() {
+            for entry in std::fs::read_dir(&folder).unwrap() {
+                let path = entry.unwrap().path();
+                if path.is_dir() {
+                    folders.push(path);
+                } else {
+                    let bytes = std::fs::read(&path).unwrap();
+                    files.insert(path.strip_prefix(dir).unwrap().to_path_buf(), bytes);
+                }
+            }
+        }
+        files
+    }
+
+    #[test]
+    fn export_writes_the_paper_frame_template_and_the_new_map_names_it() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        set_paper_frames(dir.path(), &[frame_on_the_area(dir.path())]).unwrap();
+        let map = export_starter_project(dir.path(), false).unwrap();
+        let file = dir.path().join(PAPER_FRAME_RELPATH);
+        let bytes = std::fs::read(&file).unwrap();
+        assert!(well_formed(&bytes), "the template parses as XML");
+        let text = String::from_utf8(bytes).unwrap();
+        assert!(
+            text.contains(r#"<t k="freemapper:source">paper-frame</t>"#),
+            "{text}"
+        );
+        assert!(text.contains(r#"<t k="freemapper:paper">A4</t>"#));
+        // The map names it after the candidate layers, hidden, at the opacity of a layer.
+        let written = std::fs::read_to_string(&map).unwrap();
+        let named = templates_of(&written);
+        let mut expected = candidate_layer_files();
+        expected.push(PAPER_FRAME_RELPATH.to_string());
+        assert_eq!(named[named.len() - expected.len()..], expected, "{named:?}");
+        let last = written.rfind("<ref template=").unwrap();
+        assert!(
+            written[last..].starts_with(&format!(
+                r#"<ref template="{}" visible="false" opacity="0.7"/>"#,
+                named.len() - 1
+            )),
+            "{}",
+            &written[last..]
+        );
+        let documents = starter_documents(dir.path()).unwrap();
+        let reference = documents.map.templates.last().unwrap();
+        assert_eq!(reference.kind, TemplateKind::Map);
+        assert!(!reference.visible && !reference.behind_map);
+        assert_eq!(reference.opacity, CANDIDATE_LAYER_OPACITY);
+        // The frame document shares the georeferencing of the candidates.
+        let frames = documents.paper_frames.as_ref().unwrap();
+        assert_eq!(frames.georef, documents.candidates.georef);
+        assert_eq!(frames.parts[0].objects.len(), 1);
+        assert!(documents.paper_frame_note().is_none());
+    }
+
+    #[test]
+    fn export_without_frames_writes_no_template_and_the_map_names_none() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let map = export_starter_project(dir.path(), false).unwrap();
+        assert!(!dir.path().join(PAPER_FRAME_RELPATH).exists());
+        let written = std::fs::read_to_string(&map).unwrap();
+        assert!(!written.contains("paper-frame"), "{written}");
+        let documents = starter_documents(dir.path()).unwrap();
+        assert!(documents.paper_frames.is_none());
+        assert!(
+            !documents
+                .map
+                .templates
+                .iter()
+                .any(|t| t.relpath == PAPER_FRAME_RELPATH)
+        );
+    }
+
+    #[test]
+    fn export_removes_a_stale_paper_frame_template() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        set_paper_frames(dir.path(), &[frame_on_the_area(dir.path())]).unwrap();
+        let map = export_starter_project(dir.path(), false).unwrap();
+        let file = dir.path().join(PAPER_FRAME_RELPATH);
+        assert!(file.exists());
+        // The frames are taken away: the next export takes the file and the reference away.
+        set_paper_frames(dir.path(), &[]).unwrap();
+        export_starter_project(dir.path(), true).unwrap();
+        assert!(!file.exists());
+        assert!(
+            !std::fs::read_to_string(&map)
+                .unwrap()
+                .contains("paper-frame")
+        );
+        // A kept map loses the file too, and stays as it is.
+        std::fs::write(&file, "frames of before").unwrap();
+        let before = std::fs::read(&map).unwrap();
+        let documents = starter_documents(dir.path()).unwrap();
+        write_starter_project(
+            dir.path(),
+            &documents,
+            MapWrite::Keep {
+                old_candidates: false,
+            },
+        )
+        .unwrap();
+        assert!(!file.exists());
+        assert_eq!(std::fs::read(&map).unwrap(), before);
+    }
+
+    #[test]
+    fn a_kept_map_stays_byte_identical_when_frames_are_added_and_the_file_is_written() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        school_project(dir.path());
+        let fetcher = MapFetcher::default();
+        serve_synthetic_tile(&fetcher, school_tile(), "2026-01-26");
+        let first = run(dir.path(), &fetcher, &cache, false);
+        assert!(matches!(first.map, MapOutcome::Written(_)));
+        let map = map_path(dir.path());
+        let before = std::fs::read(&map).unwrap();
+        set_paper_frames(dir.path(), &[frame_on_the_area(dir.path())]).unwrap();
+        let outcome = run(dir.path(), &fetcher, &cache, false);
+        assert!(
+            matches!(
+                outcome.map,
+                MapOutcome::Kept {
+                    paper_frames: true,
+                    ..
+                }
+            ),
+            "{:?}",
+            outcome.map
+        );
+        assert_eq!(
+            std::fs::read(&map).unwrap(),
+            before,
+            "the map is not edited"
+        );
+        assert!(dir.path().join(PAPER_FRAME_RELPATH).exists());
+        // A kept map that names the template already needs no word on it.
+        let named = format!(r#"edited in OOM <template relpath="{PAPER_FRAME_RELPATH}">"#);
+        std::fs::write(&map, &named).unwrap();
+        let outcome = run(dir.path(), &fetcher, &cache, false);
+        assert!(matches!(
+            outcome.map,
+            MapOutcome::Kept {
+                paper_frames: false,
+                ..
+            }
+        ));
+        assert_eq!(std::fs::read_to_string(&map).unwrap(), named);
+    }
+
+    #[test]
+    fn list_layers_names_paper_frame_only_when_the_file_exists() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let names = |dir: &Path| -> Vec<&'static str> {
+            crate::layers::list_layers(dir)
+                .iter()
+                .map(|l| l.name)
+                .collect()
+        };
+        let without = names(dir.path());
+        assert!(!without.contains(&"paper-frame"), "{without:?}");
+        set_paper_frames(dir.path(), &[frame_on_the_area(dir.path())]).unwrap();
+        export_starter_project(dir.path(), false).unwrap();
+        let with = names(dir.path());
+        // After the candidate layers; every other layer keeps its name and order.
+        let at = with.iter().position(|n| *n == "paper-frame").unwrap();
+        assert_eq!(with[at - 1], "candidates-out-of-bounds", "{with:?}");
+        let mut rest = with.clone();
+        rest.remove(at);
+        assert_eq!(rest, without);
+        let layer = &crate::layers::list_layers(dir.path())[at];
+        assert!(layer.ready);
+        assert_eq!(
+            layer.file,
+            dir.path().join(PAPER_FRAME_RELPATH).display().to_string()
+        );
+    }
+
+    #[test]
+    fn a_frame_change_does_not_change_the_data_or_templates_other_than_its_own() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = derived_school(&fetcher);
+        export_starter_project(dir.path(), false).unwrap();
+        let fingerprint = project_fingerprint(&ProjectFile::load(dir.path()).unwrap()).unwrap();
+        let before = files_of(dir.path());
+        set_paper_frames(dir.path(), &[frame_on_the_area(dir.path())]).unwrap();
+        export_starter_project(dir.path(), true).unwrap();
+        let after = files_of(dir.path());
+        assert_eq!(
+            project_fingerprint(&ProjectFile::load(dir.path()).unwrap()).unwrap(),
+            fingerprint
+        );
+        let map = map_path(dir.path());
+        let map = map.strip_prefix(dir.path()).unwrap();
+        let changed: Vec<&PathBuf> = before
+            .iter()
+            .filter(|(path, bytes)| after.get(*path) != Some(bytes))
+            .map(|(path, _)| path)
+            .collect();
+        let mut expected = [PathBuf::from(PROJECT_FILE_NAME), map.to_path_buf()];
+        expected.sort();
+        assert_eq!(changed, expected.iter().collect::<Vec<_>>());
+        let added: Vec<&PathBuf> = after.keys().filter(|p| !before.contains_key(*p)).collect();
+        let backup = map.with_extension("omap.bak");
+        let mut expected = [PathBuf::from(PAPER_FRAME_RELPATH), backup];
+        expected.sort();
+        assert_eq!(added, expected.iter().collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn ocad_export_leaves_the_paper_frame_out_and_says_so() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let without = export_ocad(dir.path(), false).unwrap();
+        assert!(
+            !without
+                .warnings
+                .iter()
+                .any(|n| n.id() == "warning-ocad-no-paper-frames"),
+            "{:?}",
+            without.warnings
+        );
+        set_paper_frames(dir.path(), &[frame_on_the_area(dir.path())]).unwrap();
+        let outcome = export_ocad(dir.path(), true).unwrap();
+        let notes: Vec<&Note> = outcome
+            .warnings
+            .iter()
+            .filter(|n| n.id() == "warning-ocad-no-paper-frames")
+            .collect();
+        assert_eq!(notes.len(), 1, "{:?}", outcome.warnings);
+        let map = crate::ocd::read::read(&std::fs::read(&outcome.map).unwrap());
+        assert!(
+            !map.strings
+                .iter()
+                .any(|s| s.kind == 8 && s.text.contains("paper-frame")),
+            "no background map of the frames"
+        );
+        for entry in std::fs::read_dir(dir.path().join(OCAD_DIR)).unwrap() {
+            let name = entry.unwrap().file_name();
+            assert!(!name.to_string_lossy().contains("paper-frame"), "{name:?}");
+        }
+    }
+
+    #[test]
+    fn a_frame_beyond_the_range_of_oom_is_left_out_with_one_warning_per_run() {
+        use crate::paper::{Orientation, PaperFormat};
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        school_project(dir.path());
+        let near = frame_on_the_area(dir.path());
+        // Some thousand kilometres south: beyond the 32-bit coordinates of OOM at 1:1000.
+        let far = frame(PaperFormat::A3, Orientation::Landscape, near.lon, -60.0);
+        set_paper_frames(dir.path(), &[near, far]).unwrap();
+        let documents = starter_documents(dir.path()).unwrap();
+        assert_eq!(
+            documents.paper_frames.as_ref().unwrap().parts[0]
+                .objects
+                .len(),
+            1
+        );
+        let note = documents.paper_frame_note().unwrap();
+        assert!(note.is_warning());
+        assert_eq!(note.id(), "warning-paper-frames-left-out");
+        let fetcher = MapFetcher::default();
+        serve_synthetic_tile(&fetcher, school_tile(), "2026-01-26");
+        let mut notes = Vec::new();
+        run_project(
+            dir.path(),
+            &fetcher,
+            &cache,
+            FetchMode::Online,
+            false,
+            &mut |n| notes.push(n),
+        )
+        .unwrap();
+        let left_out = notes
+            .iter()
+            .filter(|n| n.id() == "warning-paper-frames-left-out")
+            .count();
+        assert_eq!(left_out, 1, "{notes:?}");
+    }
+
     #[test]
     fn the_layers_together_hold_every_candidate_once() {
         let fetcher = MapFetcher::default();
@@ -7743,6 +8067,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
                 references_images: false,
                 missing_buildings: true,
                 missing_canopies: false,
+                paper_frames: false,
             }
         );
         assert_eq!(std::fs::read_to_string(&map).unwrap(), "edited in OOM");
@@ -7759,6 +8084,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
                 references_images: true,
                 missing_buildings: false,
                 missing_canopies: false,
+                paper_frames: false,
             }
         );
     }
@@ -11420,6 +11746,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 references_images: true,
                 missing_buildings: false,
                 missing_canopies: true,
+                paper_frames: false,
             }
         );
         // Written again with force, the map has them.
@@ -12496,6 +12823,8 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             content_settings: ContentSettings::default(),
             light: Default::default(),
             training: Default::default(),
+            paper_frames: None,
+            paper_frames_left_out: 0,
         };
         let (map, _) = pdf_objects(&documents, true);
         assert_eq!(map, [&shown]);
@@ -12555,6 +12884,8 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 &[street.clone()],
                 &[outline_copy, carriageway.clone(), under_olive.clone()],
             ),
+            paper_frames: None,
+            paper_frames_left_out: 0,
         };
         // Neither the map nor the check print draws it.
         let (check_print, _) = pdf_objects(&documents, true);

@@ -32,6 +32,7 @@ cli-map-lacks-canopies = Der Karte fehlen die ALKIS-Überdachungen und Carports 
 cli-map-light = Die Grundkarte: { $joined } Linien verbunden, { $left } verdeckte oder zu kleine Objekte in die Kandidaten-Layer gelegt (nichts verschoben)
 cli-map-light-kept = Die Kandidaten-Layer enthalten jetzt auch { $left } Objekte oder Abschnitte, die diese Version von der Grundkarte nimmt (mit freemapper:generalized markiert). Die behaltene Karte hat sie noch, sie erscheinen also doppelt. Ersetzen Sie die Karte mit --force, um sie zu bereinigen (die alte bleibt als .omap.bak erhalten).
 cli-map-old-candidates = Die Karte nennt noch templates/candidates.omap; dieser Lauf hat sie mit allen Kandidaten gefüllt. Die Kandidaten gibt es jetzt auch in sieben Layern, je einer Datei (templates/candidates-*.omap). Die Karte führt sie, wenn Sie sie mit --force ersetzen (die alte bleibt als .omap.bak erhalten), oder Sie fügen sie in OOM selbst hinzu (Vorlagen > Vorlage öffnen …).
+cli-paper-frame-kept-map = Die Papierrahmen stehen jetzt in der Vorlagenkarte templates/paper-frame.omap. Die vorhandene Karte bleibt unverändert und führt sie deshalb nicht: Öffnen Sie sie in OpenOrienteering Mapper (Vorlagen > Vorlage öffnen …), oder ersetzen Sie die Karte mit --force (die alte bleibt als .omap.bak erhalten).
 
 ## PDF
 
@@ -733,6 +734,7 @@ cli-summary-map-lacks-canopies = Der Karte fehlen die ALKIS-Überdachungen und C
 cli-summary-map-light = Die Grundkarte: { $joined } Linien verbunden, { $left } verdeckte oder zu kleine Objekte in die Kandidaten-Layer gelegt (nichts verschoben)
 cli-summary-map-light-kept = Die Kandidaten-Layer enthalten jetzt auch { $left } Objekte oder Abschnitte, die diese Version von der Grundkarte nimmt (mit freemapper:generalized markiert). Die behaltene Karte hat sie noch, sie erscheinen also doppelt. Starten Sie die Pipeline mit force, um die Karte zu bereinigen; die alte bleibt als .omap.bak erhalten.
 cli-summary-map-old-candidates = Die Karte nennt noch templates/candidates.omap; dieser Lauf hat sie mit allen Kandidaten gefüllt. Die Kandidaten gibt es jetzt auch in sieben Layern, je einer Datei (templates/candidates-*.omap). Die Karte führt sie nach einem Lauf mit force (die alte Karte bleibt als .omap.bak erhalten), oder die Kartiererin oder der Kartierer fügt sie in OOM hinzu (Vorlagen > Vorlage öffnen …).
+cli-summary-paper-frame-kept-map = Die Papierrahmen stehen jetzt in der Vorlagenkarte templates/paper-frame.omap. Die vorhandene Karte bleibt unverändert und führt sie deshalb nicht: Die Kartiererin oder der Kartierer öffnet sie in OpenOrienteering Mapper (Vorlagen > Vorlage öffnen …), oder die Karte führt sie nach einem Lauf mit force (die alte Karte bleibt als .omap.bak erhalten).
 cli-summary-wrote-ocad = OCAD-Karte { $path } geschrieben ({ $count ->
         [one] 1 Objekt
        *[other] { $count } Objekte

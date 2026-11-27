@@ -32,6 +32,7 @@ cli-map-lacks-canopies = The map lacks the ALKIS canopies and carports (522) tha
 cli-map-light = The base map: { $joined } lines joined, { $left } hidden or too small left for the candidate layers (nothing moved)
 cli-map-light-kept = The candidate layers now also hold { $left } objects or stretches that this version takes off the base map (tagged freemapper:generalized). The kept map still has them, so they show twice. Replace the map with --force to clean it (the old one stays as .omap.bak).
 cli-map-old-candidates = The map still names templates/candidates.omap; this run filled it with every candidate. The candidates now also come in seven layers, one file each (templates/candidates-*.omap). The map lists them after you replace it with --force (the old one stays as .omap.bak), or add them yourself in OOM (Templates > Open template…).
+cli-paper-frame-kept-map = Wrote the paper frames as the template templates/paper-frame.omap. The existing map is not changed, so it does not list it: open it in OpenOrienteering Mapper (Templates > Open template…), or replace the map with --force (the old one stays as .omap.bak).
 
 ## PDF
 
@@ -733,6 +734,7 @@ cli-summary-map-lacks-canopies = The map lacks the ALKIS canopies and carports (
 cli-summary-map-light = The base map: { $joined } lines joined, { $left } hidden or too small left for the candidate layers (nothing moved)
 cli-summary-map-light-kept = The candidate layers now also hold { $left } objects or stretches that this version takes off the base map (tagged freemapper:generalized). The kept map still has them, so they show twice. Start the pipeline with force to clean the map; it keeps the old one as .omap.bak.
 cli-summary-map-old-candidates = The map still names templates/candidates.omap; this run filled it with every candidate. The candidates now also come in seven layers, one file each (templates/candidates-*.omap). The map lists them after a run with force (the old map stays as .omap.bak), or the mapper adds them in OOM (Templates > Open template…).
+cli-summary-paper-frame-kept-map = Wrote the paper frames as the template templates/paper-frame.omap. The existing map is not changed, so it does not list it: the mapper opens it in OpenOrienteering Mapper (Templates > Open template…), or the map lists it after a run with force (the old map stays as .omap.bak).
 cli-summary-wrote-ocad = Wrote the OCAD map { $path } ({ $count } objects)
 cli-summary-kept-ocad = Kept the existing OCAD map { $path } (it may contain the mapper's work; force replaces it)
 cli-summary-ocad-old-candidates = The OCAD map still names { $path } as a background map; this run filled it with every candidate. The candidates now also come in seven layers, one file each (-candidates-*.ocd). The OCAD map lists them after a run with force (the old map stays as .ocd.bak), or the mapper adds them in OCAD as background maps.
