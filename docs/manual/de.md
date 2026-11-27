@@ -724,7 +724,7 @@ Aus dem Geländemodell kommen weitere Kandidaten, die die Höhenlinien nicht zei
   schwarze Fläche in Grundrissform, wenn er mindestens 0,3 mm² groß und 0,25 mm breit ist (Mindestmaße von 206).
   Das ist die Darstellung einer Felsenstadt in Sprintkarten wie der von Adršpach 2009. Eine Wandfläche, die über den
   Rand des Geländemodells hinausreicht, fehlt, eine Lücke in ihrem Inneren (Spalte, ebener Absatz) wird gefüllt.
-  Eine Böschung oder Felswand, die an einer Wandfläche entlangläuft, entfällt, denn die Fläche zeigt sie schon.
+  Eine Böschung oder Felswand, die an einer Wandfläche entlangläuft, entfällt, denn die Fläche zeigt sie schon. Höhenlinien enden an der Fläche und laufen nicht durch das Schwarz.
   Die Fläche ist ein Kandidat der Ebene „Gelände“. Der Grenzwinkel (die Wandschwelle) ist einstellbar: `--face-slope <Grad>` bei
   `init`, `derive` oder `run`, auf der Gebietsseite im Feld „Wandschwelle“ oder als `face_slope_deg = 75` in der
   `freemapper.toml`; `auto` gibt den Standard von 70° zurück, erlaubt sind 55° bis 85°. Eine Karte, die schon gebaut

@@ -8,6 +8,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Hinzugefügt
 
+- Höhenlinien enden an Felswandflächen (ADR 0200): Wo eine Höhenlinie durch eine schwarze Fläche (206) läuft, wird sie dort geschnitten, wie schon an kleinen Kuppen und Treppen. Das Adršpach-Beispiel ist neu gebaut.
 - Das Beispiel `cesko-adrspach-forest` ist neu gebaut: Die Trainingskarte zeigt jetzt die Felswandflächen (206) zwischen den Blöcken, die Prüfebene „Gelände“ hat 312 Kandidaten mehr.
 - Wandschwelle für Felswandflächen (ADR 0200): `--face-slope <Grad>|auto` bei `init`, `derive` und `run`, `face_slope` in den MCP-Werkzeugen `create_project` und `start_pipeline`, das Feld „Wandschwelle“ auf der Gebietsseite und `face_slope_deg` in der `freemapper.toml`. Der Standard bleibt 70°, erlaubt sind 55° bis 85°. Auf Adršpach sind 65° 8,4 % der Fläche schwarz, 70° 5,2 % und 75° 2,5 %.
 - Felswandflächen (ADR 0200): Ein zusammenhängender Fleck des Geländemodells, der mindestens 70° steil ist, wird als schwarze Fläche in Grundrissform (206) angeboten, wenn er die Mindestmaße der Norm erreicht (0,3 mm², 0,25 mm breit). Böschungen und Felswände, die an so einer Fläche entlanglaufen, entfallen. Adršpach bekommt 310 Flächen.

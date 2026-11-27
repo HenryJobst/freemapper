@@ -693,7 +693,7 @@ From the terrain model come further candidates the contours miss:
 - **Rock face areas** (206): a connected patch at least 70° steep is drawn as a black area in plan shape when it is at
   least 0.3 mm² and 0.25 mm wide (the minimum sizes of 206). Sprint maps of a rock town, such as the Adršpach map of 2009,
   draw it this way. A face that reaches past the edge of the terrain model is missing, and a gap inside one (a crack,
-  a level ledge) is filled. A bank or cliff that runs along a face is dropped, because the area shows it already. The
+  a level ledge) is filled. A bank or cliff that runs along a face is dropped, because the area shows it already. Contours stop at the area and do not run through the black. The
   area is a candidate of the terrain layer. The limit (the face threshold) can be set: `--face-slope <degrees>` on
   `init`, `derive` or `run`, in the field "Face threshold" on the area page, or as `face_slope_deg = 75` in
   `freemapper.toml`; `auto` gives the default of 70° back, 55° to 85° are allowed. A map that is built already needs
