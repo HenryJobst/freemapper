@@ -8,6 +8,20 @@
 
 <p align="center"><a href="examples/berlin-viktoriapark/preview.webp"><img src="examples/berlin-viktoriapark/preview-medium.webp" alt="Trainingskarte Viktoriapark, Berlin-Kreuzberg, von freemapper erzeugt" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (Sprint 1:4000), von freemapper aus offenen Daten erzeugt. Das Bild ist die Trainingskarte, die man so drucken und laufen kann; ein Klick zeigt sie in voller Größe, als <a href="examples/berlin-viktoriapark/berlin-viktoriapark-training.pdf">PDF</a> zum Drucken. Der <a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf">Prüfausdruck</a> zeigt alle Kandidaten lagetreu; mehr unter <a href="examples/README.md">Beispiele</a>.</sub></p>
 
+<p align="center"><b>Die Ebenen derselben Karte</b>: oben die sieben Kandidaten-Layer, unten die Vorlagen hinter der Karte. Ein Klick zeigt eine Ebene in voller Größe, wie die Karte darüber.</p>
+
+<table align="center"><tr>
+<td align="center"><a href="examples/berlin-viktoriapark/layers/candidates-terrain.webp"><img src="examples/berlin-viktoriapark/layers/candidates-terrain-thumb.webp" width="113" height="113" alt="Gelände" loading="lazy"></a><br><sub>Gelände</sub></td>
+<td align="center"><a href="examples/berlin-viktoriapark/layers/candidates-water.webp"><img src="examples/berlin-viktoriapark/layers/candidates-water-thumb.webp" width="113" height="113" alt="Gewässer" loading="lazy"></a><br><sub>Gewässer (hier leer)</sub></td>
+<td align="center"><a href="examples/berlin-viktoriapark/layers/candidates-vegetation.webp"><img src="examples/berlin-viktoriapark/layers/candidates-vegetation-thumb.webp" width="113" height="113" alt="Vegetation" loading="lazy"></a><br><sub>Vegetation</sub></td>
+<td align="center"><a href="examples/berlin-viktoriapark/layers/candidates-paths.webp"><img src="examples/berlin-viktoriapark/layers/candidates-paths-thumb.webp" width="113" height="113" alt="Wege" loading="lazy"></a><br><sub>Wege</sub></td>
+<td align="center"><a href="examples/berlin-viktoriapark/layers/candidates-barriers.webp"><img src="examples/berlin-viktoriapark/layers/candidates-barriers-thumb.webp" width="113" height="113" alt="Barrieren" loading="lazy"></a><br><sub>Barrieren</sub></td>
+<td align="center"><a href="examples/berlin-viktoriapark/layers/candidates-features.webp"><img src="examples/berlin-viktoriapark/layers/candidates-features-thumb.webp" width="113" height="113" alt="Objekte" loading="lazy"></a><br><sub>Objekte</sub></td>
+<td align="center"><a href="examples/berlin-viktoriapark/layers/candidates-out-of-bounds.webp"><img src="examples/berlin-viktoriapark/layers/candidates-out-of-bounds-thumb.webp" width="113" height="113" alt="Sperrgebiete" loading="lazy"></a><br><sub>Sperrgebiete</sub></td>
+</tr><tr>
+<td align="center"><a href="examples/berlin-viktoriapark/layers/orthophoto.webp"><img src="examples/berlin-viktoriapark/layers/orthophoto-thumb.webp" width="113" height="113" alt="Orthofoto hillshade:Schummerung slope:Hangneigung relief:Lokales Relief ndsm:nDOM k5:K5 (Berlin)" loading="lazy"></a><br><sub>Orthofoto hillshade:Schummerung slope:Hangneigung relief:Lokales Relief ndsm:nDOM k5:K5 (Berlin)</sub></td>
+</tr></table>
+
 freemapper erzeugt aus amtlichen Geodaten (Geländemodell, nDOM, Luftbild, ALKIS) und OpenStreetMap
 ein **Startprojekt für OpenOrienteering Mapper (OOM) und auf Wunsch auch für OCAD**: eine
 georeferenzierte Karte, in der verlässliche Kartenobjekte schon symbolisiert sind, plus Kartenvorlagen
