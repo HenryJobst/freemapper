@@ -469,6 +469,7 @@ error-project-invalid-scale = invalid scale 1:{ $scale }
 error-project-invalid-contour-interval = invalid contour interval { $interval } m in freemapper.toml; it must be more than 0
 error-project-invalid-steep-slope = invalid steepness threshold { $slope }° in freemapper.toml; it must lie between 15° and 80°
 error-project-invalid-face-slope = invalid face threshold { $slope }° in freemapper.toml; it must lie between 55° and 85°
+error-project-invalid-paper-frame-centre = invalid paper frame centre lon { $lon }, lat { $lat }; it must be a place on Earth
 error-project-scale-not-allowed = scale 1:{ $scale } is not allowed for { $kind } maps; use { $allowed }
 error-project-scale-not-allowed-enlarge = scale 1:{ $scale } is not allowed for { $kind } maps; use { $allowed }. Draw at 1:4000, freemapper-print enlarges to 1:3000 when printing
 word-kind-schoolyard = schoolyard

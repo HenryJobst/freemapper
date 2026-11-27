@@ -1278,6 +1278,7 @@ pub fn project_fingerprint(project: &ProjectFile) -> Result<String, ProjectError
         steep_slope_deg,
         face_slope_deg,
         title: _,
+        paper_frames: _,
         tiles: _,
         buildings: _,
         land_use: _,

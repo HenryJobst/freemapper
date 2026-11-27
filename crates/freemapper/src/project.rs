@@ -97,6 +97,8 @@ pub enum ProjectError {
     InvalidSteepSlope(f64),
     #[error("invalid face threshold {0}°; it must lie between 55° and 85°")]
     InvalidFaceSlope(f64),
+    #[error("invalid paper frame centre lon {lon}, lat {lat}; it must be a place on Earth")]
+    InvalidPaperFrameCentre { lon: f64, lat: f64 },
     #[error("scale 1:{scale} is not allowed for {kind} maps; use {allowed}{hint}")]
     ScaleNotAllowed {
         kind: &'static str,
@@ -351,6 +353,15 @@ impl MapKind {
 /// The scale the ISOM 2017-2 symbols are drawn for at 100 %.
 const FOREST_BASE_SCALE: f64 = 15000.0;
 
+/// A paper frame: a sheet of `format` and `orientation` centred on a point (EPSG:4326).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PaperFrame {
+    pub format: crate::paper::PaperFormat,
+    pub orientation: crate::paper::Orientation,
+    pub lon: f64,
+    pub lat: f64,
+}
+
 /// Contents of `freemapper.toml`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ProjectFile {
@@ -386,6 +397,9 @@ pub struct ProjectFile {
     /// (`derive::landforms::DEFAULT_FACE_SLOPE_DEG`, ADR 0200).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub face_slope_deg: Option<f64>,
+    /// Paper frames to print, set on the area page; none when absent.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub paper_frames: Vec<PaperFrame>,
     /// Tiles used by the last `fetch`.
     #[serde(default)]
     pub tiles: Vec<TileRecord>,
@@ -807,6 +821,7 @@ pub fn init_project_with_content(
         contour_interval_m: None,
         steep_slope_deg: None,
         face_slope_deg: None,
+        paper_frames: Vec::new(),
         contours: None,
         tiles: Vec::new(),
         buildings: None,
@@ -1035,6 +1050,29 @@ pub fn set_steep_slope(dir: &Path, slope_deg: Option<f64>) -> Result<ProjectFile
     check_folders(dir, &WRITTEN_FOLDERS)?;
     if project.steep_slope_deg != slope_deg {
         project.steep_slope_deg = slope_deg;
+        project.save(dir)?;
+    }
+    Ok(project)
+}
+
+/// Sets the paper frames of the project in `dir`; an empty list removes the key.
+pub fn set_paper_frames(dir: &Path, frames: &[PaperFrame]) -> Result<ProjectFile, ProjectError> {
+    for f in frames {
+        let ok = f.lon.is_finite()
+            && f.lat.is_finite()
+            && (-180.0..=180.0).contains(&f.lon)
+            && (-90.0..=90.0).contains(&f.lat);
+        if !ok {
+            return Err(ProjectError::InvalidPaperFrameCentre {
+                lon: f.lon,
+                lat: f.lat,
+            });
+        }
+    }
+    let mut project = ProjectFile::load(dir)?;
+    check_folders(dir, &WRITTEN_FOLDERS)?;
+    if project.paper_frames != frames {
+        project.paper_frames = frames.to_vec();
         project.save(dir)?;
     }
     Ok(project)
@@ -3074,6 +3112,7 @@ pub mod golden {
             contour_interval_m: None,
             steep_slope_deg: None,
             face_slope_deg: None,
+            paper_frames: Vec::new(),
             contours: None,
             tiles: Vec::new(),
             buildings: None,
@@ -5459,6 +5498,112 @@ mod tests {
         assert_eq!(set_content(dir.path(), None).unwrap().content, None);
     }
 
+    fn frame(
+        format: crate::paper::PaperFormat,
+        orientation: crate::paper::Orientation,
+        lon: f64,
+        lat: f64,
+    ) -> PaperFrame {
+        PaperFrame {
+            format,
+            orientation,
+            lon,
+            lat,
+        }
+    }
+
+    #[test]
+    fn paper_frames_round_trip_in_the_toml() {
+        use crate::paper::{Orientation, PaperFormat};
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let frames = vec![
+            frame(PaperFormat::A4, Orientation::Landscape, 13.5, 52.5),
+            frame(PaperFormat::A3, Orientation::Portrait, 13.6, 52.6),
+        ];
+        set_paper_frames(dir.path(), &frames).unwrap();
+        let text = std::fs::read_to_string(dir.path().join(PROJECT_FILE_NAME)).unwrap();
+        assert!(text.contains("format = \"A4\""), "{text}");
+        assert!(text.contains("orientation = \"landscape\""), "{text}");
+        assert!(text.contains("format = \"A3\""), "{text}");
+        assert!(text.contains("orientation = \"portrait\""), "{text}");
+        assert_eq!(ProjectFile::load(dir.path()).unwrap().paper_frames, frames);
+    }
+
+    #[test]
+    fn an_older_file_without_paper_frames_loads_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let text = std::fs::read_to_string(dir.path().join(PROJECT_FILE_NAME)).unwrap();
+        assert!(!text.contains("paper_frames"), "{text}");
+        assert!(
+            ProjectFile::load(dir.path())
+                .unwrap()
+                .paper_frames
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn set_paper_frames_rejects_a_non_finite_centre() {
+        use crate::paper::{Orientation, PaperFormat};
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let before = std::fs::read(dir.path().join(PROJECT_FILE_NAME)).unwrap();
+        for (lon, lat) in [
+            (f64::NAN, 52.0),
+            (13.0, f64::INFINITY),
+            (13.0, 90.5),
+            (-180.5, 52.0),
+        ] {
+            let frames = [frame(PaperFormat::A4, Orientation::Landscape, lon, lat)];
+            assert!(
+                matches!(
+                    set_paper_frames(dir.path(), &frames),
+                    Err(ProjectError::InvalidPaperFrameCentre { .. })
+                ),
+                "{lon} {lat}"
+            );
+        }
+        assert_eq!(
+            std::fs::read(dir.path().join(PROJECT_FILE_NAME)).unwrap(),
+            before
+        );
+    }
+
+    #[test]
+    fn set_paper_frames_with_an_empty_list_removes_the_key() {
+        use crate::paper::{Orientation, PaperFormat};
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let before = std::fs::read(dir.path().join(PROJECT_FILE_NAME)).unwrap();
+        let one = [frame(PaperFormat::A5, Orientation::Portrait, 13.5, 52.5)];
+        set_paper_frames(dir.path(), &one).unwrap();
+        let text = std::fs::read_to_string(dir.path().join(PROJECT_FILE_NAME)).unwrap();
+        assert!(text.contains("paper_frames"), "{text}");
+        set_paper_frames(dir.path(), &[]).unwrap();
+        assert_eq!(
+            std::fs::read(dir.path().join(PROJECT_FILE_NAME)).unwrap(),
+            before
+        );
+    }
+
+    #[test]
+    fn project_fingerprint_ignores_paper_frames() {
+        use crate::paper::{Orientation, PaperFormat};
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let project = ProjectFile::load(dir.path()).unwrap();
+        let with_frames = ProjectFile {
+            paper_frames: vec![frame(PaperFormat::A4, Orientation::Landscape, 13.5, 52.5)],
+            ..project.clone()
+        };
+        assert_eq!(
+            project_fingerprint(&with_frames).unwrap(),
+            project_fingerprint(&project).unwrap()
+        );
+    }
+
     #[test]
     fn project_file_roundtrip() {
         let dir = tempfile::tempdir().unwrap();
@@ -5478,6 +5623,7 @@ mod tests {
             contour_interval_m: None,
             steep_slope_deg: None,
             face_slope_deg: None,
+            paper_frames: Vec::new(),
             contours: None,
             tiles: vec![TileRecord {
                 product: Product::Dtm,

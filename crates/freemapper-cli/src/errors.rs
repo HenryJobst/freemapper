@@ -133,6 +133,11 @@ impl Localize for ProjectError {
                 "error-project-invalid-face-slope",
                 &[("slope", v(slope))],
             ),
+            ProjectError::InvalidPaperFrameCentre { lon, lat } => text(
+                lang,
+                "error-project-invalid-paper-frame-centre",
+                &[("lon", v(lon)), ("lat", v(lat))],
+            ),
             ProjectError::InvalidScale(scale) => {
                 text(lang, "error-project-invalid-scale", &[("scale", v(scale))])
             }

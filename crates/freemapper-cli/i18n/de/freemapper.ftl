@@ -469,6 +469,7 @@ error-project-invalid-scale = ungültiger Maßstab 1:{ $scale }
 error-project-invalid-contour-interval = ungültige Äquidistanz { $interval } m in freemapper.toml; sie muss größer als 0 sein
 error-project-invalid-steep-slope = ungültige Steilheitsschwelle { $slope }° in freemapper.toml; sie muss zwischen 15° und 80° liegen
 error-project-invalid-face-slope = ungültige Wandschwelle { $slope }° in freemapper.toml; sie muss zwischen 55° und 85° liegen
+error-project-invalid-paper-frame-centre = ungültiger Mittelpunkt des Papierrahmens, Länge { $lon }, Breite { $lat }; er muss ein Ort auf der Erde sein
 error-project-scale-not-allowed = Der Maßstab 1:{ $scale } ist für { $kind } nicht erlaubt; nehmen Sie { $allowed }
 error-project-scale-not-allowed-enlarge = Der Maßstab 1:{ $scale } ist für { $kind } nicht erlaubt; nehmen Sie { $allowed }. Zeichnen Sie in 1:4000, freemapper-print vergrößert beim Drucken auf 1:3000
 word-kind-schoolyard = Schulhofkarten
