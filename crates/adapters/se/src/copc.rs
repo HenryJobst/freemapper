@@ -21,6 +21,7 @@ use freemapper_georef::crs::BoundingBox;
 use freemapper_sources::stac;
 
 use crate::account;
+use crate::marktacke::is_name;
 use crate::stac_terrain::{PROVIDER, degrees};
 
 /// The collection of the laser data in the height catalogue.
@@ -69,14 +70,6 @@ impl CopcBackend {
     fn dir(&self, cache: &CacheDir) -> PathBuf {
         cache.provider_dir(&self.info.cache_dir).join(DIR)
     }
-}
-
-/// Whether `id` is fit to be a file name: the catalogue is not trusted with a path.
-fn is_name(id: &str) -> bool {
-    (1..=80).contains(&id.len())
-        && id
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || b"_-".contains(&b))
 }
 
 fn file_of(dir: &Path, id: &str) -> PathBuf {
@@ -548,6 +541,67 @@ mod tests {
             url: TILE.to_string(),
             published: None,
         }
+    }
+
+    /// The tiles `cached_tiles` finds under `bbox` among empty files of the given tile names.
+    fn cached_under(names: &[&str], bbox: BoundingBox) -> Vec<String> {
+        let scratch = tempfile::tempdir().unwrap();
+        for name in names {
+            std::fs::write(scratch.path().join(format!("{name}.copc.laz")), b"").unwrap();
+        }
+        std::fs::write(scratch.path().join("notes.txt"), b"").unwrap();
+        std::fs::write(scratch.path().join("odd.copc.laz"), b"").unwrap();
+        cached_tiles(scratch.path(), &bbox)
+            .into_iter()
+            .map(|tile| tile.record.tile)
+            .collect()
+    }
+
+    #[test]
+    fn the_cached_tiles_are_those_whose_square_touches_the_area_by_more_than_an_edge() {
+        // The square 25a005-61775_3850_25 is 6 177 500 north, 385 000 east, 2 500 m wide.
+        let tile = "25a005-61775_3850_25";
+        let under = |min_e: f64, max_e: f64, min_n: f64, max_n: f64| {
+            let bbox = BoundingBox {
+                min_e,
+                min_n,
+                max_e,
+                max_n,
+            };
+            cached_under(&[tile, "25a005-61800_3875_25"], bbox).contains(&tile.to_string())
+        };
+        assert!(under(385_100.0, 385_200.0, 6_177_600.0, 6_177_700.0));
+        assert!(
+            !under(380_000.0, 385_000.0, 6_177_600.0, 6_177_700.0),
+            "west edge"
+        );
+        assert!(
+            !under(387_500.0, 388_000.0, 6_177_600.0, 6_177_700.0),
+            "east edge"
+        );
+        assert!(
+            !under(385_100.0, 385_200.0, 6_170_000.0, 6_177_500.0),
+            "south edge"
+        );
+        assert!(
+            !under(385_100.0, 385_200.0, 6_180_000.0, 6_181_000.0),
+            "north edge"
+        );
+        assert!(under(384_000.0, 385_001.0, 6_177_600.0, 6_177_700.0));
+        assert!(under(387_499.0, 388_000.0, 6_177_600.0, 6_177_700.0));
+        assert!(under(385_100.0, 385_200.0, 6_177_000.0, 6_177_501.0));
+        assert!(under(385_100.0, 385_200.0, 6_179_999.0, 6_181_000.0));
+        // Two squares apart, in order of their names; a file that is no tile is not one.
+        let both = cached_under(
+            &[tile, "25a005-61800_3875_25"],
+            BoundingBox {
+                min_e: 385_100.0,
+                min_n: 6_177_600.0,
+                max_e: 388_000.0,
+                max_n: 6_181_000.0,
+            },
+        );
+        assert_eq!(both, ["25a005-61775_3850_25", "25a005-61800_3875_25"]);
     }
 
     #[test]

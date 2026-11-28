@@ -645,6 +645,28 @@ mod tests {
     }
 
     #[test]
+    fn degrees_gives_the_box_of_the_corners() {
+        // Stockholm is at 674 032 east and 6 580 822 north in SWEREF 99 TM: 18.07 E, 59.33 N.
+        let [west, south, east, north] =
+            degrees(&bounds(674_032.0, 6_580_822.0, 674_032.0, 6_580_822.0)).unwrap();
+        assert!(
+            (west - 18.07).abs() < 0.02 && (east - 18.07).abs() < 0.02,
+            "{west} {east}"
+        );
+        assert!(
+            (south - 59.33).abs() < 0.02 && (north - 59.33).abs() < 0.02,
+            "{south} {north}"
+        );
+        // The box has the west and south first, the east and north last.
+        let [west, south, east, north] =
+            degrees(&bounds(600_000.0, 6_500_000.0, 700_000.0, 6_600_000.0)).unwrap();
+        assert!(
+            west < east && south < north,
+            "{west} {south} {east} {north}"
+        );
+    }
+
+    #[test]
     fn a_box_holds_its_west_and_south_edges_and_not_its_east_and_north_edges() {
         let b = bounds(10.0, 20.0, 30.0, 40.0);
         assert!(holds(&b, 20.0, 30.0));
@@ -691,15 +713,7 @@ mod tests {
         assert_eq!(blocks(389_100.0, 6_175_800.0, 389_256.0, 6_175_900.0), [0]);
         assert_eq!(blocks(389_256.0, 6_175_800.0, 389_300.0, 6_175_900.0), [1]);
         assert_eq!(blocks(389_100.0, 6_175_744.0, 389_200.0, 6_175_900.0), [0]);
-        assert_eq!(
-            blocks(
-                389_100.0,
-                6_175_800.0,
-                389_200.0,
-                6_175_900.0
-            ),
-            [0]
-        );
+        assert_eq!(blocks(389_100.0, 6_175_800.0, 389_200.0, 6_175_900.0), [0]);
     }
 
     #[test]

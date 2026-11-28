@@ -83,7 +83,7 @@ impl MarktackeSource {
 }
 
 /// Whether `id` is fit to be a file name: the catalogue is not trusted with a path.
-fn is_name(id: &str) -> bool {
+pub(crate) fn is_name(id: &str) -> bool {
     (1..=80).contains(&id.len())
         && id
             .bytes()
@@ -433,6 +433,11 @@ mod tests {
         let result = {
             let mut progress = |note: freemapper_adapter_api::note::Note| {
                 lines.push(note.id().to_string());
+                for class in ["Okänd typ", "Öppen mark"] {
+                    if note.contains(class) {
+                        lines.push(format!("names {class}"));
+                    }
+                }
             };
             let mut env = AdapterEnv {
                 fetcher,
@@ -508,6 +513,49 @@ mod tests {
         );
     }
 
+    /// The ids of the features of the fixture whose polygon touches `clip`.
+    fn ids_touching(clip: BoundingBox) -> Vec<String> {
+        let mut out = Vec::new();
+        read(
+            &gpkg(),
+            "x.zip",
+            &clip,
+            &classes(),
+            &mut HashSet::new(),
+            &mut HashSet::new(),
+            &mut out,
+        )
+        .unwrap();
+        out.iter()
+            .map(|f| f["id"].as_str().unwrap().to_string())
+            .collect()
+    }
+
+    #[test]
+    fn a_polygon_is_kept_when_the_clip_touches_it_in_both_directions() {
+        // The forest polygon lies at 385 050 to 385 100 by 6 177 550 to 6 177 600.
+        let at = |min_e: f64, max_e: f64, min_n: f64, max_n: f64| {
+            ids_touching(BoundingBox {
+                min_e,
+                min_n,
+                max_e,
+                max_n,
+            })
+            .contains(&"id-forest".to_string())
+        };
+        assert!(at(385_000.0, 385_200.0, 6_177_500.0, 6_177_700.0));
+        // Beyond one side, with the other direction overlapping: no.
+        assert!(!at(385_000.0, 385_040.0, 6_177_500.0, 6_177_700.0), "west");
+        assert!(!at(385_110.0, 385_200.0, 6_177_500.0, 6_177_700.0), "east");
+        assert!(!at(385_000.0, 385_200.0, 6_177_500.0, 6_177_540.0), "south");
+        assert!(!at(385_000.0, 385_200.0, 6_177_610.0, 6_177_700.0), "north");
+        // Touching along an edge counts.
+        assert!(at(385_100.0, 385_200.0, 6_177_500.0, 6_177_700.0));
+        assert!(at(385_000.0, 385_050.0, 6_177_500.0, 6_177_700.0));
+        assert!(at(385_000.0, 385_200.0, 6_177_600.0, 6_177_700.0));
+        assert!(at(385_000.0, 385_200.0, 6_177_500.0, 6_177_550.0));
+    }
+
     #[test]
     fn only_a_plain_name_is_fit_to_be_a_file_name() {
         assert!(is_name("marktacke_kn0183"));
@@ -534,6 +582,11 @@ mod tests {
         assert_eq!(
             lines.iter().filter(|id| *id == "warning-error").count(),
             1,
+            "{lines:?}"
+        );
+        assert!(lines.contains(&"names Okänd typ".to_string()), "{lines:?}");
+        assert!(
+            !lines.contains(&"names Öppen mark".to_string()),
             "{lines:?}"
         );
     }

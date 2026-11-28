@@ -321,7 +321,10 @@ mod tests {
             &freemapper_adapter_api::estimate::EstimateEnv { cache: &cache },
         );
         assert!(!items.is_empty());
-        assert!(items.iter().any(|i| i.what.contains("terrain model")), "{items:?}");
+        assert!(
+            items.iter().any(|i| i.what.contains("terrain model")),
+            "{items:?}"
+        );
     }
 
     #[test]
