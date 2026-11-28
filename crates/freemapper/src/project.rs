@@ -1945,11 +1945,13 @@ fn fetch_osm_into(
         })?);
     }
     let features = merge_features(parts);
-    let building_features: Vec<OsmFeature> = features
-        .iter()
-        .filter(|f| buildings && is_osm_building(&f.tags))
-        .cloned()
-        .collect();
+    let building_features = buildings.then(|| {
+        features
+            .iter()
+            .filter(|f| is_osm_building(&f.tags))
+            .cloned()
+            .collect::<Vec<OsmFeature>>()
+    });
     // A building no rule asks for is no candidate.
     let features: Vec<OsmFeature> = features
         .into_iter()
@@ -1968,7 +1970,7 @@ fn fetch_osm_into(
         area: stored_geo_box(&area),
         count: features.len(),
     };
-    Ok((record, buildings.then_some(building_features)))
+    Ok((record, building_features))
 }
 
 /// Whether the read of an OSM extract keeps an element with `tags`: the candidates of the rules
