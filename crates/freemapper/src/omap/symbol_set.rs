@@ -40,6 +40,18 @@ pub const WALKABLE_AREA_CODE: &str = "990";
 /// IOF Rev. 4: 6/23/33/0), at a priority behind every other colour, so that it is painted first
 /// and everything else lies on it. `{priority}` is the next free priority.
 const WALKABLE_AREA_COLOUR: &str = r#"<color priority="{priority}" name="Lower brown 30% for walkable area" c="0.06" m="0.23" y="0.33" k="0" opacity="1"><spotcolors knockout="true"><component factor="0.3" spotcolor="8"/></spotcolors><cmyk method="custom"/><rgb method="cmyk" r="0.94" g="0.77" b="0.67"/></color>"#;
+/// The code of the paper frame line, the helper symbol of `templates/paper-frame.omap`. The
+/// norms number their symbols from 101 to 799 (ISOM 2017-2, ISSprOM 2019-2 and the school set);
+/// freemapper keeps 990 and up for its own symbols (990 to 994), and 995 is the next free one
+/// there. It lives only in the frame document's copy of the symbol set.
+pub const PAPER_FRAME_CODE: &str = "995";
+const PAPER_FRAME_ADDITIONS: &str =
+    include_str!("../../../../assets/symbol-sets/paper-frame-additions.xml");
+/// The colour of the paper frame line: the full red of OOM's "Red for logos" (0/100/100/0, RGB
+/// 1/0/0) as a spot colour of its own. No norm map colour is red, so the line is not taken for
+/// map content (the course overprint is purple), and it reads over the greens and greys of an
+/// orthophoto. `{priority}` is the next free priority.
+const PAPER_FRAME_COLOUR: &str = r#"<color priority="{priority}" name="Red for paper frames" c="0" m="1" y="1" k="0" opacity="1"><spotcolors knockout="true"><namedcolor>PAPER FRAME RED</namedcolor></spotcolors><cmyk method="custom"/><rgb method="cmyk" r="1" g="0" b="0"/></color>"#;
 /// IOF school symbol set 2019: all ISSprOM 2019 symbols are enlarged to 125 %.
 pub const SCHOOL_SYMBOL_ENLARGEMENT: f64 = 1.25;
 
@@ -223,10 +235,27 @@ impl SymbolSet {
     /// with the mix of "Lower brown 30%" appended behind all others, and the area symbol in it.
     /// Existing colour priorities and symbol ids stay unchanged.
     pub fn with_walkable_area(&self) -> Self {
+        let (set, colour) = self.with_colour(WALKABLE_AREA_COLOUR);
+        let symbol = WALKABLE_AREA_ADDITIONS
+            .replace(r#"inner_color="32""#, &format!(r#"inner_color="{colour}""#));
+        set.with_additions(&symbol)
+    }
+
+    /// This set plus the paper frame line ([`PAPER_FRAME_CODE`]) in a red of its own, appended
+    /// behind all other colours. For the template map of the paper frames only: the map and the
+    /// candidate layers never carry it. Existing colour priorities and symbol ids stay unchanged.
+    pub fn with_paper_frame_line(&self) -> Self {
+        let (set, colour) = self.with_colour(PAPER_FRAME_COLOUR);
+        set.with_additions(&PAPER_FRAME_ADDITIONS.replace("{colour}", &colour.to_string()))
+    }
+
+    /// This set with `colour` (a `<color>` element with `priority="{priority}"`) appended behind
+    /// all others, and the priority it got.
+    fn with_colour(&self, colour: &str) -> (Self, usize) {
         let count: usize = first_attribute_after(&self.colors_xml, "<colors ", "count")
             .and_then(|c| c.parse().ok())
             .expect("colours fragment has a count");
-        let colour = WALKABLE_AREA_COLOUR.replace("{priority}", &count.to_string());
+        let colour = colour.replace("{priority}", &count.to_string());
         let closing = self
             .colors_xml
             .rfind("</colors>")
@@ -236,13 +265,13 @@ impl SymbolSet {
             &format!(r#"<colors count="{}""#, count + 1),
             1,
         );
-        let symbol = WALKABLE_AREA_ADDITIONS
-            .replace(r#"inner_color="32""#, &format!(r#"inner_color="{count}""#));
-        Self {
-            colors_xml,
-            ..self.clone()
-        }
-        .with_additions(&symbol)
+        (
+            Self {
+                colors_xml,
+                ..self.clone()
+            },
+            count,
+        )
     }
 
     /// Appends symbols given one per line with `id="@"`; they get consecutive ids after the
@@ -698,6 +727,40 @@ mod tests {
         let title = r#"code="991""#;
         assert_eq!(first_attr(&sprint.symbols_xml, title, "size"), "5000");
         assert_eq!(first_attr(&sprint.symbols_xml, title, "bold"), "true");
+    }
+
+    #[test]
+    fn the_paper_frame_line_is_a_red_of_its_own_behind_all_colours() {
+        for plain in [
+            SymbolSet::issprom_2019().with_sheet_symbols(),
+            SymbolSet::isom_2017_2(1.0).with_sheet_symbols(),
+        ] {
+            let count: usize = first_attr(&plain.colors_xml, "<colors ", "count")
+                .parse()
+                .unwrap();
+            let set = plain.with_paper_frame_line();
+            let table = colour_table(&set.colors_xml);
+            assert_eq!(table.len(), count + 1);
+            assert_eq!(table[count].name, "Red for paper frames");
+            let red = &table[count];
+            assert_eq!((red.cmyk, red.rgb), ([0.0, 1.0, 1.0, 0.0], [1.0, 0.0, 0.0]));
+            // Every other colour is as before.
+            let before = colour_table(&plain.colors_xml);
+            for (a, b) in table.iter().zip(&before) {
+                assert_eq!((&a.name, a.cmyk, a.rgb), (&b.name, b.cmyk, b.rgb));
+            }
+            let id = set.id_for_code(PAPER_FRAME_CODE).unwrap();
+            assert_eq!(id, plain.max_id() + 1);
+            assert_eq!(set.symbol_type(id), Some(2));
+            let from = set.symbols_xml.find(r#" code="995""#).unwrap();
+            assert_eq!(
+                first_attr(&set.symbols_xml[from..], "<line_symbol ", "color"),
+                count.to_string()
+            );
+            for code in ["101", "521", "991", "994"] {
+                assert_eq!(set.id_for_code(code), plain.id_for_code(code), "{code}");
+            }
+        }
     }
 
     #[test]

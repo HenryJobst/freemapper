@@ -26,6 +26,7 @@ pub mod line_join;
 pub mod notches;
 pub mod open_land;
 pub mod out_of_bounds;
+pub mod paper_frames;
 pub mod passages;
 pub mod paved;
 pub mod paved_borders;

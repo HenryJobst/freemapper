@@ -1555,3 +1555,220 @@ fn map_image_routes_serve_the_stored_and_live_previews() {
     assert_eq!(status, 200);
     assert_eq!(again, stored);
 }
+
+/// Paper frames on the area page (#343): the formats come with the project, the save stores
+/// the frames.
+mod paper_frames {
+    use super::*;
+    use freemapper::project::{PaperFrame, ProjectFile};
+
+    fn two_frames() -> Value {
+        json!([
+            { "format": "A4", "orientation": "portrait", "lon": 13.8445, "lat": 52.5395 },
+            { "format": "A6", "orientation": "landscape", "lon": 13.845, "lat": 52.54 },
+        ])
+    }
+
+    fn stored_frames(dir: &Path) -> Vec<PaperFrame> {
+        ProjectFile::load(dir).unwrap().paper_frames
+    }
+
+    /// A project made by `init` with a kind, scale, title, content and contour interval of its
+    /// own, and a page on it.
+    fn page_on_a_sprint_project() -> (
+        tempfile::TempDir,
+        tempfile::TempDir,
+        std::path::PathBuf,
+        Selector,
+    ) {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = tempfile::tempdir().unwrap();
+        let project = dir.path().join("school");
+        let status = isolated(Command::new(env!("CARGO_BIN_EXE_freemapper")))
+            .env("FREEMAPPER_LANG", "en")
+            .arg("init")
+            .arg(&project)
+            .args(["--geojson", FIXTURE, "--kind", "sprint", "--scale", "5000"])
+            .args(["--title", "Schule", "--content", "full"])
+            .args(["--contour-interval", "2.5"])
+            .stdout(Stdio::null())
+            .status()
+            .unwrap();
+        assert!(status.success());
+        let selector = Selector::start(&project, cache.path(), &[]);
+        (dir, cache, project, selector)
+    }
+
+    #[test]
+    fn the_project_answer_lists_the_paper_formats() {
+        let formats = json!([
+            { "name": "A6", "width_mm": 105.0, "height_mm": 148.0 },
+            { "name": "A5", "width_mm": 148.0, "height_mm": 210.0 },
+            { "name": "A4", "width_mm": 210.0, "height_mm": 297.0 },
+            { "name": "A3", "width_mm": 297.0, "height_mm": 420.0 },
+            { "name": "A2", "width_mm": 420.0, "height_mm": 594.0 },
+        ]);
+        // A folder without a project: the formats, and no frames.
+        let dir = tempfile::tempdir().unwrap();
+        let cache = tempfile::tempdir().unwrap();
+        let selector = Selector::start(&dir.path().join("school"), cache.path(), &[]);
+        let answer = selector.project();
+        assert_eq!(answer["paper_formats"], formats, "{answer}");
+        assert_eq!(answer["paper_frames"], json!([]), "{answer}");
+        drop(selector);
+        // A project with frames: the formats and its frames.
+        let (_dir, _cache, project, selector) = page_on_a_project();
+        assert_eq!(selector.project()["paper_frames"], json!([]));
+        let frames: Vec<PaperFrame> = serde_json::from_value(two_frames()).unwrap();
+        freemapper::project::set_paper_frames(&project, &frames).unwrap();
+        let answer = selector.project();
+        assert_eq!(answer["paper_formats"], formats, "{answer}");
+        assert_eq!(answer["paper_frames"], two_frames(), "{answer}");
+    }
+
+    #[test]
+    fn saving_frames_alone_on_an_existing_project_keeps_area_kind_scale_and_title() {
+        let (_dir, _cache, project, selector) = page_on_a_sprint_project();
+        let before = ProjectFile::load(&project).unwrap();
+        assert_eq!(before.title.as_deref(), Some("Schule"));
+        let (status, saved) = selector.save(json!({ "paper_frames": two_frames() }));
+        assert_eq!(status, 200, "{saved}");
+        assert_eq!(saved["saved"], true, "{saved}");
+        assert_eq!(saved["created"], false, "{saved}");
+        assert_eq!(saved["paper_frames_saved"], true, "{saved}");
+        assert_eq!(selector.project()["revision"], saved["revision"], "{saved}");
+        let mut after = ProjectFile::load(&project).unwrap();
+        assert_eq!(
+            after.paper_frames,
+            serde_json::from_value::<Vec<PaperFrame>>(two_frames()).unwrap()
+        );
+        // Everything else is as it was: area, kind, scale, title, content, contour interval.
+        after.paper_frames.clear();
+        assert_eq!(after, before);
+        // The stale-revision check holds for a save of frames alone, too.
+        let file = project.join("freemapper.toml");
+        let text = std::fs::read_to_string(&file).unwrap();
+        let (status, answer) = selector.post("api/save", json!({ "paper_frames": [] }));
+        assert_eq!(status, 409, "{answer}");
+        assert_eq!(std::fs::read_to_string(&file).unwrap(), text);
+    }
+
+    #[test]
+    fn an_unknown_format_is_refused() {
+        let (_dir, _cache, project, selector) = page_on_a_project();
+        let file = project.join("freemapper.toml");
+        let before = std::fs::read(&file).unwrap();
+        let (status, answer) = selector.save(json!({ "paper_frames": [
+            { "format": "A7", "orientation": "portrait", "lon": 13.8445, "lat": 52.5395 },
+        ] }));
+        assert_eq!(status, 422, "{answer}");
+        assert_eq!(
+            answer,
+            json!("The paper frames are not valid. Nothing was saved."),
+            "{answer}"
+        );
+        assert_eq!(std::fs::read(&file).unwrap(), before);
+    }
+
+    #[test]
+    fn a_refused_frame_list_writes_nothing() {
+        let (_dir, _cache, project, selector) = page_on_a_project();
+        let file = project.join("freemapper.toml");
+        let before = std::fs::read(&file).unwrap();
+        for frames in [
+            json!([{ "format": "A4", "orientation": "upright", "lon": 13.8, "lat": 52.5 }]),
+            json!([{ "format": "a4", "orientation": "portrait", "lon": 13.8, "lat": 52.5 }]),
+            json!([{ "format": "A4", "orientation": "portrait", "lon": "13.8", "lat": 52.5 }]),
+            json!([{ "format": "A4", "orientation": "portrait", "lon": 13.8 }]),
+            json!([{ "format": "A4", "orientation": "portrait", "lon": 200.0, "lat": 52.5 }]),
+            json!([{ "format": "A4", "orientation": "portrait", "lon": 13.8, "lat": 91.0 }]),
+            json!([["A4", "portrait", 13.8, 52.5]]),
+            json!({ "format": "A4", "orientation": "portrait", "lon": 13.8, "lat": 52.5 }),
+            json!("A4"),
+        ] {
+            // Alone and together with an area: the area is not written either.
+            for body in [
+                json!({ "paper_frames": frames }),
+                json!({ "area": rectangle(13.843, 52.539), "paper_frames": frames }),
+            ] {
+                let (status, answer) = selector.save(body.clone());
+                assert_eq!(status, 422, "{body}: {answer}");
+                assert!(answer.as_str().is_some_and(|e| !e.is_empty()), "{answer}");
+                assert_eq!(std::fs::read(&file).unwrap(), before, "{body}");
+            }
+        }
+    }
+
+    #[test]
+    fn an_empty_list_clears_the_frames() {
+        let (_dir, _cache, project, selector) = page_on_a_project();
+        let (status, saved) = selector.save(json!({ "paper_frames": two_frames() }));
+        assert_eq!(status, 200, "{saved}");
+        assert_eq!(stored_frames(&project).len(), 2);
+        let (status, saved) = selector.save(json!({ "paper_frames": [] }));
+        assert_eq!(status, 200, "{saved}");
+        assert!(stored_frames(&project).is_empty());
+        let text = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
+        assert!(!text.contains("paper_frames"), "{text}");
+        assert_eq!(selector.project()["paper_frames"], json!([]));
+    }
+
+    #[test]
+    fn a_save_without_paper_frames_keeps_them() {
+        let (_dir, _cache, project, selector) = page_on_a_project();
+        // Area and frames in one save: both are stored.
+        let (status, saved) = selector.save(json!({
+            "area": rectangle(13.843, 52.539),
+            "paper_frames": two_frames(),
+        }));
+        assert_eq!(status, 200, "{saved}");
+        assert_eq!(saved["paper_frames_saved"], true, "{saved}");
+        let text = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
+        assert!(text.contains("13.846"), "{text}");
+        assert_eq!(stored_frames(&project).len(), 2);
+        // An area alone leaves the frames as they are.
+        let (status, saved) = selector.save(json!({ "area": rectangle(13.85, 52.539) }));
+        assert_eq!(status, 200, "{saved}");
+        assert_eq!(saved["paper_frames_saved"], false, "{saved}");
+        let text = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
+        assert!(text.contains("13.853"), "{text}");
+        assert_eq!(selector.project()["paper_frames"], two_frames());
+    }
+
+    #[test]
+    fn frames_alone_on_a_folder_without_a_project_are_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = tempfile::tempdir().unwrap();
+        // A folder that does not exist yet, and one that exists but holds no project.
+        for project in [dir.path().join("school"), dir.path().to_path_buf()] {
+            let selector = Selector::start(&project, cache.path(), &[]);
+            let (status, answer) = selector.save(json!({ "paper_frames": two_frames() }));
+            assert_eq!(status, 422, "{answer}");
+            assert_eq!(
+                answer,
+                json!(
+                    "There is no project in this folder yet. Save a map area first, then the \
+                     paper frames."
+                ),
+                "{answer}"
+            );
+            assert!(!project.join("freemapper.toml").exists());
+        }
+    }
+
+    #[test]
+    fn a_first_save_stores_the_area_and_the_frames() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = tempfile::tempdir().unwrap();
+        let project = dir.path().join("school");
+        let selector = Selector::start(&project, cache.path(), &[]);
+        let (status, saved) = selector.save(json!({
+            "area": school_area(),
+            "paper_frames": two_frames(),
+        }));
+        assert_eq!(status, 200, "{saved}");
+        assert_eq!(saved["created"], true, "{saved}");
+        assert_eq!(stored_frames(&project).len(), 2);
+        assert_eq!(selector.project()["revision"], saved["revision"], "{saved}");
+    }
+}

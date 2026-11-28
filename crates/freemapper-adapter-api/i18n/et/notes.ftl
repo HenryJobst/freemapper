@@ -313,3 +313,5 @@ error-layer-not-made = { $layer } pole veel tehtud; tuleb käivitada { $step ->
 warning-ocad-no-background = { $error }; OCAD-i kaart ei saa sellest taustakaarti
 warning-map-preview-failed = kaart on kirjutatud, kuid selle eelvaade puudub: { $error }
 warning-training-no-tree-cover = treeningkaart jätab parkide lage maa tervikuks: puude katvus (data/tree-cover.tif) puudub; tuleb käivitada `freemapper derive` uuesti
+warning-ocad-no-paper-frames = OCAD-i lähteprojektil pole veel paberraame; need on failis templates/paper-frame.omap, mis on mall OOM-i jaoks
+warning-paper-frames-left-out = failist templates/paper-frame.omap välja jäetud paberraame: { $count }; need asuvad OOM-i kaardi jaoks kaardist liiga kaugel; nihuta need alalehel kaardialale lähemale

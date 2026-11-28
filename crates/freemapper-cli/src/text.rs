@@ -215,6 +215,8 @@ mod tests {
             ("skipped", n(1)),
             ("dropped", n(3)),
             ("name", v("n")),
+            // A paper format on the area page ("A4 portrait").
+            ("format", v("A4")),
             ("id", v("way/1")),
             ("query", v("q")),
             ("error", v("e")),

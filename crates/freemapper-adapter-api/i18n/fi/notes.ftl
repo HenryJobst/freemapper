@@ -320,3 +320,5 @@ error-layer-not-made = { $layer } ei ole vielä tehty; aja { $step ->
 warning-ocad-no-background = { $error }; OCAD-kartta ei saa siitä taustaa
 warning-map-preview-failed = kartta on kirjoitettu, mutta sen esikatselu puuttuu: { $error }
 warning-training-no-tree-cover = harjoituskartta säilyttää puistojen avoimen maan kokonaisena: puuston peitto (data/tree-cover.tif) puuttuu; aja `freemapper derive` uudelleen
+warning-ocad-no-paper-frames = OCAD-lähtöprojektissa ei vielä ole paperikehyksiä; ne ovat tiedostossa templates/paper-frame.omap, joka on pohja OOM:lle
+warning-paper-frames-left-out = tiedostosta templates/paper-frame.omap pois jätetyt paperikehykset: { $count }; ne ovat OOM-kartalle liian kaukana kartasta; siirrä ne aluesivulla lähemmäs kartta-aluetta

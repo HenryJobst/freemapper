@@ -305,7 +305,7 @@ pub enum LayerRole {
     Map,
     /// Candidate objects to check and copy (template map).
     Candidates,
-    /// A raster template behind the map.
+    /// A raster template behind the map, or the paper frames.
     Template,
 }
 
@@ -405,6 +405,18 @@ pub fn list_layers(dir: &Path) -> Vec<Layer> {
         made_by: EXPORT_STEP,
         description: layer.description(),
     }));
+    // The paper frames of the area page, only while the export keeps their file.
+    let paper_frame = dir.join(crate::project::PAPER_FRAME_RELPATH);
+    if paper_frame.exists() {
+        layers.push(Layer {
+            name: "paper-frame",
+            file: paper_frame.display().to_string(),
+            role: LayerRole::Template,
+            ready: true,
+            made_by: EXPORT_STEP,
+            description: "paper frames of the area page, a template to switch on in OOM",
+        });
+    }
     let k5 = has_k5(dir);
     for (name, relpath, description) in RASTER_LAYERS {
         if name == "k5" && !k5 {

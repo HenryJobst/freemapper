@@ -158,7 +158,9 @@ freemapper select mein-schulhof --kind schoolyard
 
 Auf der Seite sucht man einen Ort oder zeichnet ein Rechteck oder Polygon. Der Hintergrund ist
 OpenStreetMap oder das Luftbild des Bundeslandes. Die Seite zeigt die Größe mit Puffer und den
-geschätzten Download. „Speichern“ legt das Projekt an. Darunter erzeugt „Karte erzeugen“ die Karte mit den
+geschätzten Download. Ein Papierrahmen von A6 bis A2 zeigt, wie viel Gelände ein Blatt im gewählten Maßstab
+abdeckt; der nächste Lauf schreibt übernommene Rahmen als
+ausgeblendete Vorlagenkarte neben die Karte, und eine neu geschriebene Karte nennt sie ([Handbuch, Kapitel 6](docs/manual/de.md#papierrahmen)). „Speichern“ legt das Projekt an. Darunter erzeugt „Karte erzeugen“ die Karte mit den
 Optionen OCAD, PDF, Prüfausdruck, Trainingskarte, Maßstabsleiste, Quellenangabe und „nur Zwischenspeicher“, zeigt den
 Fortschritt, lässt sich abbrechen und öffnet am Ende den Ordner. Ein Terminal braucht man dafür nicht. Die
 Seite läuft nur auf diesem Rechner (127.0.0.1). Mehr im
@@ -274,6 +276,8 @@ Ergebnis im Projektordner:
   Höhenlinien und verbotenes Gebiet (520) aus der ALKIS-Nutzung: auf der Schulhofkarte alles außer
   dem Schulgrundstück, auf der Sprintkarte Privatgelände (Wohn-, Gewerbe-, Mischnutzungs- und
   Bahnflächen)
+- `templates/paper-frame.omap` – nur mit übernommenen Papierrahmen: die Rahmen als ausgeblendete
+  Vorlagenkarte, eine geschlossene Linie je Blatt
 - Nordlinien über dem Kartenbild, als Kartenobjekte im Kartenteil „default part“
 - Randangaben unter dem Kartenbild (Kartenteil „peripheral information“): Titel (`--title`, sonst der
   Ordnername), Maßstab und Äquidistanz, Maßstabsleiste, Namensnennung der Datenquellen und der Hinweis
