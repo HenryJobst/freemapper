@@ -2,7 +2,13 @@
 
 [Examples overview](../README.en.md) · [Deutsch](layers.md)
 
-Next to the map, freemapper writes seven candidate layers and the templates you check them against. The layers are `templates/candidates-<layer>.omap` in the project and start hidden in OOM. A click on an image shows the layer at full size.
+Next to the map (the base map below), freemapper writes seven candidate layers and the templates you check them against. The layers are `templates/candidates-<layer>.omap` in the project and start hidden in OOM. A click on an image shows the layer at full size.
+
+## Base map
+
+<table align="center">
+<tr><td width="170" align="center" valign="top"><a href="layers/map.webp"><img src="layers/map-thumb.webp" width="151" height="151" alt="Base map (without candidates)" loading="lazy"></a><br><sub>Base map (without candidates)</sub></td></tr>
+</table>
 
 ## Candidate layers
 

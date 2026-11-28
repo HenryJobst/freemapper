@@ -2,7 +2,13 @@
 
 [Beispielübersicht](../README.md) · [English](layers.en.md)
 
-freemapper schreibt zur Karte sieben Kandidaten-Layer und die Vorlagen, nach denen man sie prüft. Die Layer liegen als `templates/candidates-<Layer>.omap` im Projekt und starten in OOM ausgeblendet. Ein Klick auf ein Bild zeigt die Ebene in voller Größe.
+freemapper schreibt zur Karte (der Grundkarte unten) sieben Kandidaten-Layer und die Vorlagen, nach denen man sie prüft. Die Layer liegen als `templates/candidates-<Layer>.omap` im Projekt und starten in OOM ausgeblendet. Ein Klick auf ein Bild zeigt die Ebene in voller Größe.
+
+## Grundkarte
+
+<table align="center">
+<tr><td width="170" align="center" valign="top"><a href="layers/map.webp"><img src="layers/map-thumb.webp" width="151" height="151" alt="Grundkarte (ohne Kandidaten)" loading="lazy"></a><br><sub>Grundkarte (ohne Kandidaten)</sub></td></tr>
+</table>
 
 ## Kandidaten-Layer
 
@@ -13,4 +19,6 @@ freemapper schreibt zur Karte sieben Kandidaten-Layer und die Vorlagen, nach den
 
 ## Vorlagen hinter der Karte
 
-Für dieses Gebiet gibt es keine Raster-Vorlagen im Beispiel.
+<table align="center">
+<tr><td width="170" align="center" valign="top"><a href="layers/orthophoto.webp"><img src="layers/orthophoto-thumb.webp" width="151" height="151" alt="Orthofoto" loading="lazy"></a><br><sub>Orthofoto</sub></td><td width="170" align="center" valign="top"><a href="layers/hillshade.webp"><img src="layers/hillshade-thumb.webp" width="151" height="151" alt="Schummerung" loading="lazy"></a><br><sub>Schummerung</sub></td><td width="170" align="center" valign="top"><a href="layers/slope.webp"><img src="layers/slope-thumb.webp" width="151" height="151" alt="Hangneigung" loading="lazy"></a><br><sub>Hangneigung</sub></td><td width="170" align="center" valign="top"><a href="layers/relief.webp"><img src="layers/relief-thumb.webp" width="151" height="151" alt="Lokales Relief" loading="lazy"></a><br><sub>Lokales Relief</sub></td></tr>
+</table>

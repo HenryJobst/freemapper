@@ -2,7 +2,13 @@
 
 [Beispielübersicht](../README.md) · [English](layers.en.md)
 
-freemapper schreibt zur Karte sieben Kandidaten-Layer und die Vorlagen, nach denen man sie prüft. Die Layer liegen als `templates/candidates-<Layer>.omap` im Projekt und starten in OOM ausgeblendet. Ein Klick auf ein Bild zeigt die Ebene in voller Größe.
+freemapper schreibt zur Karte (der Grundkarte unten) sieben Kandidaten-Layer und die Vorlagen, nach denen man sie prüft. Die Layer liegen als `templates/candidates-<Layer>.omap` im Projekt und starten in OOM ausgeblendet. Ein Klick auf ein Bild zeigt die Ebene in voller Größe.
+
+## Grundkarte
+
+<table align="center">
+<tr><td width="170" align="center" valign="top"><a href="layers/map.webp"><img src="layers/map-thumb.webp" width="151" height="151" alt="Grundkarte (ohne Kandidaten)" loading="lazy"></a><br><sub>Grundkarte (ohne Kandidaten)</sub></td></tr>
+</table>
 
 ## Kandidaten-Layer
 

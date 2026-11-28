@@ -2,7 +2,13 @@
 
 [Examples overview](../README.en.md) · [Deutsch](layers.md)
 
-Next to the map, freemapper writes seven candidate layers and the templates you check them against. The layers are `templates/candidates-<layer>.omap` in the project and start hidden in OOM. A click on an image shows the layer at full size.
+Next to the map (the base map below), freemapper writes seven candidate layers and the templates you check them against. The layers are `templates/candidates-<layer>.omap` in the project and start hidden in OOM. A click on an image shows the layer at full size.
+
+## Base map
+
+<table align="center">
+<tr><td width="170" align="center" valign="top"><a href="layers/map.webp"><img src="layers/map-thumb.webp" width="151" height="151" alt="Base map (without candidates)" loading="lazy"></a><br><sub>Base map (without candidates)</sub></td></tr>
+</table>
 
 ## Candidate layers
 
@@ -13,4 +19,6 @@ Next to the map, freemapper writes seven candidate layers and the templates you 
 
 ## Templates behind the map
 
-The example has no raster templates for this area.
+<table align="center">
+<tr><td width="170" align="center" valign="top"><a href="layers/orthophoto.webp"><img src="layers/orthophoto-thumb.webp" width="151" height="151" alt="Orthophoto" loading="lazy"></a><br><sub>Orthophoto</sub></td><td width="170" align="center" valign="top"><a href="layers/hillshade.webp"><img src="layers/hillshade-thumb.webp" width="151" height="151" alt="Hillshade" loading="lazy"></a><br><sub>Hillshade</sub></td><td width="170" align="center" valign="top"><a href="layers/slope.webp"><img src="layers/slope-thumb.webp" width="151" height="151" alt="Slope" loading="lazy"></a><br><sub>Slope</sub></td><td width="170" align="center" valign="top"><a href="layers/relief.webp"><img src="layers/relief-thumb.webp" width="151" height="151" alt="Local relief" loading="lazy"></a><br><sub>Local relief</sub></td></tr>
+</table>

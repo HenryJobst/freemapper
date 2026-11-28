@@ -497,6 +497,7 @@ können Sie sich eine Art nach der anderen ansehen:
 
 | Layer | Datei | Inhalt | Bild |
 |---|---|---|---|
+| Grundkarte | `<Name>.omap` | die fertigen Kartenobjekte, ohne Kandidaten | [![map](images/layer-map-thumb.webp)](images/layer-map.webp) |
 | Gelände | `templates/candidates-terrain.omap` | Böschungen, Felsen, Kuppen und Senken, Höhenlinien | [![terrain](images/layer-terrain-thumb.webp)](images/layer-terrain.webp) |
 | Gewässer | `templates/candidates-water.omap` | Bäche, Gräben, Quellen, Brunnen, Teiche | [![water](images/layer-water-thumb.webp)](images/layer-water.webp) |
 | Vegetation | `templates/candidates-vegetation.omap` | offenes Gelände (auch die Grünstreifen der Straßenbefahrung), Vegetationsflächen, Bäume, Hecken | [![vegetation](images/layer-vegetation-thumb.webp)](images/layer-vegetation.webp) |

@@ -17,7 +17,13 @@
 
 <p align="center"><a href="examples/berlin-viktoriapark/preview.webp"><img src="examples/berlin-viktoriapark/preview-medium.webp" alt="Trainingskarte Viktoriapark, Berlin-Kreuzberg, von freemapper erzeugt" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (Sprint 1:4000), von freemapper aus offenen Daten erzeugt. Das Bild ist die Trainingskarte, die man so drucken und laufen kann; ein Klick zeigt sie in voller Größe, als <a href="examples/berlin-viktoriapark/berlin-viktoriapark-training.pdf">PDF</a> zum Drucken. Der <a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf">Prüfausdruck</a> zeigt alle Kandidaten lagetreu; mehr unter <a href="examples/README.md">Beispiele</a>.</sub></p>
 
-<p align="center"><b>Die Ebenen derselben Karte</b>: die sieben Kandidaten-Layer und die Vorlagen hinter der Karte. Ein Klick zeigt eine Ebene in voller Größe, wie die Karte darüber.</p>
+<p align="center"><b>Die Ebenen derselben Karte</b>: die Grundkarte selbst, die sieben Kandidaten-Layer und die Vorlagen hinter der Karte. Ein Klick zeigt eine Ebene in voller Größe, wie die Karte darüber.</p>
+
+<p align="center"><b>Grundkarte</b></p>
+
+<table align="center">
+<tr><td width="170" align="center" valign="top"><a href="examples/berlin-viktoriapark/layers/map.webp"><img src="examples/berlin-viktoriapark/layers/map-thumb.webp" width="151" height="151" alt="Grundkarte (ohne Kandidaten)" loading="lazy"></a><br><sub>Grundkarte</sub></td></tr>
+</table>
 
 <p align="center"><b>Kandidaten-Layer</b></p>
 
