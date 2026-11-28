@@ -316,3 +316,5 @@ error-layer-not-made = { $layer } még nem készült el; futtassa ezt: { $step -
 warning-ocad-no-background = { $error }; az OCAD-térkép ebből nem kap háttért
 warning-map-preview-failed = a térkép elkészült, de az előnézete hiányzik: { $error }
 warning-training-no-tree-cover = az edzéstérkép egyben tartja a parkok nyílt területeit: hiányzik a fedettség (data/tree-cover.tif); futtassa újra a `freemapper derive` parancsot
+warning-ocad-no-paper-frames = az OCAD-kiindulópontnak még nincsenek papírkeretei; a templates/paper-frame.omap fájlban vannak, amely egy OOM-sablon
+warning-paper-frames-left-out = a templates/paper-frame.omap fájlból kihagyott papírkeretek: { $count }; egy OOM-térképhez túl messze vannak a térképtől; húzza őket közelebb a térképterülethez a területoldalon

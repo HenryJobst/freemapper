@@ -817,7 +817,8 @@ impl FreemapperServer {
     }
 
     #[tool(
-        description = "The layers of a project: the map, the seven candidate layers and the raster \
+        description = "The layers of a project: the map, the seven candidate layers, the paper frames \
+                       (paper-frame, only when frames were kept on the area page) and the raster \
                        templates, each with its file, whether it is made yet and which step makes it."
     )]
     async fn list_layers(

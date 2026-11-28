@@ -7,6 +7,7 @@
 | `isom-aliases.toml` | freemapper: the ISSprOM codes of the build modules and the ISOM 2017-2 code that draws them on a forest map | AGPL-3.0-or-later |
 | `school-2019-additions.xml` | freemapper, drawn after the IOF "Symbol Set for School Orienteering Maps 2019" | AGPL-3.0-or-later |
 | `sheet-additions.xml` | freemapper: the sheet symbols 991 to 994 of the peripheral information | AGPL-3.0-or-later |
+| `paper-frame-additions.xml` | freemapper: 995 "Paper frame", the helper line of the template map of the paper frames, in a red that `SymbolSet::with_paper_frame_line` appends behind all colours; only in that template map | AGPL-3.0-or-later |
 | `walkable-area-additions.xml` | freemapper: 990 "Walkable area (base fill)" of the sprint map, in a colour that `SymbolSet::with_walkable_area` appends at priority 32 with the values of Lower brown 30% (ADR 0069) | AGPL-3.0-or-later |
 
 The International Orienteering Federation (IOF) publishes the symbol specifications ISSprOM 2019-2, ISOM 2017-2 and

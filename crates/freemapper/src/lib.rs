@@ -19,6 +19,7 @@ pub mod measure;
 pub mod note;
 pub mod ocd;
 pub mod omap;
+pub mod paper;
 pub mod permits;
 pub mod places;
 pub mod probe;

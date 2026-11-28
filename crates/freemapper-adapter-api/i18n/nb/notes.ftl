@@ -320,3 +320,5 @@ error-layer-not-made = { $layer } er ikke laget ennå; kjør { $step ->
 warning-ocad-no-background = { $error }; OCAD-kartet får ingen bakgrunn fra den
 warning-map-preview-failed = kartet er skrevet, men forhåndsvisningen mangler: { $error }
 warning-training-no-tree-cover = treningskartet beholder åpent land i parker helt: trekronedekket (data/tree-cover.tif) mangler; kjør `freemapper derive` på nytt
+warning-ocad-no-paper-frames = OCAD-startpunktet har ennå ingen papirrammer; de ligger i templates/paper-frame.omap, en mal for OOM
+warning-paper-frames-left-out = papirrammer utelatt fra templates/paper-frame.omap: { $count }; de ligger for langt fra kartet for et OOM-kart; flytt dem nærmere kartområdet på områdesiden

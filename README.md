@@ -6,7 +6,7 @@
 <!-- badges:start -->
 [![Version](https://img.shields.io/github/v/release/HenryJobst/freemapper?label=Version)](https://github.com/HenryJobst/freemapper/releases/latest) [![Downloads](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/HenryJobst/freemapper/badges/downloads.json)](https://github.com/HenryJobst/freemapper/releases/latest) [![Commits](https://img.shields.io/github/commit-activity/t/HenryJobst/freemapper?label=Commits)](https://github.com/HenryJobst/freemapper/commits/main) [![CI](https://img.shields.io/github/actions/workflow/status/HenryJobst/freemapper/ci.yml?branch=main&label=CI)](https://github.com/HenryJobst/freemapper/actions/workflows/ci.yml)
 
-[![Tests](https://img.shields.io/badge/Tests-3500%2B-blue)](docs/tests.json) [![Testbudget](https://img.shields.io/badge/Testbudget-15_min-blue)](docs/tests.json) [![Zeilenabdeckung](https://img.shields.io/badge/Coverage-96.3%25-brightgreen)](docs/coverage.json) [![Hygiene](https://img.shields.io/badge/Hygiene-19-brightgreen)](scripts/check.sh)
+[![Tests](https://img.shields.io/badge/Tests-3600%2B-blue)](docs/tests.json) [![Testbudget](https://img.shields.io/badge/Testbudget-15_min-blue)](docs/tests.json) [![Zeilenabdeckung](https://img.shields.io/badge/Coverage-96.3%25-brightgreen)](docs/coverage.json) [![Hygiene](https://img.shields.io/badge/Hygiene-19-brightgreen)](scripts/check.sh)
 
 [![MSRV](https://img.shields.io/badge/MSRV-1.88-blue)](Cargo.toml) [![ADRs](https://img.shields.io/badge/ADRs-200%2B-blue)](docs/adr/README.md) [![Lizenz](https://img.shields.io/badge/Lizenz-AGPL--3.0--or--later-blue)](LICENSE)
 <!-- badges:end -->
@@ -158,7 +158,9 @@ freemapper select mein-schulhof --kind schoolyard
 
 Auf der Seite sucht man einen Ort oder zeichnet ein Rechteck oder Polygon. Der Hintergrund ist
 OpenStreetMap oder das Luftbild des Bundeslandes. Die Seite zeigt die Größe mit Puffer und den
-geschätzten Download. „Speichern“ legt das Projekt an. Darunter erzeugt „Karte erzeugen“ die Karte mit den
+geschätzten Download. Ein Papierrahmen von A6 bis A2 zeigt, wie viel Gelände ein Blatt im gewählten Maßstab
+abdeckt; der nächste Lauf schreibt übernommene Rahmen als
+ausgeblendete Vorlagenkarte neben die Karte, und eine neu geschriebene Karte nennt sie ([Handbuch, Kapitel 6](docs/manual/de.md#papierrahmen)). „Speichern“ legt das Projekt an. Darunter erzeugt „Karte erzeugen“ die Karte mit den
 Optionen OCAD, PDF, Prüfausdruck, Trainingskarte, Maßstabsleiste, Quellenangabe und „nur Zwischenspeicher“, zeigt den
 Fortschritt, lässt sich abbrechen und öffnet am Ende den Ordner. Ein Terminal braucht man dafür nicht. Die
 Seite läuft nur auf diesem Rechner (127.0.0.1). Mehr im
@@ -274,6 +276,8 @@ Ergebnis im Projektordner:
   Höhenlinien und verbotenes Gebiet (520) aus der ALKIS-Nutzung: auf der Schulhofkarte alles außer
   dem Schulgrundstück, auf der Sprintkarte Privatgelände (Wohn-, Gewerbe-, Mischnutzungs- und
   Bahnflächen)
+- `templates/paper-frame.omap` – nur mit übernommenen Papierrahmen: die Rahmen als ausgeblendete
+  Vorlagenkarte, eine geschlossene Linie je Blatt
 - Nordlinien über dem Kartenbild, als Kartenobjekte im Kartenteil „default part“
 - Randangaben unter dem Kartenbild (Kartenteil „peripheral information“): Titel (`--title`, sonst der
   Ordnername), Maßstab und Äquidistanz, Maßstabsleiste, Namensnennung der Datenquellen und der Hinweis

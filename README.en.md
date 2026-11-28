@@ -6,7 +6,7 @@
 <!-- badges:start -->
 [![Version](https://img.shields.io/github/v/release/HenryJobst/freemapper?label=version)](https://github.com/HenryJobst/freemapper/releases/latest) [![Downloads](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/HenryJobst/freemapper/badges/downloads.en.json)](https://github.com/HenryJobst/freemapper/releases/latest) [![Commits](https://img.shields.io/github/commit-activity/t/HenryJobst/freemapper?label=Commits)](https://github.com/HenryJobst/freemapper/commits/main) [![CI](https://img.shields.io/github/actions/workflow/status/HenryJobst/freemapper/ci.yml?branch=main&label=CI)](https://github.com/HenryJobst/freemapper/actions/workflows/ci.yml)
 
-[![Tests](https://img.shields.io/badge/Tests-3500%2B-blue)](docs/tests.json) [![Test budget](https://img.shields.io/badge/Test_budget-15_min-blue)](docs/tests.json) [![Line coverage](https://img.shields.io/badge/Coverage-96.3%25-brightgreen)](docs/coverage.json) [![Hygiene](https://img.shields.io/badge/Hygiene-19-brightgreen)](scripts/check.sh)
+[![Tests](https://img.shields.io/badge/Tests-3600%2B-blue)](docs/tests.json) [![Test budget](https://img.shields.io/badge/Test_budget-15_min-blue)](docs/tests.json) [![Line coverage](https://img.shields.io/badge/Coverage-96.3%25-brightgreen)](docs/coverage.json) [![Hygiene](https://img.shields.io/badge/Hygiene-19-brightgreen)](scripts/check.sh)
 
 [![MSRV](https://img.shields.io/badge/MSRV-1.88-blue)](Cargo.toml) [![ADRs](https://img.shields.io/badge/ADRs-200%2B-blue)](docs/adr/README.md) [![License](https://img.shields.io/badge/License-AGPL--3.0--or--later-blue)](LICENSE)
 <!-- badges:end -->
@@ -156,7 +156,9 @@ freemapper select my-schoolyard --kind schoolyard
 [![Area selection in the browser](docs/manual/images/area-selector-thumb.webp)](docs/manual/images/area-selector.jpg)
 
 On the page you search a place or draw a rectangle or polygon. The background is OpenStreetMap or the
-orthophoto of the state. The page shows the size with buffer and the estimated download. "Save" creates the
+orthophoto of the state. The page shows the size with buffer and the estimated download. A paper frame from A6
+to A2 shows how much ground a sheet covers at the chosen scale; the next run writes kept frames to a hidden
+template map next to the map, and a newly written map lists it ([user manual, chapter 6](docs/manual/en.md#paper-frames)). "Save" creates the
 project. Below it, "Create map" makes the map with the options OCAD, PDF, check print, training map, scale bar, source
 lines and "cache only", shows the progress, can be cancelled and opens the folder at the end. No terminal is
 needed for that. The page runs on this computer only (127.0.0.1). More in the
@@ -267,6 +269,8 @@ Result in the project folder:
   contours, and out-of-bounds areas (520) from the ALKIS land use: on the schoolyard map everything but
   the school's own parcel, on the sprint map private land (residential, commercial, mixed-use and
   railway land)
+- `templates/paper-frame.omap` – only with kept paper frames: the frames as a hidden template map, one
+  closed line per sheet
 - magnetic north lines over the map content, as map objects in the map part "default part"
 - peripheral information below the map content (map part "peripheral information"): the title
   (`--title`, else the folder name), scale and contour interval, a bar scale, the attribution of the

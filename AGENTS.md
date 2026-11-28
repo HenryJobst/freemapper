@@ -255,7 +255,7 @@ states such as `running` or `finished` are the same in both languages. This file
 | `start_pipeline` | `dir`; optional `force`, `offline`, `ocad`, `pdf`, `pdf_candidates`, `training`, `pdf_scale_bar`, `pdf_sources`, `permits`, `content`, `content_set`, `contour_interval` (metres, 0: automatic; saved in the project) | Fetches, derives and writes the project in the background. Returns a job id. With `permits: true` it writes the permit notes after the map; a failure there is a warning, not a failed job. |
 | `project_status` | `job_id` | `running`, `finished` or `failed`, with the last progress lines, the warnings, the written files (`files`: kind, path, bytes) and the result or the error. A finished `permits_for_area` job also carries `permits_md`, the text of `permits.md`. |
 | `permits_for_area` | `dir`; optional `offline` | Makes the permit notes of a project (`permits.md`, `permits.json`) in the background. Returns a job id; poll `project_status`. `offline: true` reads only the data an earlier run stored in the project. |
-| `list_layers` | `dir` | The layers of a project: the map, the seven candidate layers (`candidates-terrain`, `candidates-water`, `candidates-vegetation`, `candidates-paths`, `candidates-barriers`, `candidates-features`, `candidates-out-of-bounds`), the raster templates. |
+| `list_layers` | `dir` | The layers of a project: the map, the seven candidate layers (`candidates-terrain`, `candidates-water`, `candidates-vegetation`, `candidates-paths`, `candidates-barriers`, `candidates-features`, `candidates-out-of-bounds`), `paper-frame` (only when paper frames were kept on the area page), the raster templates. |
 | `preview_layer` | `dir`, `layer` | A PNG preview (at most 800 px) of `map` (the map objects as the last run drew them, without the candidates), `orthophoto`, `hillshade`, `slope`, `relief`, `ndsm`, or `k5` in Berlin. |
 | `open_area_selector` | `dir`; optional `kind`, `scale`, `title`, `open_browser`, and the same output switches as `start_pipeline`, `permits` (ticks the box "Permit notes") and `training` (ticks the box "Training map") among them | Opens a page in the browser on this computer where the user draws or picks the area and saves it. Returns the address. |
 | `check_update` | none | Whether a newer freemapper release exists: version, release date, release notes link and download size, or that this one is up to date. Installs nothing. |
@@ -324,6 +324,12 @@ Rules:
   of 0.23.0 or older that a run keeps still names `candidates.omap`; the run fills it with every candidate and
   prints `The map still names templates/candidates.omap; …`. Pass that on. `--force` replaces the map and deletes
   the old file.
+- `templates/paper-frame.omap`, only when the person kept paper frames on the area page (`select`; there is no
+  CLI switch or MCP tool for them): one closed line per frame, the whole sheet (A6 to A2, landscape or portrait)
+  at the map's scale, tagged `freemapper:source=paper-frame`, `freemapper:paper` and `freemapper:orientation`.
+  A newly written map lists it after the candidate layers, hidden; `list_layers` names it `paper-frame`. A kept
+  map is not edited: the run prints that the person opens it in OOM (*Templates* > *Open template…*). Without
+  frames the next export removes the file. The PDFs, the training map and the OCAD output leave the frames out.
 - `ocad/` (with `ocad`): `<name>.ocd`, one `<name>-candidates-<layer>.ocd` per candidate layer and the templates.
 - `<name>.pdf` (with `pdf`) and `<name>-candidates.pdf`, the check print (with `pdf_candidates`).
 - `<name>-training.omap` and `<name>-training.pdf` (with `training`): the training map; with `ocad` also

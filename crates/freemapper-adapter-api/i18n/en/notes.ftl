@@ -313,3 +313,14 @@ error-layer-not-made = { $layer } is not made yet; run { $step ->
 warning-ocad-no-background = { $error }; the OCAD map gets no background from it
 warning-map-preview-failed = the map is written, but its preview is missing: { $error }
 warning-training-no-tree-cover = the training map keeps the open land of parks whole: the tree cover (data/tree-cover.tif) is missing; run `freemapper derive` again
+warning-ocad-no-paper-frames = the OCAD starting point has no paper frames yet; they are in templates/paper-frame.omap, a template for OOM
+warning-paper-frames-left-out = { $count ->
+        [one] 1 paper frame lies
+       *[other] { $count } paper frames lie
+    } too far from the map for an OOM map and { $count ->
+        [one] is
+       *[other] are
+    } left out of templates/paper-frame.omap; move { $count ->
+        [one] it
+       *[other] them
+    } closer to the map area on the area page

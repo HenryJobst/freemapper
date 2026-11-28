@@ -751,6 +751,58 @@ fn export_ocad_keeps_an_existing_oom_map() {
 }
 
 #[test]
+fn export_with_outputs_over_a_kept_map_keeps_the_paper_frames_in_step() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("schule");
+    init_and_export(&project);
+    let map = project.join("schule.omap");
+    std::fs::write(&map, "edited in OOM").unwrap();
+    let toml = project.join("freemapper.toml");
+    let without = std::fs::read_to_string(&toml).unwrap();
+    std::fs::write(
+        &toml,
+        format!(
+            "{without}\n[[paper_frames]]\nformat = \"A4\"\norientation = \"portrait\"\nlon = 13.8433\nlat = 52.5388\n"
+        ),
+    )
+    .unwrap();
+    let frames = project.join("templates/paper-frame.omap");
+    let export = |args: &[&str]| {
+        let output = freemapper()
+            .arg("export")
+            .arg(&project)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8_lossy(&output.stdout).into_owned()
+    };
+    // Frames added: the file is written beside the kept map, and the run says how to open it.
+    let stdout = export(&["--pdf"]);
+    assert!(frames.exists());
+    assert!(
+        std::fs::read_to_string(&frames)
+            .unwrap()
+            .contains("paper-frame")
+    );
+    assert!(
+        stdout.contains("templates/paper-frame.omap") && stdout.contains("Open template"),
+        "{stdout}"
+    );
+    assert_eq!(std::fs::read_to_string(&map).unwrap(), "edited in OOM");
+    // Frames removed: the file goes with them, the map stays.
+    std::fs::write(&toml, &without).unwrap();
+    let stdout = export(&["--ocad"]);
+    assert!(!frames.exists());
+    assert!(!stdout.contains("paper-frame"), "{stdout}");
+    assert_eq!(std::fs::read_to_string(&map).unwrap(), "edited in OOM");
+}
+
+#[test]
 fn export_pdf_writes_the_map_without_candidates() {
     let dir = tempfile::tempdir().unwrap();
     let project = dir.path().join("schule");
