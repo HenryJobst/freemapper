@@ -45,6 +45,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Fixed
 
+- The manual now says that freemapper-print has read the paper frames since version 0.14.0 (issue #343), instead of announcing it.
 - The nightly service check asks the folder of the Bavarian point clouds with its closing slash (issue #379). Since 2026-11-27 the server redirects the bare name to `http://`, which freemapper refuses; the check reported an outage although the tile downloads worked.
 - The credit of the city tree cadastres now names every city whose trees are on the map, not only Potsdam: Leipzig, Frankfurt (Oder), Frankfurt am Main, Lübeck, Cologne, Dortmund and the other cadastres carry licences (dl-de/by-2-0) that ask for a credit. The line comes from the city's manifest; the fixed Potsdam table in the code (`trees::POTSDAM`) is now a test tool only (issue #273).
 

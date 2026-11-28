@@ -45,6 +45,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Behoben
 
+- Das Handbuch sagt jetzt, dass freemapper-print die Papierrahmen seit Version 0.14.0 liest (Issue #343), statt es anzukündigen.
 - Die nächtliche Dienstprüfung fragt den Ordner der Bayern-Punktwolken mit abschließendem Schrägstrich ab (Issue #379). Der Server leitet den Namen ohne Schrägstrich seit dem 27.11.2026 auf `http://` um, was freemapper ablehnt; die Prüfung meldete deshalb einen Ausfall, obwohl die Kachel-Downloads liefen.
 - Der Quellennachweis der Baumkataster nennt jetzt jede Stadt, deren Bäume auf der Karte stehen, nicht nur Potsdam: Leipzig, Frankfurt (Oder), Frankfurt am Main, Lübeck, Köln, Dortmund und die übrigen Kataster tragen Lizenzen (dl-de/by-2-0), die eine Nennung verlangen. Die Zeile kommt aus dem Manifest der Stadt; die feste Potsdam-Tabelle im Code (`trees::POTSDAM`) ist ein reines Testwerkzeug geworden (Issue #273).
 

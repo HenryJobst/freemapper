@@ -365,8 +365,8 @@ around what you need, because the printed map is a little smaller than the sheet
 
 The page draws the frame on its web map, so in OOM the frame can sit turned by a degree or two against the one on
 the page. The one in OOM is exact. The PDFs, the check print and the training map do not show the frames. The OCAD
-output does not have them yet; with `--ocad` a warning says so. freemapper-print will read the frames from this
-file and offer a sheet for each; its manual says from which version.
+output does not have them yet; with `--ocad` a warning says so. freemapper-print reads the frames from this
+file and offers a sheet for each, since version 0.14.0: `init` and the command `frames` add the layouts.
 
 ### Create the map in the browser
 
