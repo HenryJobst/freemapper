@@ -45,6 +45,21 @@ pub fn export_files(id: &str) -> Option<Vec<(String, std::borrow::Cow<'static, s
     freemapper_adapters_de::states::export_files(id)
 }
 
+/// The manifest text of the built-in adapter `id` as the program shipped it, whatever a list of
+/// corrections changed (issue #273, stage 4). `None` for an adapter that code declares.
+pub fn shipped_manifest(id: &str) -> Option<&'static str> {
+    freemapper_adapters_de::states::State::ALL
+        .into_iter()
+        .find(|state| state.id() == id)
+        .map(freemapper_adapters_de::states::shipped_manifest_text)
+}
+
+/// Puts corrected manifests (by adapter id) in the place of the built-in ones for the rest of the
+/// process; `false` when corrections were set before. Call it before anything asks the registry.
+pub fn set_corrected_manifests(texts: std::collections::BTreeMap<String, String>) -> bool {
+    freemapper_adapters_de::states::set_corrected_manifests(texts)
+}
+
 /// A registry with the raster backends of the program and no adapter: what the manifest of an
 /// adapter that is checked on its own may name.
 pub fn backends() -> Registry {
@@ -537,6 +552,20 @@ mod tests {
             "adapters/mod.rs",
             "freemapper_adapters_de::states::export_files(id)",
         ),
+        // The manifests as shipped and the corrected ones, which a list of corrections puts in
+        // their place (issue #273, stage 4).
+        (
+            "adapters/mod.rs",
+            "freemapper_adapters_de::states::State::ALL",
+        ),
+        (
+            "adapters/mod.rs",
+            ".map(freemapper_adapters_de::states::shipped_manifest_text)",
+        ),
+        (
+            "adapters/mod.rs",
+            "freemapper_adapters_de::states::set_corrected_manifests(texts)",
+        ),
         // The tile download of the tile providers, re-exported for the engine's tests of it.
         ("fetch.rs", "pub use freemapper_adapters_de::tile_fetch::{"),
         // How a product names its tiles, a trait of the tile providers that `derive` reads.
@@ -551,7 +580,7 @@ mod tests {
         // The manifests of the built-in states, whose services the reachability probe asks.
         (
             "probe.rs",
-            "targets(freemapper_adapters_de::states::manifest_texts())",
+            "targets(&freemapper_adapters_de::states::manifest_texts())",
         ),
         // The endpoints of the cadastre of two states, for the helpers the engine's tests use.
         (

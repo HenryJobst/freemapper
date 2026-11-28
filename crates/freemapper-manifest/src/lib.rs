@@ -17,6 +17,7 @@ pub mod adapter;
 pub mod alkis;
 pub mod boundary;
 pub mod check;
+pub mod corrections;
 pub mod dates;
 pub mod edit;
 pub mod error;
