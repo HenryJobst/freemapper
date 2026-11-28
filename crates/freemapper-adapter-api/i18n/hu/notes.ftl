@@ -102,6 +102,7 @@ warning-osm-extract-missing-kept = nincs gyorsítótárazott OSM-kivonat; megtar
 progress-osm-extract-read = { $region } OSM-kivonat beolvasása, kelte: { $date }
 progress-osm-candidates = { $count } OSM-jelölt objektum
 
+progress-osm-buildings = Épületek az OpenStreetMapből: { $count }
 ## Permit notes
 
 progress-permits-fetch = { $source } adatainak letöltése az engedélyezési tudnivalókhoz

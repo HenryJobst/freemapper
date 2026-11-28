@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Writes marktacke.gpkg: a synthetic GeoPackage shaped like the Lantmäteriet land cover file
-(table `mark`, columns objektidentitet, objekttypnr, objekttyp, geom; big-endian geometry headers
+(tables `mark` and `sankmark`, columns objektidentitet, objekttypnr, objekttyp, geom; big-endian geometry headers
 without envelope, EPSG:3006). No real data: the squares are made up. Run with `python3 -I`."""
 import sqlite3
 import struct
 import sys
 
 out = sys.argv[1]
+with_wetland = "--no-wetland" not in sys.argv[2:]
 
 
 def polygon(x0, y0, x1, y1):
@@ -35,6 +36,20 @@ db.execute(
 db.executemany(
     "INSERT INTO mark (objektidentitet, objekttypnr, objekttyp, geom) VALUES (?, ?, ?, ?)", rows
 )
+if with_wetland:
+    # The wetland of the real files lies in a table of its own, on top of the land cover.
+    wet = [
+        ("id-wet", 20, "Sankmark, våt", polygon(385100, 6177600, 385140, 6177640)),
+        ("id-firm", 21, "Sankmark, fast", polygon(385150, 6177600, 385180, 6177620)),
+    ]
+    db.execute(
+        "CREATE TABLE sankmark (fid INTEGER PRIMARY KEY AUTOINCREMENT, objektidentitet TEXT, "
+        "objekttypnr INTEGER, objekttyp TEXT, geom BLOB)"
+    )
+    db.executemany(
+        "INSERT INTO sankmark (objektidentitet, objekttypnr, objekttyp, geom) VALUES (?, ?, ?, ?)",
+        wet,
+    )
 db.commit()
 db.execute("VACUUM")
 db.close()

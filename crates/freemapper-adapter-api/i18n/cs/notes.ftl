@@ -101,6 +101,7 @@ warning-osm-extract-missing-kept = v mezipaměti není žádný výřez OSM; pon
 progress-osm-extract-read = čtu výřez OSM { $region } z { $date }
 progress-osm-candidates = kandidátních objektů OSM: { $count }
 
+progress-osm-buildings = budov z OpenStreetMap: { $count }
 ## Permit notes
 
 progress-permits-fetch = stahuji data { $source } pro poznámky k povolením

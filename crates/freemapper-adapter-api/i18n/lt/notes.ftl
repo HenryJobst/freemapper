@@ -111,6 +111,7 @@ progress-osm-candidates = { $count ->
        *[other] { $count } OSM objektų kandidatų
     }
 
+progress-osm-buildings = Pastatų iš OpenStreetMap: { $count }
 ## Permit notes
 
 progress-permits-fetch = leidimų pastaboms atsisiunčiami { $source } duomenys

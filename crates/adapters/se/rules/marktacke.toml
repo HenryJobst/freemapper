@@ -2,9 +2,9 @@
 # `nutzart` they stand for. A class that is not here is left out of the map and named once in a
 # progress line. `Öppen mark` (open land) holds fields, meadows, clearings and bare rock alike, so
 # it says nothing a land use class can say and is not named; the terrain and the point cloud show
-# what grows there. The classes below the first seven are the ones the product description lists and
-# the first municipality did not show; a name that never comes up does no harm.
-ignored = ["Öppen mark"]
+# what grows there. `Ej karterat område` (not surveyed) says nothing either. Every name below is one
+# that came up in the files of three municipalities, in `mark` or in the wetland table `sankmark`.
+ignored = ["Öppen mark", "Ej karterat område"]
 
 [classes]
 "Barr- och blandskog" = "Wald"
@@ -17,3 +17,8 @@ ignored = ["Öppen mark"]
 "Lövskog" = "Wald"
 "Åker" = "Landwirtschaft"
 "Hav" = "Meer"
+"Sluten bebyggelse" = "Fläche gemischter Nutzung"
+"Anlagt vatten" = "Stehendes Gewässer"
+"Fruktodling" = "Landwirtschaft"
+"Sankmark, våt" = "Sumpf"
+"Sankmark, fast" = "Sumpf"

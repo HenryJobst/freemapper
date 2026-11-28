@@ -9,10 +9,17 @@ All notable changes to freemapper are listed here, newest first. The format foll
 ### Added
 
 - Schoolyard maps now show ways and streets like sprint maps (issue #334, ADR 0207): OSM ways with a known surface go on the base map, ways without one are candidates, and the cadastre traffic areas become paved areas (501.5) unless they are out of bounds (520). The width limits of the way and stair symbols are scaled to the school set (1:1000, 125 %).
-- The layer pages, README, manual and website now also show the base map itself (without candidates), cut to the map frame like the candidate layers; 30 of 34 examples also show their raster templates (orthophoto, hillshade, slope, relief, nDSM), the forest maps too. `scripts/layer-previews.sh` writes `layers/map.webp` and cuts it at the frame.
+- The layer pages, README, manual and website now also show the base map itself (without candidates), cut to the map frame like the candidate layers; 30 of 34 examples also show their raster templates (orthophoto, hillshade, slope, relief, nDSM), the forest maps too. `scripts/layer-previews.sh` writes `layers/map.webp` and cuts it at the frame. The cut sits on the frame in every layer, also when an object reaches far out of the map area (vegetation layer of Bayern/Schmausenbuck).
+- Buildings from OpenStreetMap where a region has no register of them (ADR 0206): Sweden draws the `building` ways and relations of the extract as buildings (footprint, minimum sizes, vegetation mask as for register buildings) and asks no cadastre for them. `RegionAdapter::buildings_from_osm()` is the switch; the German states, Poland and Czechia do not change.
+- Sweden: the wetland of Marktäcke (`Sankmark, fast` and `våt`) becomes marsh, and the classes `Sluten bebyggelse`, `Anlagt vatten` and `Fruktodling` get land use classes; `Ej karterat område` is left out without a warning. A first run with real data showed the names.
+
+### Fixed
+
+- Sweden: a laser tile is estimated at 125 MB (122 and 125 MB measured on two tiles), not 82 MB.
 
 ### Changed
 
+- The mutation tests of a pull request start only when the job `check` is green and end at once when the diff holds no Rust file (ADR 0174, addendum). That saves runners and waiting time; they still block no merge. A new test also checks that a cancel ends the fetch of the Saarland height models instead of passing the archive over.
 - The addresses of the height models of Baden-Württemberg, Saarland and Rhineland-Palatinate are in the manifest now (issue #273): `[orthophoto.endpoints]` names for Baden-Württemberg the WFS of the flight tiles (`flights`) and the file server of the archives (`files`), for Saarland the share of the DGM1 and DOM1 archives (`share`) and for Rhineland-Palatinate the WFS with the tile list (`tile-list`) and the file server with the Metalinks (`data`). A folder that replaces a built-in state names only what moved; `sources list`, `sources set` and `adapters probe` know the new addresses. Maps and cache folders do not change.
 - The addresses of the height models of Hesse, Schleswig-Holstein, Saxony and Bavaria are in the manifest too (issue #273): `[orthophoto.endpoints]` names for Hesse the REST API of the Downloadcenter (`rest`), for Schleswig-Holstein the Downloadportal (`portal`) and the ATOM directory of the DGM1 tiles (`atom`), for Saxony the ArcGIS tile index (`index`) and the shares a tile is fetched from when its row in the index has no link (`dgm1`, `dom1`), and for Bavaria the file server (`files`). The services of Saxony-Anhalt were already in the manifest. The addresses of Bavaria's buildings and cadastre files stay in the code, although they lie on the same file server. Maps and cache folders do not change.
 

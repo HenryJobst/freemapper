@@ -1464,6 +1464,26 @@ mod tests {
         use crate::raster::{GridSpec, Raster};
         use crate::sources::float_tiff::decode_float_tiff;
 
+        #[test]
+        fn fetch_model_asks_the_cache_before_the_portal_offline() {
+            let dir = tempfile::tempdir().unwrap();
+            let cache = Cache::new(dir.path().join("cache"));
+            let out = dir.path().join("out.tif");
+            let err = fetch_model(
+                &MapFetcher::default(),
+                &built_in(),
+                &cache,
+                FetchMode::Offline,
+                Model::Dgm1,
+                &SCHOOL,
+                dir.path(),
+                &out,
+                &mut |_| {},
+            )
+            .unwrap_err();
+            assert!(err.to_string().contains("offline and not cached"), "{err}");
+        }
+
         const DGM1_TIF: &[u8] =
             include_bytes!("../../../../tests/fixtures/schleswig-holstein-dgm1-nw.tif");
         const DGM1_NAME: &str = "dgm1_32_565_5949_1_sh_2022";

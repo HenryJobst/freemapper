@@ -2655,6 +2655,9 @@ mod tests {
             Some("https://x.example/d/a.zip")
         );
         assert_eq!(host("https://x.example"), "https://x.example");
+        assert_eq!(host("https://x.example/a/rest"), "https://x.example");
+        assert_eq!(host("http://h/p"), "http://h");
+        assert_eq!(host("h/p"), "h");
         assert_eq!(host(REST_URL), "https://gds.hessen.de");
     }
 }

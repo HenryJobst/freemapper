@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! The laser data of Lantmäteriet (Laserdata Skog): classified point clouds in 2.5 km tiles of
-//! about 80 MB, COPC files that the `las` crate reads as LAZ. The tiles are found through the STAC
+//! 80 to 125 MB, COPC files that the `las` crate reads as LAZ. The tiles are found through the STAC
 //! API and kept whole in the cache; `derive` reads the vegetation classes from them.
 
 use std::path::{Path, PathBuf};
@@ -36,10 +36,11 @@ const DIR: &str = "copc";
 /// The side of a tile in metres.
 const TILE_M: f64 = 2_500.0;
 
-/// What a tile weighs, in MB (81.3 and 81.7 MB measured, `docs/regions/sweden-reference.md` §3.1).
-const MB_PER_TILE: f64 = 82.0;
+/// What a tile weighs, in MB (122 and 125 MB of two tiles near Stockholm, 2026-11-28; the tile of
+/// the first measurement, `docs/regions/sweden-reference.md` §3.1, had 81 MB, so the size varies).
+const MB_PER_TILE: f64 = 125.0;
 
-/// The most a tile may have: five times what one weighs.
+/// The most a tile may have: three times what the heaviest seen weighs.
 const MAX_TILE_BYTES: u64 = 400 << 20;
 
 /// The laser data of Lantmäteriet.
@@ -636,7 +637,7 @@ mod tests {
     }
 
     #[test]
-    fn the_estimate_lists_each_2_5_km_square_of_the_area_at_80_megabytes() {
+    fn the_estimate_lists_each_2_5_km_square_of_the_area_at_125_megabytes() {
         let scratch = tempfile::tempdir().unwrap();
         let cache = CacheDir::new(scratch.path().join("cache"));
         // Two squares wide: 382 500 to 387 500 is 385 000 ± 2 500.
@@ -657,7 +658,7 @@ mod tests {
         assert_eq!(items.len(), 2);
         for item in &items {
             assert_eq!((item.part, item.store), (Part::PointCloud, Store::Cache));
-            assert!((item.megabytes - 80.0).abs() < 5.0, "{}", item.megabytes);
+            assert!((item.megabytes - 125.0).abs() < 5.0, "{}", item.megabytes);
         }
     }
 }

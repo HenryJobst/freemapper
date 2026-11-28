@@ -104,6 +104,7 @@ progress-osm-candidates = { $count ->
        *[other] { $count } OSM-Objekte als Kandidaten
     }
 
+progress-osm-buildings = Gebäude aus OpenStreetMap: { $count }
 ## Genehmigungshinweise
 
 progress-permits-fetch = Daten von { $source } für die Genehmigungshinweise werden geholt

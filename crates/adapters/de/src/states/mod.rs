@@ -882,6 +882,14 @@ pub fn adapters() -> Vec<Arc<dyn RegionAdapter>> {
 mod tests {
     use super::*;
 
+    #[test]
+    fn no_state_takes_its_buildings_from_openstreetmap() {
+        // The default of `RegionAdapter::buildings_from_osm`: the states have a cadastre.
+        for adapter in adapters() {
+            assert!(!adapter.buildings_from_osm(), "{}", adapter.info().id);
+        }
+    }
+
     /// What the manifest of each state with an addressed orthophoto says is what the code
     /// held before the addresses moved there (issue #273): the same WMS, layer, size and CRS.
     #[test]

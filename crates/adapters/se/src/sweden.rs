@@ -131,6 +131,10 @@ impl RegionAdapter for SwedenAdapter {
         self.manifest.boundary()
     }
 
+    fn buildings_from_osm(&self) -> bool {
+        true
+    }
+
     fn bounds(&self) -> BoundingBox {
         self.manifest.bounds()
     }
@@ -294,6 +298,8 @@ mod tests {
         assert_eq!(cloud.info().epsg, 25833);
         assert!(adapter.alkis().is_some());
         assert_eq!(adapter.no_buildings_warning(), None);
+        // There is no register of buildings in this stage: the buildings are those of OSM.
+        assert!(adapter.buildings_from_osm());
     }
 
     #[test]

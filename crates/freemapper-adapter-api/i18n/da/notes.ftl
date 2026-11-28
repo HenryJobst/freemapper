@@ -99,6 +99,7 @@ warning-osm-extract-missing-kept = intet OSM-udtræk i cachen; beholder de gemte
 progress-osm-extract-read = læser OSM-udtrækket { $region } fra { $date }
 progress-osm-candidates = { $count } OSM-kandidatobjekter
 
+progress-osm-buildings = Bygninger fra OpenStreetMap: { $count }
 ## Permit notes
 
 progress-permits-fetch = henter { $source }-data til tilladelsesnoterne

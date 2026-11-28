@@ -108,6 +108,7 @@ warning-osm-extract-missing-kept = выгрузки OSM в кэше нет; ос
 progress-osm-extract-read = чтение выгрузки OSM { $region } от { $date }
 progress-osm-candidates = объектов-кандидатов OSM: { $count }
 
+progress-osm-buildings = Зданий из OpenStreetMap: { $count }
 ## Permit notes
 
 progress-permits-fetch = загрузка данных { $source } для заметок о разрешениях

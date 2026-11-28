@@ -11,6 +11,7 @@ mod lgv;
 #[cfg(test)]
 mod lvermgeo_sh;
 pub mod osm;
+pub mod osm_buildings;
 pub mod region;
 pub mod trees;
 pub mod wms;

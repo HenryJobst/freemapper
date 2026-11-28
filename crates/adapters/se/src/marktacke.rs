@@ -24,6 +24,10 @@ use crate::stac_terrain::{PROVIDER, degrees};
 /// The table of the land cover and the columns the source reads.
 const TABLE: &str = "mark";
 
+/// The tables with areas: the land cover, and the wetland that lies on top of it. A file without
+/// the second one is read all the same.
+const TABLES: [&str; 2] = [TABLE, "sankmark"];
+
 /// The EPSG code the GeoPackage states for its geometries.
 const SRS: i32 = 3006;
 
@@ -225,60 +229,77 @@ fn read(
         message,
     };
     let package = GeoPackage::open(bytes).map_err(corrupt)?;
+    let tables = package.table_names().map_err(corrupt)?;
+    for table in TABLES {
+        // The wetland table may be missing; the land cover table may not.
+        if table != TABLE && !tables.iter().any(|t| t == table) {
+            continue;
+        }
+        read_table(&package, table, clip, classes, seen, unknown, out).map_err(corrupt)?;
+    }
+    Ok(())
+}
+
+/// The areas of the table `table` of `package` that touch `clip` and have a land use class.
+fn read_table(
+    package: &GeoPackage<'_>,
+    table: &str,
+    clip: &BoundingBox,
+    classes: &BTreeMap<String, String>,
+    seen: &mut HashSet<String>,
+    unknown: &mut HashSet<String>,
+    out: &mut Vec<Json>,
+) -> Result<(), String> {
     let ignored = ignored();
-    let columns = package.columns(TABLE).map_err(corrupt)?;
+    let columns = package.columns(table)?;
     let at = |name: &str| columns.iter().position(|c| c == name);
     let (Some(id), Some(class), Some(geom)) = (at("objektidentitet"), at("objekttyp"), at("geom"))
     else {
-        return Err(corrupt(format!(
-            "the table `{TABLE}` lacks a column it needs"
-        )));
+        return Err(format!("the table `{table}` lacks a column it needs"));
     };
-    package
-        .rows(TABLE, &mut |_, row| {
-            let (Value::Text(oid), Value::Text(class), Value::Blob(blob)) =
-                (&row[id], &row[class], &row[geom])
-            else {
-                return Ok(());
-            };
-            let Some(nutzart) = classes.get(class) else {
-                if !ignored.contains(class) {
-                    unknown.insert(class.clone());
-                }
-                return Ok(());
-            };
-            let Some(found) = geometry(blob)? else {
-                return Ok(());
-            };
-            let Shape::Polygons(polygons) = found.shape else {
-                return Ok(());
-            };
-            if found.srs_id != SRS || seen.contains(oid) {
-                return Ok(());
+    package.rows(table, &mut |_, row| {
+        let (Value::Text(oid), Value::Text(class), Value::Blob(blob)) =
+            (&row[id], &row[class], &row[geom])
+        else {
+            return Ok(());
+        };
+        let Some(nutzart) = classes.get(class) else {
+            if !ignored.contains(class) {
+                unknown.insert(class.clone());
             }
-            let touches = extent(&polygons).is_some_and(|b| {
-                b.min_e <= clip.max_e
-                    && b.max_e >= clip.min_e
-                    && b.min_n <= clip.max_n
-                    && b.max_n >= clip.min_n
-            });
-            if !touches {
-                return Ok(());
-            }
-            seen.insert(oid.clone());
-            let geometry = match polygons.as_slice() {
-                [one] => json!({ "type": "Polygon", "coordinates": one }),
-                many => json!({ "type": "MultiPolygon", "coordinates": many }),
-            };
-            out.push(json!({
-                "type": "Feature",
-                "id": oid,
-                "geometry": geometry,
-                "properties": { "oid": oid, "nutzart": nutzart },
-            }));
-            Ok(())
-        })
-        .map_err(corrupt)
+            return Ok(());
+        };
+        let Some(found) = geometry(blob)? else {
+            return Ok(());
+        };
+        let Shape::Polygons(polygons) = found.shape else {
+            return Ok(());
+        };
+        if found.srs_id != SRS || seen.contains(oid) {
+            return Ok(());
+        }
+        let touches = extent(&polygons).is_some_and(|b| {
+            b.min_e <= clip.max_e
+                && b.max_e >= clip.min_e
+                && b.min_n <= clip.max_n
+                && b.max_n >= clip.min_n
+        });
+        if !touches {
+            return Ok(());
+        }
+        seen.insert(oid.clone());
+        let geometry = match polygons.as_slice() {
+            [one] => json!({ "type": "Polygon", "coordinates": one }),
+            many => json!({ "type": "MultiPolygon", "coordinates": many }),
+        };
+        out.push(json!({
+            "type": "Feature",
+            "id": oid,
+            "geometry": geometry,
+            "properties": { "oid": oid, "nutzart": nutzart },
+        }));
+        Ok(())
+    })
 }
 
 impl AlkisSource for MarktackeSource {
@@ -554,6 +575,81 @@ mod tests {
         assert!(at(385_000.0, 385_050.0, 6_177_500.0, 6_177_700.0));
         assert!(at(385_000.0, 385_200.0, 6_177_600.0, 6_177_700.0));
         assert!(at(385_000.0, 385_200.0, 6_177_500.0, 6_177_550.0));
+    }
+
+    #[test]
+    fn every_class_of_the_real_files_is_mapped_or_left_out_on_purpose() {
+        // The `objekttyp` values of `mark` and `sankmark` in the files of three municipalities.
+        let seen = [
+            "Öppen mark",
+            "Barr- och blandskog",
+            "Åker",
+            "Sjö",
+            "Lövskog",
+            "Låg bebyggelse",
+            "Hög bebyggelse",
+            "Industri- och handelsbebyggelse",
+            "Hav",
+            "Vattendragsyta",
+            "Torg",
+            "Sluten bebyggelse",
+            "Anlagt vatten",
+            "Ej karterat område",
+            "Fruktodling",
+            "Sankmark, fast",
+            "Sankmark, våt",
+        ];
+        let (classes, ignored) = (classes(), ignored());
+        for class in seen {
+            assert!(
+                classes.contains_key(class) || ignored.contains(class),
+                "{class} is neither mapped nor ignored"
+            );
+        }
+        assert_eq!(classes["Sankmark, våt"], "Sumpf");
+        assert_eq!(classes["Anlagt vatten"], "Stehendes Gewässer");
+        assert_eq!(classes["Sluten bebyggelse"], "Fläche gemischter Nutzung");
+        assert!(ignored.contains("Ej karterat område"));
+    }
+
+    #[test]
+    fn the_wetland_table_becomes_marsh_land_use() {
+        let fetcher = served(&[("0183", ZIP_0183)]);
+        let scratch = tempfile::tempdir().unwrap();
+        let cache = CacheDir::new(scratch.path().join("cache"));
+        let part = land_use(&fetcher, &cache, FetchMode::Online).0.unwrap();
+        for id in ["id-wet", "id-firm"] {
+            let feature = by_oid(&part, id).unwrap_or_else(|| panic!("{id} is missing"));
+            assert_eq!(feature["properties"]["nutzart"], "Sumpf", "{id}");
+        }
+    }
+
+    #[test]
+    fn a_file_without_the_wetland_table_is_read_all_the_same() {
+        let bytes = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/marktacke-no-wetland.gpkg"
+        ))
+        .unwrap();
+        let mut out = Vec::new();
+        read(
+            &bytes,
+            "x.zip",
+            &BoundingBox {
+                min_e: 385_000.0,
+                min_n: 6_177_500.0,
+                max_e: 385_200.0,
+                max_n: 6_177_700.0,
+            },
+            &classes(),
+            &mut HashSet::new(),
+            &mut HashSet::new(),
+            &mut out,
+        )
+        .unwrap();
+        let ids: Vec<&str> = out.iter().map(|f| f["id"].as_str().unwrap()).collect();
+        assert!(ids.contains(&"id-forest"), "{ids:?}");
+        assert!(!ids.contains(&"id-wet"), "{ids:?}");
     }
 
     #[test]
