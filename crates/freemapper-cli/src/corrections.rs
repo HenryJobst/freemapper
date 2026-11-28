@@ -36,7 +36,7 @@ use crate::update::{freemapper_app, release_build, settings_dir, update_source};
 /// The tag of the release that holds the list.
 const RELEASE_TAG: &str = "sources";
 /// The signature of a list is a short text.
-const MAX_SIGNATURE_BYTES: u64 = 64 * 1024;
+const MAX_SIGNATURE_BYTES: u64 = 65_536;
 /// How long the daily fetch may take after its start; a slower one is dropped and tried again the
 /// next day.
 const DAILY_LIMIT: Duration = Duration::from_secs(3);

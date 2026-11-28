@@ -3267,6 +3267,11 @@ fn the_list_of_corrections_is_read_from_the_settings_folder() {
     assert_eq!(code, Some(0));
     let json: serde_json::Value = serde_json::from_str(&out).unwrap();
     assert!(json["issued"].is_null() && json["corrections"].as_array().unwrap().is_empty());
+    // A program built from source does not ask GitHub for the list; no request is made.
+    let (code, out, err) = run(&["sources", "update"]);
+    assert_eq!(code, Some(0), "{out}{err}");
+    assert!(out.contains("built from source"), "{out}");
+    assert!(!config.path().join("sources").exists());
     // The daily check is off until the person turns it on; the setting is kept.
     let (code, out, err) = run(&["sources", "update", "--mode", "on"]);
     assert_eq!(code, Some(0), "{out}{err}");
