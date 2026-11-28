@@ -80,6 +80,17 @@ pub fn targets(texts: &[&str]) -> (Vec<Target>, Vec<String>) {
             .to_string();
         let mut urls = Vec::new();
         collect_urls(&toml::Value::Table(manifest.clone()), &mut urls);
+        // A point-cloud folder is asked with its closing slash: a server may answer the bare
+        // name with a redirect to `http://` (geodaten.bayern.de, 2026-11-27), which is no outage.
+        if let Some(folder) = manifest
+            .get("point_cloud")
+            .and_then(|p| p.get("url"))
+            .and_then(toml::Value::as_str)
+        {
+            for url in urls.iter_mut().filter(|u| u.as_str() == folder) {
+                url.push('/');
+            }
+        }
         if let Some(extracts) = manifest
             .get("osm")
             .and_then(|o| o.get("extract"))
@@ -326,6 +337,14 @@ endpoints = ["https://b.example.org/t", "https://a.example.org/items"]
             hosts,
             ["a.example.org", "b.example.org", "download.geofabrik.de"]
         );
+    }
+
+    #[test]
+    fn a_point_cloud_folder_is_asked_with_its_closing_slash() {
+        let text = "[adapter]\nid = \"demo\"\n[point_cloud]\nkind = \"laz-tiles\"\nurl = \"https://c.example.org/laser\"\n";
+        let (targets, _) = targets(&[text]);
+        let urls: Vec<_> = targets.iter().map(|t| t.url.as_str()).collect();
+        assert_eq!(urls, ["https://c.example.org/laser/"]);
     }
 
     #[test]
