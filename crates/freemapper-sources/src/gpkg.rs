@@ -1057,6 +1057,25 @@ mod tests {
     }
 
     #[test]
+    fn a_record_header_must_hold_its_own_length_and_stay_inside_the_record() {
+        assert_eq!(
+            decode_record(&[1]),
+            Ok(Vec::new()),
+            "a header of one byte, no column"
+        );
+        assert!(
+            decode_record(&[0]).is_err(),
+            "a header shorter than its length byte"
+        );
+        assert!(decode_record(&[]).is_err());
+        assert!(
+            decode_record(&[3, 0]).is_err(),
+            "a header longer than the record"
+        );
+        assert_eq!(decode_record(&[2, 0]), Ok(vec![Value::Null]));
+    }
+
+    #[test]
     fn a_record_may_have_2048_columns_and_no_more() {
         let many = |n: usize| decode_record(&record(&vec![0; n], &[]));
         assert_eq!(many(2048).unwrap().len(), 2048);
