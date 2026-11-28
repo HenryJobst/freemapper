@@ -625,6 +625,34 @@ mod tests {
     }
 
     #[test]
+    fn a_file_without_the_wetland_table_is_read_all_the_same() {
+        let bytes = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/marktacke-no-wetland.gpkg"
+        ))
+        .unwrap();
+        let mut out = Vec::new();
+        read(
+            &bytes,
+            "x.zip",
+            &BoundingBox {
+                min_e: 385_000.0,
+                min_n: 6_177_500.0,
+                max_e: 385_200.0,
+                max_n: 6_177_700.0,
+            },
+            &classes(),
+            &mut HashSet::new(),
+            &mut HashSet::new(),
+            &mut out,
+        )
+        .unwrap();
+        let ids: Vec<&str> = out.iter().map(|f| f["id"].as_str().unwrap()).collect();
+        assert!(ids.contains(&"id-forest"), "{ids:?}");
+        assert!(!ids.contains(&"id-wet"), "{ids:?}");
+    }
+
+    #[test]
     fn only_a_plain_name_is_fit_to_be_a_file_name() {
         assert!(is_name("marktacke_kn0183"));
         assert!(is_name(&"a".repeat(80)));

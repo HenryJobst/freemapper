@@ -203,9 +203,10 @@ mod tests {
             square("way/2", &[("building", "yes"), ("layer", "-1")]),
             square("way/3", &[("building", "yes"), ("layer", "1")]),
             square("way/4", &[("building", "yes"), ("layer", "x")]),
+            square("way/5", &[("building", "yes"), ("layer", "0")]),
         ];
         let underground: Vec<bool> = parsed(&features).iter().map(|b| b.underground).collect();
-        assert_eq!(underground, [true, true, false, false]);
+        assert_eq!(underground, [true, true, false, false, false]);
     }
 
     /// Writes the extract of the Swedish end-to-end test: a house and a path in its map area.
