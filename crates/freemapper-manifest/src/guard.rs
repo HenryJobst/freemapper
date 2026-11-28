@@ -279,11 +279,17 @@ mod tests {
             _: &freemapper_adapter_api::cache::CacheDir,
             _: &freemapper_adapter_api::pointcloud::PointCloudRecord,
         ) -> Option<std::path::PathBuf> {
-            None
+            Some(std::path::PathBuf::from("a-tile.laz"))
         }
 
         fn estimate(&self, _: &EstimateArea, _: &EstimateEnv<'_>) -> Vec<EstimateItem> {
-            Vec::new()
+            vec![EstimateItem {
+                what: "a tile".to_string(),
+                megabytes: 1.0,
+                cached: false,
+                part: freemapper_adapter_api::records::Part::PointCloud,
+                store: freemapper_adapter_api::records::Store::Cache,
+            }]
         }
     }
 
@@ -323,6 +329,25 @@ mod tests {
             max_n: 1.0,
         };
         assert_eq!(cloud("https://geo.example.org/a").info().epsg, 25833);
+        // The cache and the estimate come from the backend as they are.
+        let record = freemapper_adapter_api::pointcloud::PointCloudRecord {
+            tile: "t".to_string(),
+            url: String::new(),
+            published: None,
+        };
+        assert_eq!(
+            cloud("https://geo.example.org/a").cached(&cache, &record),
+            Some(std::path::PathBuf::from("a-tile.laz"))
+        );
+        let estimate = cloud("https://geo.example.org/a").estimate(
+            &EstimateArea {
+                bbox_25833: area,
+                map_bbox: area,
+                today: chrono::NaiveDate::from_ymd_opt(2026, 11, 11).unwrap(),
+            },
+            &EstimateEnv { cache: &cache },
+        );
+        assert_eq!(estimate.len(), 1);
         assert!(
             cloud("https://geo.example.org/a")
                 .fetch(&mut env, &area)

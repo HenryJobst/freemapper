@@ -516,6 +516,42 @@ mod tests {
     }
 
     #[test]
+    fn a_deflate_block_decodes_like_the_whole_image() {
+        use tiff::tags::Tag;
+        for predictor in [1, 3] {
+            let grid = grid_of(40, 24);
+            let values = varied(&grid);
+            let bytes =
+                crate::testing::tiled_float_tiff_with(&grid, &values, 16, predictor, None, 8);
+            let whole = decode_float_tiff(&bytes).unwrap();
+            let mut decoder = tiff::decoder::Decoder::new(std::io::Cursor::new(&bytes)).unwrap();
+            let offsets = decoder.get_tag_u64_vec(Tag::TileOffsets).unwrap();
+            let counts = decoder.get_tag_u64_vec(Tag::TileByteCounts).unwrap();
+            assert_eq!(offsets.len(), 3 * 2);
+            for (i, (&offset, &count)) in offsets.iter().zip(&counts).enumerate() {
+                let chunk = &bytes[offset as usize..(offset + count) as usize];
+                let block = decode_block(chunk, 8, 16, 16, predictor, true).unwrap();
+                assert_eq!(block.len(), 16 * 16);
+                let (bx, by) = (i as u32 % 3, i as u32 / 3);
+                for y in 0..16 {
+                    for x in 0..16 {
+                        let (px, py) = (bx * 16 + x, by * 16 + y);
+                        if px >= grid.width || py >= grid.height {
+                            continue;
+                        }
+                        let (a, b) = (block[(y * 16 + x) as usize], whole.get(px, py));
+                        assert!(
+                            a == b || (a.is_nan() && b.is_nan()),
+                            "predictor {predictor}, block {i}, px ({px}, {py}): {a} != {b}"
+                        );
+                    }
+                }
+            }
+            assert!(whole.get(5, 0).is_nan(), "NoData");
+        }
+    }
+
+    #[test]
     fn require_stored_needs_a_covering_model() {
         let dir = tempfile::tempdir().unwrap();
         let out = dir.path().join("dgm1.tif");

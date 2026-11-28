@@ -107,7 +107,7 @@ impl Wkb<'_> {
         if n.checked_mul(size)
             .is_none_or(|b| b > self.bytes.len() - self.at)
         {
-            return Err("a damaged geometry".to_string());
+            return Err("a damaged geometry: a count the data cannot hold".to_string());
         }
         Ok(n)
     }
@@ -931,6 +931,72 @@ mod tests {
         assert!(parse_columns("CREATE TABLE t (a INTEGER, b TEXT").is_err());
     }
 
+    /// A geometry of `code` (little endian) holding `parts`, each already encoded.
+    fn multi(code: u32, parts: &[Vec<u8>]) -> Vec<u8> {
+        let mut wkb = vec![1];
+        wkb.extend(code.to_le_bytes());
+        wkb.extend((parts.len() as u32).to_le_bytes());
+        parts.iter().for_each(|part| wkb.extend(part));
+        blob(&wkb)
+    }
+
+    fn point(x: f64, y: f64, rest: &[f64]) -> Vec<u8> {
+        let mut wkb = vec![1];
+        wkb.extend(1u32.to_le_bytes());
+        wkb.extend(x.to_le_bytes());
+        wkb.extend(y.to_le_bytes());
+        rest.iter().for_each(|v| wkb.extend(v.to_le_bytes()));
+        wkb
+    }
+
+    #[test]
+    fn a_line_keeps_its_xy_whatever_heights_and_measures_it_carries() {
+        // Two points of `ordinates` each; the second only reads right when the first took its
+        // exact size.
+        for (code, ordinates) in [
+            (2u32, 2usize),
+            (1002, 3),
+            (2002, 3),
+            (3002, 4),
+            (0x8000_0002, 3),
+            (0x4000_0002, 3),
+            (0xc000_0002, 4),
+        ] {
+            let mut wkb = vec![1];
+            wkb.extend(code.to_le_bytes());
+            wkb.extend(2u32.to_le_bytes());
+            for point in 0..2 {
+                for ordinate in 0..ordinates {
+                    let value = if ordinate < 2 {
+                        f64::from(point * 10 + ordinate as u32 + 1)
+                    } else {
+                        99.0
+                    };
+                    wkb.extend(value.to_le_bytes());
+                }
+            }
+            assert_eq!(
+                geometry(&blob(&wkb)).unwrap().map(|g| g.shape),
+                Some(Shape::Lines(vec![vec![[1.0, 2.0], [11.0, 12.0]]])),
+                "type {code}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_multi_point_is_the_points_it_holds() {
+        let found = geometry(&multi(4, &[point(1.0, 2.0, &[]), point(3.0, 4.0, &[])])).unwrap();
+        assert_eq!(
+            found.map(|g| g.shape),
+            Some(Shape::Points(vec![[1.0, 2.0], [3.0, 4.0]]))
+        );
+        // A multi point of something else is refused.
+        let mut line = vec![1];
+        line.extend(2u32.to_le_bytes());
+        line.extend(0u32.to_le_bytes());
+        assert!(geometry(&multi(4, &[line])).is_err());
+    }
+
     #[test]
     fn a_varint_of_nine_bytes_keeps_all_bits_of_the_last_byte() {
         let mut bytes = vec![0xff; 8];
@@ -1021,7 +1087,70 @@ mod tests {
         wkb.extend(1u32.to_le_bytes());
         wkb.extend(2u32.to_le_bytes());
         wkb.extend([0u8; 16]);
-        assert_eq!(geometry(&blob(&wkb)), Err("a damaged geometry".to_string()));
+        assert_eq!(
+            geometry(&blob(&wkb)),
+            Err("a damaged geometry: a count the data cannot hold".to_string())
+        );
+    }
+
+    /// `small.gpkg` with the bytes at `at` replaced.
+    fn patched(at: usize, with: &[u8]) -> Vec<u8> {
+        let mut bytes = fixture("small.gpkg");
+        bytes[at..at + with.len()].copy_from_slice(with);
+        bytes
+    }
+
+    fn open_error(bytes: &[u8]) -> String {
+        match GeoPackage::open(bytes) {
+            Ok(_) => "opened".to_string(),
+            Err(error) => error,
+        }
+    }
+
+    #[test]
+    fn the_page_size_must_be_a_power_of_two_between_512_and_65536() {
+        for size in [512u16, 1024, 4096, 32768] {
+            let page = &size.to_be_bytes();
+            // Only the header is read before the first page: a size that is not the real one
+            // may still fail later, but never with a complaint about the size.
+            let error = open_error(&patched(16, page));
+            assert!(!error.contains("page size"), "{size}: {error}");
+        }
+        for size in [0u16, 2, 256, 511, 513, 1000, 4097, 40000] {
+            let error = open_error(&patched(16, &size.to_be_bytes()));
+            assert_eq!(error, format!("a page size of {size}"));
+        }
+        // 1 stands for 65536.
+        assert!(!open_error(&patched(16, &1u16.to_be_bytes())).contains("page size"));
+    }
+
+    #[test]
+    fn a_page_needs_480_usable_bytes() {
+        // Pages of 512 bytes: 32 reserved leave exactly 480.
+        let enough = open_error(&patched(20, &[32]));
+        assert!(!enough.contains("too little room"), "{enough}");
+        assert_eq!(
+            open_error(&patched(20, &[33])),
+            "pages with too little room"
+        );
+        assert_eq!(
+            open_error(&patched(20, &[200])),
+            "pages with too little room"
+        );
+    }
+
+    #[test]
+    fn a_header_alone_and_a_foreign_text_encoding_are_refused() {
+        let mut header = vec![0u8; 100];
+        header[..16].copy_from_slice(MAGIC);
+        header[16..18].copy_from_slice(&512u16.to_be_bytes());
+        assert_eq!(open_error(&header), "the file ends inside its first page");
+        assert_eq!(open_error(&header[..99]), "not an SQLite 3 file");
+        assert_eq!(
+            open_error(&patched(56, &2u32.to_be_bytes())),
+            "text encoding 2, not UTF-8"
+        );
+        assert!(!open_error(&patched(56, &1u32.to_be_bytes())).contains("encoding"));
     }
 
     #[test]

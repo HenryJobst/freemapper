@@ -549,8 +549,6 @@ mod tests {
         mode: FetchMode,
         area: &BoundingBox,
     ) -> (Result<(), AdapterError>, Vec<String>, TestProject) {
-        let cache = CacheDir::new(scratch.join("cache"));
-        let regions = Registry::new();
         let dir = scratch.join("project");
         std::fs::create_dir_all(&dir).unwrap();
         let mut project = TestProject {
@@ -561,6 +559,20 @@ mod tests {
             terrain: None,
             surface: None,
         };
+        let (result, lines) = fetch_with(fetcher, scratch, mode, area, &mut project);
+        (result, lines, project)
+    }
+
+    /// One fetch into `project`, with the cache under `scratch`.
+    fn fetch_with(
+        fetcher: &dyn Fetcher,
+        scratch: &Path,
+        mode: FetchMode,
+        area: &BoundingBox,
+        project: &mut TestProject,
+    ) -> (Result<(), AdapterError>, Vec<String>) {
+        let cache = CacheDir::new(scratch.join("cache"));
+        let regions = Registry::new();
         let mut lines = Vec::new();
         let result = {
             let mut progress = |note: freemapper_adapter_api::note::Note| {
@@ -575,9 +587,9 @@ mod tests {
                 skip_surface: false,
                 progress: &mut progress,
             };
-            backend().fetch(&mut env, &mut project, area)
+            backend().fetch(&mut env, project, area)
         };
-        (result, lines, project)
+        (result, lines)
     }
 
     #[test]
@@ -933,5 +945,47 @@ mod tests {
             result.unwrap_err(),
             AdapterError::TerrainNotFetched
         ));
+    }
+
+    #[test]
+    fn offline_reads_nothing_when_the_project_holds_the_area_and_its_file() {
+        let inner = served(&both());
+        let scratch = tempfile::tempdir().unwrap();
+        let (online, _, mut project) = run(&inner, scratch.path(), FetchMode::Online);
+        online.unwrap();
+        // Nothing may be asked: an empty fetcher answers every request with an error.
+        let nothing = MapFetcher::default();
+        let (offline, _) = fetch_with(
+            &nothing,
+            scratch.path(),
+            FetchMode::Offline,
+            &area(),
+            &mut project,
+        );
+        offline.unwrap();
+        assert!(nothing.log.borrow().is_empty());
+        // A part of the area the record does not hold: not fetched.
+        let wider = bounds(389_900.0, 6_175_900.0, 390_200.0, 6_176_000.0);
+        let (outside, _) = fetch_with(
+            &nothing,
+            scratch.path(),
+            FetchMode::Offline,
+            &wider,
+            &mut project,
+        );
+        assert!(matches!(
+            outside.unwrap_err(),
+            AdapterError::TerrainNotFetched
+        ));
+        // The record without its file: not fetched.
+        std::fs::remove_file(project.dir.join("data/dgm1.tif")).unwrap();
+        let (gone, _) = fetch_with(
+            &nothing,
+            scratch.path(),
+            FetchMode::Offline,
+            &area(),
+            &mut project,
+        );
+        assert!(matches!(gone.unwrap_err(), AdapterError::TerrainNotFetched));
     }
 }
