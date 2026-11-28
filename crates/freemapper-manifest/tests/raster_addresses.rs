@@ -232,6 +232,9 @@ fn the_backends_that_take_endpoints_and_the_names_they_ask() {
             ("geobremen", vec!["wms", "files"]),
             ("lgb", vec!["data", "currency"]),
             ("lantmateriet", vec!["stac-hojd", "stac-vektor"]),
+            ("lgl-bw", vec!["flights", "files"]),
+            ("lvgl", vec!["share"]),
+            ("lvermgeo-rp", vec!["tile-list", "data"]),
         ]
     );
 }

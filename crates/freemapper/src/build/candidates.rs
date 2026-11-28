@@ -1762,9 +1762,9 @@ mod tests {
     }
 
     #[test]
-    fn schoolyard_does_not_want_highways() {
+    fn schoolyard_wants_highways() {
         let track = tags(&[("highway", "track"), ("surface", "gravel")]);
-        assert!(!Rules::embedded().wants(&track, MapKind::Schoolyard));
+        assert!(Rules::embedded().wants(&track, MapKind::Schoolyard));
         assert!(Rules::embedded().wants(&track, MapKind::Sprint));
     }
 
@@ -2218,13 +2218,76 @@ mod tests {
     }
 
     #[test]
-    fn schoolyard_has_no_path_rules() {
-        for t in [
-            vec![("highway", "track"), ("surface", "gravel")],
-            vec![("highway", "path")],
+    fn schoolyard_ways_follow_the_sprint_rules() {
+        // A way with a known surface is a map object, one without a surface a candidate (#334).
+        let schoolyard_way = |t: &[(&str, &str)]| {
+            Rules::embedded()
+                .symbol_for(&tags(t), &way(), MapKind::Schoolyard)
+                .map(|m| (m.code, m.target))
+        };
+        for (t, expected) in [
+            (
+                vec![("highway", "track"), ("surface", "gravel")],
+                Some(("505.2".to_string(), Target::Map)),
+            ),
+            (
+                vec![("highway", "footway"), ("surface", "asphalt")],
+                Some(("501.6".to_string(), Target::Map)),
+            ),
+            (
+                vec![("highway", "path"), ("surface", "grass")],
+                Some(("505.1".to_string(), Target::Map)),
+            ),
+            (
+                vec![("highway", "path")],
+                Some(("505.1".to_string(), Target::Candidates)),
+            ),
         ] {
-            let found = Rules::embedded().symbol_for(&tags(&t), &way(), MapKind::Schoolyard);
-            assert_eq!(found, None, "{t:?}");
+            assert_eq!(schoolyard_way(&t), expected, "{t:?}");
+            if let Some((code, _)) = &expected {
+                // The same way on a sprint map has the same target.
+                let sprint = sprint_way(&t).unwrap();
+                assert_eq!(sprint.1, expected.as_ref().unwrap().1, "{t:?} {code}");
+            }
+        }
+    }
+
+    #[test]
+    fn schoolyard_footprint_widths_are_scaled() {
+        // 1:1000 at 125 % draws a footprint 0.3125 times as wide as 1:4000: the limits scale.
+        let found = |width: &str| {
+            Rules::embedded()
+                .symbol_for(
+                    &tags(&[
+                        ("highway", "footway"),
+                        ("surface", "asphalt"),
+                        ("width", width),
+                    ]),
+                    &way(),
+                    MapKind::Schoolyard,
+                )
+                .map(|m| m.code)
+        };
+        for (width, code) in [
+            ("0.5", "501.6"),
+            ("0.7", "501.7"),
+            ("1", "501.8"),
+            ("1.3", "501.9"),
+            ("3", "501.9"),
+        ] {
+            assert_eq!(found(width).as_deref(), Some(code), "{width} m");
+        }
+        let steps = |width: &str| {
+            Rules::embedded()
+                .symbol_for(
+                    &tags(&[("highway", "steps"), ("width", width)]),
+                    &way(),
+                    MapKind::Schoolyard,
+                )
+                .map(|m| m.code)
+        };
+        for (width, code) in [("0.5", "532.6"), ("0.9", "532.8"), ("1.2", "532.9")] {
+            assert_eq!(steps(width).as_deref(), Some(code), "{width} m");
         }
     }
 

@@ -381,26 +381,30 @@ when = ["highway=footway|path|pedestrian|steps|bridleway", "access=private|no", 
 draw = "line"
 corridor_m = 2.0
 sprint = "520"
+schoolyard = "520"
 
 [[rule]]
 when = ["highway=footway|path|pedestrian|steps|bridleway", "foot=private|no", "area!=yes", "indoor!=yes"]
 draw = "line"
 corridor_m = 2.0
 sprint = "520"
+schoolyard = "520"
 
 [[rule]]
 when = ["highway=service|track|cycleway", "access=private|no", "foot!=yes|permissive|designated", "area!=yes", "indoor!=yes"]
 draw = "line"
 corridor_m = 3.0
 sprint = "520"
+schoolyard = "520"
 
 [[rule]]
 when = ["highway=service|track|cycleway", "foot=private", "area!=yes", "indoor!=yes"]
 draw = "line"
 corridor_m = 3.0
 sprint = "520"
+schoolyard = "520"
 
-# Passages through buildings and arcades (sprint only, ADR 0072). ISSprOM 4.5, 522 canopy: "a
+# Passages through buildings and arcades (sprint and schoolyard, ADR 0072, 0207). ISSprOM 4.5, 522 canopy: "a
 # building construction (with a roof), normally supported by pillars, poles or walls, such as
 # passages, gangways, courts". The way is the centre line, the strip along it the candidate; the
 # building stays whole (as for the ALKIS passages, ADR 0061). The surface does not matter: a
@@ -410,22 +414,30 @@ when = ["highway=*", "tunnel=building_passage", "indoor!=yes", "area!=yes"]
 draw = "line"
 corridor_m = 3.0
 sprint = "522"
+schoolyard = "522"
 
 [[rule]]
 when = ["highway=footway|path|pedestrian|cycleway|service|living_street|steps|track", "covered=yes|arcade|colonnade", "tunnel!=yes|culvert", "indoor!=yes", "area!=yes"]
 draw = "line"
 corridor_m = 3.0
 sprint = "522"
+schoolyard = "522"
 
-# OSM stairs (sprint only, ADR 0101). ISSprOM 4.5, 532: a stairway is a line that runs uphill; the
+# OSM stairs (sprint and schoolyard, ADR 0101, 0207). ISSprOM 4.5, 532: a stairway is a line that runs uphill; the
 # footprint symbol follows the width: 532.6 (1.6 m) to 532.9 (4 m at 1:4000). Closed, covered,
 # underground and indoor stairs fall through to the rules above and below. `build/candidates.rs`
 # turns a way tagged `incline=down` round; `build/stairs.rs` drops an OSM stair that lies on a stair
-# of the cadastre.
+# of the cadastre. The schoolyard copies of the footprint rules (532.x, 501.6 to 501.9) take the
+# `width` limits times 0.3125, the footprint of the symbol at 1:1000 and 125 % against 1:4000.
 [[rule]]
 when = ["highway=steps", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "width>=3.5"]
 draw = "line"
 sprint = "532.9"
+
+[[rule]]
+when = ["highway=steps", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "width>=1.1"]
+draw = "line"
+schoolyard = "532.9"
 
 [[rule]]
 when = ["highway=steps", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "width>=2.5"]
@@ -433,16 +445,31 @@ draw = "line"
 sprint = "532.8"
 
 [[rule]]
+when = ["highway=steps", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "width>=0.8"]
+draw = "line"
+schoolyard = "532.8"
+
+[[rule]]
 when = ["highway=steps", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "width>=1.8"]
 draw = "line"
 sprint = "532.7"
+
+[[rule]]
+when = ["highway=steps", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "width>=0.6"]
+draw = "line"
+schoolyard = "532.7"
 
 [[rule]]
 when = ["highway=steps", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes"]
 draw = "line"
 sprint = "532.6"
 
-# Firm and paved ways (sprint only, ADR 0073, amended by ADR 0079 and 0098). ISSprOM 4.5, 501: a
+[[rule]]
+when = ["highway=steps", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes"]
+draw = "line"
+schoolyard = "532.6"
+
+# Firm and paved ways (sprint and schoolyard, ADR 0207; ADR 0073, amended by ADR 0079 and 0098). ISSprOM 4.5, 501: a
 # paved area is "an area with a firm surface such as asphalt, hard gravel, tiles, concrete"; 505 is
 # a way "without a smooth, hard surface". `compacted`, `fine_gravel` and the paved surfaces
 # (asphalt, paving stones, concrete, sett and the like) are firm: a paved line (501.6 to 501.9 by
@@ -456,10 +483,22 @@ target = "map"
 sprint = "501.9"
 
 [[rule]]
+when = ["highway=footway|path|bridleway|track", "footway!=sidewalk|crossing", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=compacted|fine_gravel|asphalt|paved|paving_stones|concrete|sett|cobblestone|bricks|chipseal|concrete:plates|concrete:lanes", "width>=1.25"]
+draw = "line"
+target = "map"
+schoolyard = "501.9"
+
+[[rule]]
 when = ["highway=footway|path|bridleway|track", "footway!=sidewalk|crossing", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=compacted|fine_gravel|asphalt|paved|paving_stones|concrete|sett|cobblestone|bricks|chipseal|concrete:plates|concrete:lanes", "width>=3"]
 draw = "line"
 target = "map"
 sprint = "501.8"
+
+[[rule]]
+when = ["highway=footway|path|bridleway|track", "footway!=sidewalk|crossing", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=compacted|fine_gravel|asphalt|paved|paving_stones|concrete|sett|cobblestone|bricks|chipseal|concrete:plates|concrete:lanes", "width>=0.95"]
+draw = "line"
+target = "map"
+schoolyard = "501.8"
 
 [[rule]]
 when = ["highway=footway|path|bridleway|track", "footway!=sidewalk|crossing", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=compacted|fine_gravel|asphalt|paved|paving_stones|concrete|sett|cobblestone|bricks|chipseal|concrete:plates|concrete:lanes", "width>=2"]
@@ -468,10 +507,22 @@ target = "map"
 sprint = "501.7"
 
 [[rule]]
+when = ["highway=footway|path|bridleway|track", "footway!=sidewalk|crossing", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=compacted|fine_gravel|asphalt|paved|paving_stones|concrete|sett|cobblestone|bricks|chipseal|concrete:plates|concrete:lanes", "width>=0.65"]
+draw = "line"
+target = "map"
+schoolyard = "501.7"
+
+[[rule]]
 when = ["highway=track", "footway!=sidewalk|crossing", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=compacted|fine_gravel|asphalt|paved|paving_stones|concrete|sett|cobblestone|bricks|chipseal|concrete:plates|concrete:lanes"]
 draw = "line"
 target = "map"
 sprint = "501.7"
+
+[[rule]]
+when = ["highway=track", "footway!=sidewalk|crossing", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=compacted|fine_gravel|asphalt|paved|paving_stones|concrete|sett|cobblestone|bricks|chipseal|concrete:plates|concrete:lanes"]
+draw = "line"
+target = "map"
+schoolyard = "501.7"
 
 [[rule]]
 when = ["highway=footway|path|bridleway", "footway!=sidewalk|crossing", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=compacted|fine_gravel|asphalt|paved|paving_stones|concrete|sett|cobblestone|bricks|chipseal|concrete:plates|concrete:lanes"]
@@ -479,7 +530,13 @@ draw = "line"
 target = "map"
 sprint = "501.6"
 
-# Paved service ways (sprint only, ADR 0098): a driveway, a courtyard road or the access to a castle
+[[rule]]
+when = ["highway=footway|path|bridleway", "footway!=sidewalk|crossing", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=compacted|fine_gravel|asphalt|paved|paving_stones|concrete|sett|cobblestone|bricks|chipseal|concrete:plates|concrete:lanes"]
+draw = "line"
+target = "map"
+schoolyard = "501.6"
+
+# Paved service ways (sprint and schoolyard, ADR 0098, 0207): a driveway, a courtyard road or the access to a castle
 # is a paved way wider than a footpath: 501.6 to 501.9 by `width`, 501.8 (3 m) without one. Other
 # streets keep no rule, the ALKIS traffic areas show them.
 [[rule]]
@@ -489,10 +546,22 @@ target = "map"
 sprint = "501.9"
 
 [[rule]]
+when = ["highway=service", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=asphalt|paved|paving_stones|concrete|sett|cobblestone|bricks|chipseal|concrete:plates|concrete:lanes", "width>=1.25"]
+draw = "line"
+target = "map"
+schoolyard = "501.9"
+
+[[rule]]
 when = ["highway=service", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=asphalt|paved|paving_stones|concrete|sett|cobblestone|bricks|chipseal|concrete:plates|concrete:lanes", "width>=3"]
 draw = "line"
 target = "map"
 sprint = "501.8"
+
+[[rule]]
+when = ["highway=service", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=asphalt|paved|paving_stones|concrete|sett|cobblestone|bricks|chipseal|concrete:plates|concrete:lanes", "width>=0.95"]
+draw = "line"
+target = "map"
+schoolyard = "501.8"
 
 [[rule]]
 when = ["highway=service", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=asphalt|paved|paving_stones|concrete|sett|cobblestone|bricks|chipseal|concrete:plates|concrete:lanes", "width>=2"]
@@ -501,10 +570,22 @@ target = "map"
 sprint = "501.7"
 
 [[rule]]
+when = ["highway=service", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=asphalt|paved|paving_stones|concrete|sett|cobblestone|bricks|chipseal|concrete:plates|concrete:lanes", "width>=0.65"]
+draw = "line"
+target = "map"
+schoolyard = "501.7"
+
+[[rule]]
 when = ["highway=service", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=asphalt|paved|paving_stones|concrete|sett|cobblestone|bricks|chipseal|concrete:plates|concrete:lanes", "width<2"]
 draw = "line"
 target = "map"
 sprint = "501.6"
+
+[[rule]]
+when = ["highway=service", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=asphalt|paved|paving_stones|concrete|sett|cobblestone|bricks|chipseal|concrete:plates|concrete:lanes", "width<0.65"]
+draw = "line"
+target = "map"
+schoolyard = "501.6"
 
 [[rule]]
 when = ["highway=service", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=asphalt|paved|paving_stones|concrete|sett|cobblestone|bricks|chipseal|concrete:plates|concrete:lanes"]
@@ -512,7 +593,13 @@ draw = "line"
 target = "map"
 sprint = "501.8"
 
-# Unpaved ways (sprint only). Sidewalks have no rule: the ALKIS traffic areas and the
+[[rule]]
+when = ["highway=service", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=asphalt|paved|paving_stones|concrete|sett|cobblestone|bricks|chipseal|concrete:plates|concrete:lanes"]
+draw = "line"
+target = "map"
+schoolyard = "501.8"
+
+# Unpaved ways (sprint and schoolyard). Sidewalks have no rule: the ALKIS traffic areas and the
 # orthophoto cover them. Map objects only in the open: tunnels, covered and indoor ways and
 # pedestrian areas (closed rings) fall through to the candidate rule below.
 [[rule]]
@@ -520,30 +607,35 @@ when = ["highway=track|path|footway|bridleway", "footway!=sidewalk|crossing", "t
 draw = "line"
 target = "map"
 sprint = "506"
+schoolyard = "506"
 
 [[rule]]
 when = ["highway=path", "footway!=sidewalk|crossing", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=unpaved|dirt|earth|ground|grass|gravel|sand|woodchips", "trail_visibility=intermediate|bad|horrible|no"]
 draw = "line"
 target = "map"
 sprint = "506"
+schoolyard = "506"
 
 [[rule]]
 when = ["highway=track", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=unpaved|dirt|earth|ground|grass|gravel|sand|woodchips"]
 draw = "line"
 target = "map"
 sprint = "505.2"
+schoolyard = "505.2"
 
 [[rule]]
 when = ["highway=path|footway|bridleway", "footway!=sidewalk|crossing", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=unpaved|dirt|earth|ground|grass|gravel|sand|woodchips", "width>=3"]
 draw = "line"
 target = "map"
 sprint = "505.2"
+schoolyard = "505.2"
 
 [[rule]]
 when = ["highway=path|footway|bridleway", "footway!=sidewalk|crossing", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=unpaved|dirt|earth|ground|grass|gravel|sand|woodchips"]
 draw = "line"
 target = "map"
 sprint = "505.1"
+schoolyard = "505.1"
 
 # Any other way that is not known to be paved (no surface tag, an unusual surface, or one of the
 # ways above that is not in the open): a candidate to check against the orthophoto.
@@ -556,14 +648,22 @@ target = "map"
 sprint = "501.7"
 
 [[rule]]
+when = ["highway=track", "tracktype=grade2", "surface!=asphalt|chipseal|concrete|concrete:plates|concrete:lanes|paved|paving_stones|paving_stones:lanes|sett|cobblestone|unhewn_cobblestone|bricks|metal|wood|grass_paver"]
+draw = "line"
+target = "map"
+schoolyard = "501.7"
+
+[[rule]]
 when = ["highway=track", "tracktype=grade3|grade4|grade5", "surface!=asphalt|chipseal|concrete|concrete:plates|concrete:lanes|paved|paving_stones|paving_stones:lanes|sett|cobblestone|unhewn_cobblestone|bricks|metal|wood|grass_paver"]
 draw = "line"
 sprint = "505.2"
+schoolyard = "505.2"
 
 [[rule]]
 when = ["highway=track|path|footway|bridleway", "footway!=sidewalk|crossing", "tracktype!=grade1", "surface!=asphalt|chipseal|concrete|concrete:plates|concrete:lanes|paved|paving_stones|paving_stones:lanes|sett|cobblestone|unhewn_cobblestone|bricks|metal|wood|grass_paver"]
 draw = "line"
 sprint = "505.1"
+schoolyard = "505.1"
 
 # Unpaved streets (sand roads in the suburbs): a candidate, and their ALKIS street parcels are not
 # drawn as paved areas (`build/paved.rs`).
@@ -571,6 +671,7 @@ sprint = "505.1"
 when = ["highway=residential|unclassified|service|living_street|tertiary|secondary|primary|road", "surface=unpaved|dirt|earth|ground|grass|gravel|fine_gravel|compacted|sand|woodchips"]
 draw = "line"
 sprint = "505.2"
+schoolyard = "505.2"
 
 # Water (spec §4.5). The combined 301 is used for areas: OSM shapes are not clipped like ALKIS water,
 # so the bank line is part of the symbol. Areas inside ALKIS water are dropped by

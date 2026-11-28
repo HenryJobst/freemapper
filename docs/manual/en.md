@@ -34,7 +34,7 @@ map (1:1000), sprint map (1:4000) or forest map (1:15 000 to 1:7500). The geodat
 buildings and land use from the cadastre (ALKIS). Data from OpenStreetMap (OSM) is added.
 
 - **Drawn as finished map objects** is only what is reliable: buildings, water from the cadastre, and on
-  sprint maps also paved areas (streets, squares) and unpaved paths with a known surface.
+  sprint and schoolyard maps also paved areas (streets, squares) and paths with a known surface.
 - **Given as templates** is everything you have to judge yourself: orthophoto, hillshade, slope, local
   relief, height above ground (nDSM), contours, knolls and banks from the terrain, fences, hedges, benches, playground equipment, out-of-bounds areas,
   ponds, streams, fountains and bridges.
