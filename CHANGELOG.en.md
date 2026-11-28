@@ -25,6 +25,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Changed
 
+- The manual shows a preview image of the Viktoriapark example for each layer in the table of candidate layers; a click shows it at full size.
 - The README and the website show the layers of the Viktoriapark example map: the seven candidate layers and the templates (orthophoto, hillshade, slope, local relief, nDSM, K5) as 4 cm previews, a click shows the layer at full size. The images are in `examples/berlin-viktoriapark/layers/` and come from `scripts/layer-previews.sh`.
 - The addresses of the height models and services of Hamburg, North Rhine-Westphalia, Lower Saxony, Mecklenburg-Vorpommern and Bremen now live in the manifest: `[orthophoto]` of these backends takes a table `endpoints` of names and https addresses (Hamburg also `url`, `layer` and `max_px` of its WMS), issue #273. A folder that replaces a built-in state names only what moved; what it leaves out comes from the built-in manifest. `freemapper adapters export` writes the addresses too. Nothing changes for maps and cache folders.
 - The tile addresses of Brandenburg and Berlin (orthophoto, DGM, bDOM, nDOM point clouds and the currency lists) now live in the manifest: `[orthophoto.endpoints]` with `data` and `currency` (issue #273). A folder that replaces Brandenburg or Berlin names only what moved; what it leaves out comes from the built-in manifest, and `freemapper adapters export` writes the addresses too. Nothing changes for maps and cache folders.
