@@ -1,0 +1,1978 @@
+{
+  "updated": "2026-11-28",
+  "services": {
+    "https://api.hamburg.de/datasets/v1/alkis_vereinfacht/collections/GebaeudeBauwerk/items": {
+      "host": "api.hamburg.de",
+      "adapters": [
+        "hamburg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://api.hamburg.de/datasets/v1/alkis_vereinfacht/collections/NutzungFlurstueck/items": {
+      "host": "api.hamburg.de",
+      "adapters": [
+        "hamburg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://api.hamburg.de/datasets/v1/strassenbaumkataster/collections/strassenbaumkataster_hh/items": {
+      "host": "api.hamburg.de",
+      "adapters": [
+        "hamburg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/dgm1_hh_2022-04-30_258334_snap_1.zip": {
+      "host": "archiv.transparenz.hamburg.de",
+      "adapters": [
+        "hamburg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://cardomap3.idu.de/lfds/public/ogc.ashx?PKGID=5": {
+      "host": "cardomap3.idu.de",
+      "adapters": [
+        "saxony"
+      ],
+      "status": "error",
+      "detail": "gzip decompression failed: incomplete deflate stream",
+      "bad_nights": 5,
+      "down": true,
+      "down_since": "2026-11-25",
+      "changed": false
+    },
+    "https://data.geobasis-bb.de/geobasis/daten": {
+      "host": "data.geobasis-bb.de",
+      "adapters": [
+        "brandenburg",
+        "berlin"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://data.geobasis-bb.de/geobasis/daten/als/laz/": {
+      "host": "data.geobasis-bb.de",
+      "adapters": [
+        "brandenburg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://data.geobasis-bb.de/geobasis/information/aktualitaeten": {
+      "host": "data.geobasis-bb.de",
+      "adapters": [
+        "brandenburg",
+        "berlin"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_laserscandaten_aktualitaet.csv": {
+      "host": "data.geobasis-bb.de",
+      "adapters": [
+        "brandenburg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://data.geobasis-bb.de/geofachdaten/Wasser/Gewaesserbewirtschaftung/wsg.zip": {
+      "host": "data.geobasis-bb.de",
+      "adapters": [
+        "brandenburg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://dgm.stac.lgln.niedersachsen.de": {
+      "host": "dgm.stac.lgln.niedersachsen.de",
+      "adapters": [
+        "niedersachsen"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://dienste.gdi-sh.de/WFS_SH_ALKIS_VWG_OpenGBD": {
+      "host": "dienste.gdi-sh.de",
+      "adapters": [
+        "schleswigholstein"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://dienste.gdi-sh.de/WFS_SH_ATKIS_BDLM_SF_OpenGBD": {
+      "host": "dienste.gdi-sh.de",
+      "adapters": [
+        "schleswigholstein"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://dienste.gdi-sh.de/WMS_SH_DOP20col_OpenGBD": {
+      "host": "dienste.gdi-sh.de",
+      "adapters": [
+        "schleswigholstein"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://dom.stac.lgln.niedersachsen.de": {
+      "host": "dom.stac.lgln.niedersachsen.de",
+      "adapters": [
+        "niedersachsen"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://dop.stac.lgln.niedersachsen.de": {
+      "host": "dop.stac.lgln.niedersachsen.de",
+      "adapters": [
+        "niedersachsen"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://download.geofabrik.de/europe/germany/baden-wuerttemberg/freiburg-regbez/freiburg-regbez-latest.osm.pbf": {
+      "host": "download.geofabrik.de",
+      "adapters": [
+        "badenwuerttemberg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://download.geofabrik.de/europe/germany/baden-wuerttemberg/karlsruhe-regbez/karlsruhe-regbez-latest.osm.pbf": {
+      "host": "download.geofabrik.de",
+      "adapters": [
+        "badenwuerttemberg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://download.geofabrik.de/europe/germany/baden-wuerttemberg/stuttgart-regbez/stuttgart-regbez-latest.osm.pbf": {
+      "host": "download.geofabrik.de",
+      "adapters": [
+        "badenwuerttemberg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://download.geofabrik.de/europe/germany/baden-wuerttemberg/tuebingen-regbez/tuebingen-regbez-latest.osm.pbf": {
+      "host": "download.geofabrik.de",
+      "adapters": [
+        "badenwuerttemberg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://download.geofabrik.de/europe/germany/bayern/mittelfranken/mittelfranken-latest.osm.pbf": {
+      "host": "download.geofabrik.de",
+      "adapters": [
+        "bayern"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://download.geofabrik.de/europe/germany/bayern/niederbayern/niederbayern-latest.osm.pbf": {
+      "host": "download.geofabrik.de",
+      "adapters": [
+        "bayern"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://download.geofabrik.de/europe/germany/bayern/oberbayern/oberbayern-latest.osm.pbf": {
+      "host": "download.geofabrik.de",
+      "adapters": [
+        "bayern"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://download.geofabrik.de/europe/germany/bayern/oberfranken/oberfranken-latest.osm.pbf": {
+      "host": "download.geofabrik.de",
+      "adapters": [
+        "bayern"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://download.geofabrik.de/europe/germany/bayern/oberpfalz/oberpfalz-latest.osm.pbf": {
+      "host": "download.geofabrik.de",
+      "adapters": [
+        "bayern"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://download.geofabrik.de/europe/germany/bayern/schwaben/schwaben-latest.osm.pbf": {
+      "host": "download.geofabrik.de",
+      "adapters": [
+        "bayern"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://download.geofabrik.de/europe/germany/bayern/unterfranken/unterfranken-latest.osm.pbf": {
+      "host": "download.geofabrik.de",
+      "adapters": [
+        "bayern"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://download.geofabrik.de/europe/germany/brandenburg/brandenburg-latest.osm.pbf": {
+      "host": "download.geofabrik.de",
+      "adapters": [
+        "brandenburg",
+        "berlin"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://download.geofabrik.de/europe/germany/bremen/bremen-latest.osm.pbf": {
+      "host": "download.geofabrik.de",
+      "adapters": [
+        "bremen"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://download.geofabrik.de/europe/germany/hamburg/hamburg-latest.osm.pbf": {
+      "host": "download.geofabrik.de",
+      "adapters": [
+        "hamburg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://download.geofabrik.de/europe/germany/hessen/hessen-latest.osm.pbf": {
+      "host": "download.geofabrik.de",
+      "adapters": [
+        "hessen"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://download.geofabrik.de/europe/germany/mecklenburg-vorpommern/mecklenburg-vorpommern-latest.osm.pbf": {
+      "host": "download.geofabrik.de",
+      "adapters": [
+        "mecklenburgvorpommern"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://download.geofabrik.de/europe/germany/niedersachsen/niedersachsen-latest.osm.pbf": {
+      "host": "download.geofabrik.de",
+      "adapters": [
+        "niedersachsen"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/arnsberg-regbez/arnsberg-regbez-latest.osm.pbf": {
+      "host": "download.geofabrik.de",
+      "adapters": [
+        "nordrheinwestfalen"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/detmold-regbez/detmold-regbez-latest.osm.pbf": {
+      "host": "download.geofabrik.de",
+      "adapters": [
+        "nordrheinwestfalen"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/duesseldorf-regbez/duesseldorf-regbez-latest.osm.pbf": {
+      "host": "download.geofabrik.de",
+      "adapters": [
+        "nordrheinwestfalen"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/koeln-regbez/koeln-regbez-latest.osm.pbf": {
+      "host": "download.geofabrik.de",
+      "adapters": [
+        "nordrheinwestfalen"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/muenster-regbez/muenster-regbez-latest.osm.pbf": {
+      "host": "download.geofabrik.de",
+      "adapters": [
+        "nordrheinwestfalen"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://download.geofabrik.de/europe/germany/rheinland-pfalz/rheinland-pfalz-latest.osm.pbf": {
+      "host": "download.geofabrik.de",
+      "adapters": [
+        "rheinlandpfalz"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://download.geofabrik.de/europe/germany/saarland/saarland-latest.osm.pbf": {
+      "host": "download.geofabrik.de",
+      "adapters": [
+        "saarland"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://download.geofabrik.de/europe/germany/sachsen-anhalt/sachsen-anhalt-latest.osm.pbf": {
+      "host": "download.geofabrik.de",
+      "adapters": [
+        "saxonyanhalt"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://download.geofabrik.de/europe/germany/sachsen/sachsen-latest.osm.pbf": {
+      "host": "download.geofabrik.de",
+      "adapters": [
+        "saxony"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://download.geofabrik.de/europe/germany/schleswig-holstein/schleswig-holstein-latest.osm.pbf": {
+      "host": "download.geofabrik.de",
+      "adapters": [
+        "schleswigholstein"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://gdi.berlin.de/data/a_als/atom/": {
+      "host": "gdi.berlin.de",
+      "adapters": [
+        "berlin"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://gdi.berlin.de/services/wfs/alkis_bezirke": {
+      "host": "gdi.berlin.de",
+      "adapters": [
+        "berlin"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://gdi.berlin.de/services/wfs/denkmale": {
+      "host": "gdi.berlin.de",
+      "adapters": [
+        "berlin"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://gdi.berlin.de/services/wfs/forstverwalt": {
+      "host": "gdi.berlin.de",
+      "adapters": [
+        "berlin"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://gdi.berlin.de/services/wfs/gruenanlagen": {
+      "host": "gdi.berlin.de",
+      "adapters": [
+        "berlin"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://gdi.berlin.de/services/wfs/liegenschaftsplan": {
+      "host": "gdi.berlin.de",
+      "adapters": [
+        "berlin"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://gdi.berlin.de/services/wfs/schutzgebiete": {
+      "host": "gdi.berlin.de",
+      "adapters": [
+        "berlin"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://gdi.berlin.de/services/wfs/ua_biotoptypen_2024": {
+      "host": "gdi.berlin.de",
+      "adapters": [
+        "berlin"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://gdi.berlin.de/services/wfs/wsg": {
+      "host": "gdi.berlin.de",
+      "adapters": [
+        "berlin"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://gdi2.geo.bremen.de/inspire/download": {
+      "host": "gdi2.geo.bremen.de",
+      "adapters": [
+        "bremen"
+      ],
+      "status": "ok",
+      "detail": "answers, but refuses the probe request",
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geo4.service24.rlp.de/wms/rp_dop20.fcgi": {
+      "host": "geo4.service24.rlp.de",
+      "adapters": [
+        "rheinlandpfalz"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geo5.service24.rlp.de/wfs/alkis_rp.fcgi": {
+      "host": "geo5.service24.rlp.de",
+      "adapters": [
+        "rheinlandpfalz"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geo5.service24.rlp.de/wfs/basisdlm_shape_rp.fcgi": {
+      "host": "geo5.service24.rlp.de",
+      "adapters": [
+        "rheinlandpfalz"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geobasis-rlp.de/data/las/current/": {
+      "host": "geobasis-rlp.de",
+      "adapters": [
+        "rheinlandpfalz"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geobasis-rlp.de/data/las/current/meta4/las_las_07.meta4": {
+      "host": "geobasis-rlp.de",
+      "adapters": [
+        "rheinlandpfalz"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geodaten.bayern.de/odd_data/laser/": {
+      "host": "geodaten.bayern.de",
+      "adapters": [
+        "bayern"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geodatenportal.sachsen-anhalt.de/ows_WCS_ST_DOM1": {
+      "host": "geodatenportal.sachsen-anhalt.de",
+      "adapters": [
+        "saxonyanhalt"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geodatenportal.sachsen-anhalt.de/ows_lau_wfs_naturschutz": {
+      "host": "geodatenportal.sachsen-anhalt.de",
+      "adapters": [
+        "saxonyanhalt"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geodatenportal.sachsen-anhalt.de/ows_lvermgeo_wfs_st_geobasis": {
+      "host": "geodatenportal.sachsen-anhalt.de",
+      "adapters": [
+        "saxonyanhalt"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geodienste-umwelt.hessen.de/arcgis/services/inspire/bewirtschaftungsgebiete/MapServer/WFSServer": {
+      "host": "geodienste-umwelt.hessen.de",
+      "adapters": [
+        "hessen"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geodienste-umwelt.hessen.de/arcgis/services/inspire/lebensraeume_biotope/MapServer/WFSServer": {
+      "host": "geodienste-umwelt.hessen.de",
+      "adapters": [
+        "hessen"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geodienste.bremen.de/wfs_kulturdenkmale": {
+      "host": "geodienste.bremen.de",
+      "adapters": [
+        "bremen"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geodienste.bremen.de/wms_dop_lb": {
+      "host": "geodienste.bremen.de",
+      "adapters": [
+        "bremen"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geodienste.denkx.de/geoserver/denkx/wfs": {
+      "host": "geodienste.denkx.de",
+      "adapters": [
+        "hessen"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geodienste.hamburg.de/HH_WFS_Biotopkataster": {
+      "host": "geodienste.hamburg.de",
+      "adapters": [
+        "hamburg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geodienste.hamburg.de/HH_WFS_Denkmalschutz": {
+      "host": "geodienste.hamburg.de",
+      "adapters": [
+        "hamburg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geodienste.hamburg.de/HH_WFS_Gruenplan": {
+      "host": "geodienste.hamburg.de",
+      "adapters": [
+        "hamburg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geodienste.hamburg.de/HH_WFS_Schutzgebiete": {
+      "host": "geodienste.hamburg.de",
+      "adapters": [
+        "hamburg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geodienste.hamburg.de/HH_WFS_Verwaltungsgrenzen": {
+      "host": "geodienste.hamburg.de",
+      "adapters": [
+        "hamburg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geodienste.hamburg.de/HH_WFS_Wald_in_Hamburg": {
+      "host": "geodienste.hamburg.de",
+      "adapters": [
+        "hamburg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geodienste.hamburg.de/HH_WFS_Waldfunktionen": {
+      "host": "geodienste.hamburg.de",
+      "adapters": [
+        "hamburg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geodienste.hamburg.de/HH_WFS_Wasserschutzgebiete": {
+      "host": "geodienste.hamburg.de",
+      "adapters": [
+        "hamburg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geodienste.hamburg.de/WFS_HH_ALKIS_vereinfacht": {
+      "host": "geodienste.hamburg.de",
+      "adapters": [
+        "hamburg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geodienste.hamburg.de/wms_dop_zeitreihe_unbelaubt": {
+      "host": "geodienste.hamburg.de",
+      "adapters": [
+        "hamburg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geodienste.leipzig.de/l3/OpenData/Baeume/wfs": {
+      "host": "geodienste.leipzig.de",
+      "adapters": [
+        "saxony"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geodienste.sachsen.de/aaa/public_alkis/vereinf/wfs": {
+      "host": "geodienste.sachsen.de",
+      "adapters": [
+        "saxony"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geodienste.sachsen.de/wms_geosn_dop-rgb/guest": {
+      "host": "geodienste.sachsen.de",
+      "adapters": [
+        "saxony"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geoportal.frankfurt-oder.de/wss/service/WFS_Baumkataster/guest": {
+      "host": "geoportal.frankfurt-oder.de",
+      "adapters": [
+        "brandenburg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geoportal.naturschutz.rlp.de/kartendienst_naturschutz/apps/service/wfs_getmap.php?mapfile=glb": {
+      "host": "geoportal.naturschutz.rlp.de",
+      "adapters": [
+        "rheinlandpfalz"
+      ],
+      "status": "error",
+      "detail": "http status: 504",
+      "bad_nights": 1,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geoportal.naturschutz.rlp.de/kartendienst_naturschutz/apps/service/wfs_getmap.php?mapfile=naturdenkmale": {
+      "host": "geoportal.naturschutz.rlp.de",
+      "adapters": [
+        "rheinlandpfalz"
+      ],
+      "status": "error",
+      "detail": "http status: 504",
+      "bad_nights": 1,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geoportal.saarland.de/arcgis/services/Internet/Biotopkataster/MapServer/WFSServer": {
+      "host": "geoportal.saarland.de",
+      "adapters": [
+        "saarland"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geoportal.saarland.de/arcgis/services/Internet/Denkmalschutz/MapServer/WFSServer": {
+      "host": "geoportal.saarland.de",
+      "adapters": [
+        "saarland"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geoportal.saarland.de/arcgis/services/Internet/Forstwirtschaft/MapServer/WFSServer": {
+      "host": "geoportal.saarland.de",
+      "adapters": [
+        "saarland"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geoportal.saarland.de/arcgis/services/Internet/Schutzgebiete_INS/MapServer/WFSServer": {
+      "host": "geoportal.saarland.de",
+      "adapters": [
+        "saarland"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geoportal.saarland.de/freewms/dop2025": {
+      "host": "geoportal.saarland.de",
+      "adapters": [
+        "saarland"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geoportal.saarland.de/registry/wfs/414": {
+      "host": "geoportal.saarland.de",
+      "adapters": [
+        "saarland"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geoportal.stadt-koeln.de/wss/service/baumkataster_extern_wfs/guest": {
+      "host": "geoportal.stadt-koeln.de",
+      "adapters": [
+        "nordrheinwestfalen"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geoservice.norderstedt.de/geoserver/gru/wfs": {
+      "host": "geoservice.norderstedt.de",
+      "adapters": [
+        "schleswigholstein"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geoservices.bayern.de/od/wms/dop/v1/dop20": {
+      "host": "geoservices.bayern.de",
+      "adapters": [
+        "bayern"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://geoservices.bayern.de/wfs/v1/ogc_atkis_basisdlm.cgi": {
+      "host": "geoservices.bayern.de",
+      "adapters": [
+        "bayern"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://gis-bldam-brandenburg.de/ows/baudenkmale": {
+      "host": "gis-bldam-brandenburg.de",
+      "adapters": [
+        "brandenburg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://gis-bldam-brandenburg.de/ows/bodendenkmale": {
+      "host": "gis-bldam-brandenburg.de",
+      "adapters": [
+        "brandenburg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://ims.kiel.de/geodatenextern/services/Stadtplan/LHKielWmsWfs/MapServer/WFSServer": {
+      "host": "ims.kiel.de",
+      "adapters": [
+        "schleswigholstein"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://inspire.brandenburg.de/services/bbk_wfs": {
+      "host": "inspire.brandenburg.de",
+      "adapters": [
+        "brandenburg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://isk.geobasis-bb.de/mapproxy/dop20c/service/wms": {
+      "host": "isk.geobasis-bb.de",
+      "adapters": [
+        "brandenburg",
+        "berlin"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://isk.geobasis-bb.de/ows/alkis_nas_wfs": {
+      "host": "isk.geobasis-bb.de",
+      "adapters": [
+        "brandenburg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://laiv.geodaten-mv.de/afgvk/_apps/dladownload/_ajax/overview.php": {
+      "host": "laiv.geodaten-mv.de",
+      "adapters": [
+        "mecklenburgvorpommern"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://luis.sachsen.de/arcgis/services/natur/gesetz_gesch_biotope/MapServer/WFSServer": {
+      "host": "luis.sachsen.de",
+      "adapters": [
+        "saxony"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://luis.sachsen.de/arcgis/services/natur/schutzgebiete/MapServer/WFSServer": {
+      "host": "luis.sachsen.de",
+      "adapters": [
+        "saxony"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://offenedaten.frankfurt.de/dcat/dataset/de-he-frankfurtam-baumkataster_op/content.csv": {
+      "host": "offenedaten.frankfurt.de",
+      "adapters": [
+        "hessen"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://ogc-api.geobasis-bb.de/alkis-vereinfacht/v1/collections/gebaeude_bauwerk/items": {
+      "host": "ogc-api.geobasis-bb.de",
+      "adapters": [
+        "brandenburg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://ogc-api.geobasis-bb.de/alkis-vereinfacht/v1/collections/nutzung_flurstueck/items": {
+      "host": "ogc-api.geobasis-bb.de",
+      "adapters": [
+        "brandenburg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://open-data.dortmund.de/api/explore/v2.1/catalog/datasets/baumkataster/exports/geojson": {
+      "host": "open-data.dortmund.de",
+      "adapters": [
+        "nordrheinwestfalen"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://opendata.geoservices.lgln.niedersachsen.de/dgm_wcs": {
+      "host": "opendata.geoservices.lgln.niedersachsen.de",
+      "adapters": [
+        "niedersachsen"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://opendata.geoservices.lgln.niedersachsen.de/dom_wcs": {
+      "host": "opendata.geoservices.lgln.niedersachsen.de",
+      "adapters": [
+        "niedersachsen"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://opendata.lgln.niedersachsen.de/doorman/noauth/alkis_wfs_einfach": {
+      "host": "opendata.lgln.niedersachsen.de",
+      "adapters": [
+        "niedersachsen"
+      ],
+      "status": "error",
+      "detail": "http status: 503",
+      "bad_nights": 2,
+      "down": true,
+      "down_since": "2026-11-28",
+      "changed": true
+    },
+    "https://opendata.lgln.niedersachsen.de/doorman/noauth/alkis_wfs_nas": {
+      "host": "opendata.lgln.niedersachsen.de",
+      "adapters": [
+        "niedersachsen"
+      ],
+      "status": "error",
+      "detail": "http status: 503",
+      "bad_nights": 2,
+      "down": true,
+      "down_since": "2026-11-28",
+      "changed": true
+    },
+    "https://opendata.lgln.niedersachsen.de/doorman/noauth/alkishb_wfs_sf": {
+      "host": "opendata.lgln.niedersachsen.de",
+      "adapters": [
+        "bremen"
+      ],
+      "status": "error",
+      "detail": "http status: 503",
+      "bad_nights": 2,
+      "down": true,
+      "down_since": "2026-11-28",
+      "changed": true
+    },
+    "https://opendata.lgln.niedersachsen.de/doorman/noauth/dop_wms": {
+      "host": "opendata.lgln.niedersachsen.de",
+      "adapters": [
+        "niedersachsen"
+      ],
+      "status": "error",
+      "detail": "http status: 503",
+      "bad_nights": 2,
+      "down": true,
+      "down_since": "2026-11-28",
+      "changed": true
+    },
+    "https://opendata.luebeck.de/bereich/5.660/stadtgruen/baumkataster/baumkataster.csv": {
+      "host": "opendata.luebeck.de",
+      "adapters": [
+        "schleswigholstein"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://opendata.potsdam.de/api/explore/v2.1/catalog/datasets/baeume-1-stadtkarte-potsdam/exports/geojson": {
+      "host": "opendata.potsdam.de",
+      "adapters": [
+        "brandenburg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://opendata.potsdam.de/api/explore/v2.1/catalog/datasets/baeume-2-stadtkarte-potsdam/exports/geojson": {
+      "host": "opendata.potsdam.de",
+      "adapters": [
+        "brandenburg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://opendata.potsdam.de/api/explore/v2.1/catalog/datasets/baeume-3-stadtkarte-potsdam/exports/geojson": {
+      "host": "opendata.potsdam.de",
+      "adapters": [
+        "brandenburg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://opendata.schleswig-holstein.de/collection/geodaten-denkmalliste-sh/aktuell.geojson": {
+      "host": "opendata.schleswig-holstein.de",
+      "adapters": [
+        "schleswigholstein"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://owsproxy.lgl-bw.de/owsproxy/ows/WMS_LGL-BW_ATKIS_DOP_20_C": {
+      "host": "owsproxy.lgl-bw.de",
+      "adapters": [
+        "badenwuerttemberg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://owsproxy.lgl-bw.de/owsproxy/wfs/WFS_LAD_Archaeologische_Kulturdenkmale_BW": {
+      "host": "owsproxy.lgl-bw.de",
+      "adapters": [
+        "badenwuerttemberg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://owsproxy.lgl-bw.de/owsproxy/wfs/WFS_LAD_Kulturdenkmale_Bau_Kunstdenkmalpflege": {
+      "host": "owsproxy.lgl-bw.de",
+      "adapters": [
+        "badenwuerttemberg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://rips-gdi.lubw.baden-wuerttemberg.de/arcgis/services/wfs/Naturdenkmal_Einzelgebilde/MapServer/WFSServer": {
+      "host": "rips-gdi.lubw.baden-wuerttemberg.de",
+      "adapters": [
+        "badenwuerttemberg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://rips-gdi.lubw.baden-wuerttemberg.de/arcgis/services/wfs/Naturdenkmal_Flaechenhaft/MapServer/WFSServer": {
+      "host": "rips-gdi.lubw.baden-wuerttemberg.de",
+      "adapters": [
+        "badenwuerttemberg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://rips-gdi.lubw.baden-wuerttemberg.de/arcgis/services/wms/UIS_0100007500200036_AGGR/MapServer/WFSServer": {
+      "host": "rips-gdi.lubw.baden-wuerttemberg.de",
+      "adapters": [
+        "badenwuerttemberg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://service.gdi-sh.de/SH_INSPIREDOWNLOAD_AI_PS": {
+      "host": "service.gdi-sh.de",
+      "adapters": [
+        "schleswigholstein"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://umweltgeodienste.schleswig-holstein.de/WFS_UWAT": {
+      "host": "umweltgeodienste.schleswig-holstein.de",
+      "adapters": [
+        "schleswigholstein"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.brandenburg-forst.de/geoserver/IFUEK/ows": {
+      "host": "www.brandenburg-forst.de",
+      "adapters": [
+        "brandenburg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.brandenburg-forst.de/geoserver/IWFK/ows": {
+      "host": "www.brandenburg-forst.de",
+      "adapters": [
+        "brandenburg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.daten-hamburg.de/opendata/Digitales_Hoehenmodell_bDOM/dom1_hh_2022-11-21.zip": {
+      "host": "www.daten-hamburg.de",
+      "adapters": [
+        "hamburg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.daten-hamburg.de/opendata/fernerkundung_luftbilder/dop_unbelaubt/DOP_unbelaubt_AdV-Metadaten_Hamburg.zip": {
+      "host": "www.daten-hamburg.de",
+      "adapters": [
+        "hamburg"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.forsten.sachsen.de/kartendienste/wald/MapServer/WMSServer": {
+      "host": "www.forsten.sachsen.de",
+      "adapters": [
+        "saxony"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.forsten.sachsen.de/kartendienste/waldfunktionen/MapServer/WMSServer": {
+      "host": "www.forsten.sachsen.de",
+      "adapters": [
+        "saxony"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.gds-srv.hessen.de/cgi-bin/lika-services/ogc-free-images.ows": {
+      "host": "www.gds-srv.hessen.de",
+      "adapters": [
+        "hessen"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/alkis/nas/wfs": {
+      "host": "www.gds.hessen.de",
+      "adapters": [
+        "hessen"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/alkis/vereinf/wfs": {
+      "host": "www.gds.hessen.de",
+      "adapters": [
+        "hessen"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/atkis-bdlm/nas/wfs": {
+      "host": "www.gds.hessen.de",
+      "adapters": [
+        "hessen"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.geodaten-mv.de/api/geobasis/alkis-vereinf/v1/collections/gebaeude_bauwerk/items": {
+      "host": "www.geodaten-mv.de",
+      "adapters": [
+        "mecklenburgvorpommern"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.geodaten-mv.de/api/geobasis/alkis-vereinf/v1/collections/nutzung_flurstueck/items": {
+      "host": "www.geodaten-mv.de",
+      "adapters": [
+        "mecklenburgvorpommern"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.geodaten-mv.de/dienste/adv_dop": {
+      "host": "www.geodaten-mv.de",
+      "adapters": [
+        "mecklenburgvorpommern"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.geodaten-mv.de/dienste/alkis_wfs_einfach": {
+      "host": "www.geodaten-mv.de",
+      "adapters": [
+        "mecklenburgvorpommern"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.geodaten-mv.de/dienste/alkis_wfs_nas": {
+      "host": "www.geodaten-mv.de",
+      "adapters": [
+        "mecklenburgvorpommern"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.geodaten-mv.de/dienste/atkis_bdlm_wfs_nas": {
+      "host": "www.geodaten-mv.de",
+      "adapters": [
+        "mecklenburgvorpommern"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.geodaten-mv.de/dienste/dgm_wcs": {
+      "host": "www.geodaten-mv.de",
+      "adapters": [
+        "mecklenburgvorpommern"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.geodaten-mv.de/dienste/dom_wcs": {
+      "host": "www.geodaten-mv.de",
+      "adapters": [
+        "mecklenburgvorpommern"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.geodaten-mv.de/dienste/inspire_oi_dop_wcs": {
+      "host": "www.geodaten-mv.de",
+      "adapters": [
+        "mecklenburgvorpommern"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.geodatenportal.sachsen-anhalt.de/ows_WCS_ST_DGM1": {
+      "host": "www.geodatenportal.sachsen-anhalt.de",
+      "adapters": [
+        "saxonyanhalt"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_ALKIS_WFS_OpenData/guest": {
+      "host": "www.geodatenportal.sachsen-anhalt.de",
+      "adapters": [
+        "saxonyanhalt"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_ATKIS_WFS_BDLM_OpenData/guest": {
+      "host": "www.geodatenportal.sachsen-anhalt.de",
+      "adapters": [
+        "saxonyanhalt"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_DOP_WMS_OpenData/guest": {
+      "host": "www.geodatenportal.sachsen-anhalt.de",
+      "adapters": [
+        "saxonyanhalt"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.geoportal.rlp.de/owsproxy/00000000000000000000000000000000/a2e0fb04feed3a72cf42d53cf6e2165e": {
+      "host": "www.geoportal.rlp.de",
+      "adapters": [
+        "rheinlandpfalz"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.lfu.bayern.de/gdi/wfs/natur/schutzgebiete": {
+      "host": "www.lfu.bayern.de",
+      "adapters": [
+        "bayern"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.opengeodata.nrw.de/produkte/geobasis/hm": {
+      "host": "www.opengeodata.nrw.de",
+      "adapters": [
+        "nordrheinwestfalen"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.opengeodata.nrw.de/produkte/geobasis/hm/3dm_l_las/3dm_l_las/": {
+      "host": "www.opengeodata.nrw.de",
+      "adapters": [
+        "nordrheinwestfalen"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.opengeodata.nrw.de/produkte/geobasis/hm/3dm_l_las/3dm_l_las/index.json": {
+      "host": "www.opengeodata.nrw.de",
+      "adapters": [
+        "nordrheinwestfalen"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.opengeodata.nrw.de/produkte/umwelt_klima/wald_forst/wald/forstbetriebsbezirke_nrw_EPSG25832_Shape.zip": {
+      "host": "www.opengeodata.nrw.de",
+      "adapters": [
+        "nordrheinwestfalen"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.opengeodata.nrw.de/produkte/umwelt_klima/wald_forst/wald/landeseigener_forstbetrieb_staatswald_EPSG25832_Shape.zip": {
+      "host": "www.opengeodata.nrw.de",
+      "adapters": [
+        "nordrheinwestfalen"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.opengeodata.nrw.de/produkte/umwelt_klima/wasser/trinkwasser/wasserschutzgebiete/Wasserschutzgebiete-NRW_EPSG25832_Shape.zip": {
+      "host": "www.opengeodata.nrw.de",
+      "adapters": [
+        "nordrheinwestfalen"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.shop.lvgl.saarland.de/cloud/public.php/dav/files/NK8ndP55qAqGEZD/OD_LIDAR_Punktwolke_2025_laz_LK/": {
+      "host": "www.shop.lvgl.saarland.de",
+      "adapters": [
+        "saarland"
+      ],
+      "status": "error",
+      "detail": "timeout: connect",
+      "bad_nights": 1,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.umweltkarten-niedersachsen.de/arcgis/rest/services/Natur_wms/MapServer": {
+      "host": "www.umweltkarten-niedersachsen.de",
+      "adapters": [
+        "niedersachsen"
+      ],
+      "status": "ok",
+      "detail": "answers, but refuses the probe request",
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_aaa-modell-basiert": {
+      "host": "www.wfs.nrw.de",
+      "adapters": [
+        "nordrheinwestfalen"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_vereinfacht": {
+      "host": "www.wfs.nrw.de",
+      "adapters": [
+        "nordrheinwestfalen"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.wfs.nrw.de/umwelt/linfos": {
+      "host": "www.wfs.nrw.de",
+      "adapters": [
+        "nordrheinwestfalen"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.wfs.nrw.de/wfs/denkmal": {
+      "host": "www.wfs.nrw.de",
+      "adapters": [
+        "nordrheinwestfalen"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    },
+    "https://www.wms.nrw.de/geobasis/wms_nw_dop": {
+      "host": "www.wms.nrw.de",
+      "adapters": [
+        "nordrheinwestfalen"
+      ],
+      "status": "ok",
+      "detail": null,
+      "bad_nights": 0,
+      "down": false,
+      "down_since": null,
+      "changed": false
+    }
+  },
+  "down_by_adapter": {
+    "bremen": [
+      "https://opendata.lgln.niedersachsen.de/doorman/noauth/alkishb_wfs_sf"
+    ],
+    "niedersachsen": [
+      "https://opendata.lgln.niedersachsen.de/doorman/noauth/alkis_wfs_einfach",
+      "https://opendata.lgln.niedersachsen.de/doorman/noauth/alkis_wfs_nas",
+      "https://opendata.lgln.niedersachsen.de/doorman/noauth/dop_wms"
+    ],
+    "saxony": [
+      "https://cardomap3.idu.de/lfds/public/ogc.ashx?PKGID=5"
+    ]
+  }
+}
