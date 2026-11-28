@@ -1092,10 +1092,21 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
     // The signed list of corrections of addresses (issue #273, stage 4) comes before anything
     // reads a manifest, the list of the adapters and `sources` included. A command that uses the
     // network anyway may fetch a newer list first, once a day, when the person turned that on.
-    if !matches!(cli.command, Commands::Update { .. } | Commands::Mcp { .. })
-        && let Some((_, offline)) = cli.command.update_check()
+    // `update_check` is `None` for `update` and the MCP server: they never fetch it.
+    if let Some((_, offline)) = cli.command.update_check()
+        && let Some(dir) = corrections::dir()
+        && let Some(line) = corrections::refresh_daily(corrections::Daily {
+            dir,
+            app: update::freemapper_app(),
+            source: std::sync::Arc::new(update::update_source()),
+            offline,
+            ci: std::env::var_os("CI").is_some(),
+            on: corrections::settings_file().is_some_and(|file| corrections::daily_on_in(&file)),
+            release: update::release_build(),
+            now: chrono::Utc::now().timestamp(),
+        })
     {
-        corrections::refresh_daily_for_command(offline);
+        eprintln!("{line}");
     }
     adapter_lines.extend(corrections::activate());
     if !matches!(

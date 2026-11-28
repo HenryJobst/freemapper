@@ -248,13 +248,13 @@ pub fn remove(dir: &Path) -> std::io::Result<bool> {
 const SETTING_ON: &str = "on";
 const SETTING_OFF: &str = "off";
 
-fn settings_file() -> Option<PathBuf> {
+pub fn settings_file() -> Option<PathBuf> {
     settings_dir().map(|dir| dir.join("settings.toml"))
 }
 
 /// Whether the person turned the daily check on (`[sources] corrections = "on"`) in `file`; the
 /// default is off.
-fn daily_on_in(file: &Path) -> bool {
+pub fn daily_on_in(file: &Path) -> bool {
     std::fs::read_to_string(file)
         .ok()
         .and_then(|text| text.parse::<toml::Table>().ok())
@@ -358,24 +358,6 @@ pub fn refresh_daily(daily: Daily) -> Option<String> {
             &[("issued", v(issued)), ("applied", crate::text::n(applied))],
         )),
         _ => None,
-    }
-}
-
-/// [`refresh_daily`] for a command: its `--offline`, the environment, the settings and the clock.
-pub fn refresh_daily_for_command(offline: bool) {
-    let Some(dir) = dir() else { return };
-    let line = refresh_daily(Daily {
-        dir,
-        app: freemapper_app(),
-        source: Arc::new(update_source()),
-        offline,
-        ci: std::env::var_os("CI").is_some(),
-        on: settings_file().is_some_and(|file| daily_on_in(&file)),
-        release: release_build(),
-        now: chrono::Utc::now().timestamp(),
-    });
-    if let Some(line) = line {
-        eprintln!("{line}");
     }
 }
 
