@@ -182,7 +182,7 @@
       "version": "0.33.0"
     },
     {
-      "bom-ref": "path+file://./crates/adapters/cz#freemapper-adapters-cz@0.28.0",
+      "bom-ref": "path+file://./crates/adapters/cz#freemapper-adapters-cz@0.29.0",
       "description": "The region adapter of Czechia: what freemapper needs to map Czechia",
       "externalReferences": [
         {
@@ -196,13 +196,13 @@
         }
       ],
       "name": "freemapper-adapters-cz",
-      "purl": "pkg:cargo/freemapper-adapters-cz@0.28.0?download_url=file://../adapters/cz",
+      "purl": "pkg:cargo/freemapper-adapters-cz@0.29.0?download_url=file://../adapters/cz",
       "scope": "required",
       "type": "library",
-      "version": "0.28.0"
+      "version": "0.29.0"
     },
     {
-      "bom-ref": "path+file://./crates/adapters/de#freemapper-adapters-de@0.28.0",
+      "bom-ref": "path+file://./crates/adapters/de#freemapper-adapters-de@0.29.0",
       "description": "The region adapters of the German states: what freemapper needs to map Brandenburg, Berlin, Saxony and the others",
       "externalReferences": [
         {
@@ -216,13 +216,13 @@
         }
       ],
       "name": "freemapper-adapters-de",
-      "purl": "pkg:cargo/freemapper-adapters-de@0.28.0?download_url=file://../adapters/de",
+      "purl": "pkg:cargo/freemapper-adapters-de@0.29.0?download_url=file://../adapters/de",
       "scope": "required",
       "type": "library",
-      "version": "0.28.0"
+      "version": "0.29.0"
     },
     {
-      "bom-ref": "path+file://./crates/adapters/pl#freemapper-adapters-pl@0.28.0",
+      "bom-ref": "path+file://./crates/adapters/pl#freemapper-adapters-pl@0.29.0",
       "description": "The region adapter of Poland: what freemapper needs to map Poland",
       "externalReferences": [
         {
@@ -236,13 +236,13 @@
         }
       ],
       "name": "freemapper-adapters-pl",
-      "purl": "pkg:cargo/freemapper-adapters-pl@0.28.0?download_url=file://../adapters/pl",
+      "purl": "pkg:cargo/freemapper-adapters-pl@0.29.0?download_url=file://../adapters/pl",
       "scope": "required",
       "type": "library",
-      "version": "0.28.0"
+      "version": "0.29.0"
     },
     {
-      "bom-ref": "path+file://./crates/adapters/se#freemapper-adapters-se@0.28.0",
+      "bom-ref": "path+file://./crates/adapters/se#freemapper-adapters-se@0.29.0",
       "description": "The region adapter of Sweden: what freemapper needs to map Sweden",
       "externalReferences": [
         {
@@ -256,13 +256,13 @@
         }
       ],
       "name": "freemapper-adapters-se",
-      "purl": "pkg:cargo/freemapper-adapters-se@0.28.0?download_url=file://../adapters/se",
+      "purl": "pkg:cargo/freemapper-adapters-se@0.29.0?download_url=file://../adapters/se",
       "scope": "required",
       "type": "library",
-      "version": "0.28.0"
+      "version": "0.29.0"
     },
     {
-      "bom-ref": "path+file://./crates/freemapper#0.28.0",
+      "bom-ref": "path+file://./crates/freemapper#0.29.0",
       "description": "Builds OpenOrienteering Mapper starter projects from official geodata and OSM",
       "externalReferences": [
         {
@@ -276,13 +276,13 @@
         }
       ],
       "name": "freemapper",
-      "purl": "pkg:cargo/freemapper@0.28.0?download_url=file://../freemapper",
+      "purl": "pkg:cargo/freemapper@0.29.0?download_url=file://../freemapper",
       "scope": "required",
       "type": "library",
-      "version": "0.28.0"
+      "version": "0.29.0"
     },
     {
-      "bom-ref": "path+file://./crates/freemapper-adapter-api#0.28.0",
+      "bom-ref": "path+file://./crates/freemapper-adapter-api#0.29.0",
       "description": "What a region adapter of freemapper works with: notes, the fetcher and the record types",
       "externalReferences": [
         {
@@ -296,13 +296,13 @@
         }
       ],
       "name": "freemapper-adapter-api",
-      "purl": "pkg:cargo/freemapper-adapter-api@0.28.0?download_url=file://../freemapper-adapter-api",
+      "purl": "pkg:cargo/freemapper-adapter-api@0.29.0?download_url=file://../freemapper-adapter-api",
       "scope": "required",
       "type": "library",
-      "version": "0.28.0"
+      "version": "0.29.0"
     },
     {
-      "bom-ref": "path+file://./crates/freemapper-manifest#0.28.0",
+      "bom-ref": "path+file://./crates/freemapper-manifest#0.29.0",
       "description": "The adapter manifest of freemapper: schema, parser and validator of format 1",
       "externalReferences": [
         {
@@ -316,13 +316,13 @@
         }
       ],
       "name": "freemapper-manifest",
-      "purl": "pkg:cargo/freemapper-manifest@0.28.0?download_url=file://../freemapper-manifest",
+      "purl": "pkg:cargo/freemapper-manifest@0.29.0?download_url=file://../freemapper-manifest",
       "scope": "required",
       "type": "library",
-      "version": "0.28.0"
+      "version": "0.29.0"
     },
     {
-      "bom-ref": "path+file://./crates/freemapper-sources#0.28.0",
+      "bom-ref": "path+file://./crates/freemapper-sources#0.29.0",
       "description": "The generic readers of freemapper: WMS, WCS, WFS, zip ranges, float GeoTIFFs and height model tiles",
       "externalReferences": [
         {
@@ -336,10 +336,10 @@
         }
       ],
       "name": "freemapper-sources",
-      "purl": "pkg:cargo/freemapper-sources@0.28.0?download_url=file://../freemapper-sources",
+      "purl": "pkg:cargo/freemapper-sources@0.29.0?download_url=file://../freemapper-sources",
       "scope": "required",
       "type": "library",
-      "version": "0.28.0"
+      "version": "0.29.0"
     },
     {
       "author": "Jonas Schievink <jonasschievink@gmail.com>, oyvindln <oyvindln@users.noreply.github.com>",
@@ -10355,25 +10355,25 @@
     {
       "dependsOn": [
         "registry+https://github.com/rust-lang/crates.io-index#chrono@0.4.45",
-        "path+file://./crates/freemapper-adapter-api#0.28.0",
+        "path+file://./crates/freemapper-adapter-api#0.29.0",
         "git+https://github.com/HenryJobst/freemapper-core?tag=v0.33.0#freemapper-georef@0.33.0",
-        "path+file://./crates/freemapper-sources#0.28.0",
+        "path+file://./crates/freemapper-sources#0.29.0",
         "registry+https://github.com/rust-lang/crates.io-index#geo@0.33.1",
         "registry+https://github.com/rust-lang/crates.io-index#geo-types@0.7.20",
         "registry+https://github.com/rust-lang/crates.io-index#geojson@1.0.0",
         "registry+https://github.com/rust-lang/crates.io-index#serde_json@1.0.154"
       ],
-      "ref": "path+file://./crates/adapters/cz#freemapper-adapters-cz@0.28.0"
+      "ref": "path+file://./crates/adapters/cz#freemapper-adapters-cz@0.29.0"
     },
     {
       "dependsOn": [
         "registry+https://github.com/rust-lang/crates.io-index#chrono@0.4.45",
-        "path+file://./crates/freemapper-adapter-api#0.28.0",
+        "path+file://./crates/freemapper-adapter-api#0.29.0",
         "git+https://github.com/HenryJobst/freemapper-core?tag=v0.33.0#freemapper-contract@0.33.0",
         "git+https://github.com/HenryJobst/freemapper-core?tag=v0.33.0#freemapper-fs@0.33.0",
         "git+https://github.com/HenryJobst/freemapper-core?tag=v0.33.0#freemapper-georef@0.33.0",
-        "path+file://./crates/freemapper-manifest#0.28.0",
-        "path+file://./crates/freemapper-sources#0.28.0",
+        "path+file://./crates/freemapper-manifest#0.29.0",
+        "path+file://./crates/freemapper-sources#0.29.0",
         "registry+https://github.com/rust-lang/crates.io-index#geo@0.33.1",
         "registry+https://github.com/rust-lang/crates.io-index#geo-types@0.7.20",
         "registry+https://github.com/rust-lang/crates.io-index#geojson@1.0.0",
@@ -10383,15 +10383,15 @@
         "registry+https://github.com/rust-lang/crates.io-index#sha2@0.11.1",
         "registry+https://github.com/rust-lang/crates.io-index#zip@9.0.5"
       ],
-      "ref": "path+file://./crates/adapters/de#freemapper-adapters-de@0.28.0"
+      "ref": "path+file://./crates/adapters/de#freemapper-adapters-de@0.29.0"
     },
     {
       "dependsOn": [
         "registry+https://github.com/rust-lang/crates.io-index#chrono@0.4.45",
-        "path+file://./crates/freemapper-adapter-api#0.28.0",
+        "path+file://./crates/freemapper-adapter-api#0.29.0",
         "git+https://github.com/HenryJobst/freemapper-core?tag=v0.33.0#freemapper-contract@0.33.0",
         "git+https://github.com/HenryJobst/freemapper-core?tag=v0.33.0#freemapper-georef@0.33.0",
-        "path+file://./crates/freemapper-sources#0.28.0",
+        "path+file://./crates/freemapper-sources#0.29.0",
         "registry+https://github.com/rust-lang/crates.io-index#geo@0.33.1",
         "registry+https://github.com/rust-lang/crates.io-index#geo-types@0.7.20",
         "registry+https://github.com/rust-lang/crates.io-index#geojson@1.0.0",
@@ -10400,15 +10400,15 @@
         "registry+https://github.com/rust-lang/crates.io-index#serde_json@1.0.154",
         "registry+https://github.com/rust-lang/crates.io-index#zip@9.0.5"
       ],
-      "ref": "path+file://./crates/adapters/pl#freemapper-adapters-pl@0.28.0"
+      "ref": "path+file://./crates/adapters/pl#freemapper-adapters-pl@0.29.0"
     },
     {
       "dependsOn": [
         "registry+https://github.com/rust-lang/crates.io-index#chrono@0.4.45",
-        "path+file://./crates/freemapper-adapter-api#0.28.0",
+        "path+file://./crates/freemapper-adapter-api#0.29.0",
         "git+https://github.com/HenryJobst/freemapper-core?tag=v0.33.0#freemapper-georef@0.33.0",
-        "path+file://./crates/freemapper-manifest#0.28.0",
-        "path+file://./crates/freemapper-sources#0.28.0",
+        "path+file://./crates/freemapper-manifest#0.29.0",
+        "path+file://./crates/freemapper-sources#0.29.0",
         "registry+https://github.com/rust-lang/crates.io-index#geo@0.33.1",
         "registry+https://github.com/rust-lang/crates.io-index#geo-types@0.7.20",
         "registry+https://github.com/rust-lang/crates.io-index#las@0.11.1",
@@ -10416,7 +10416,7 @@
         "registry+https://github.com/rust-lang/crates.io-index#toml@1.2.1+spec-1.1.0",
         "registry+https://github.com/rust-lang/crates.io-index#zip@9.0.5"
       ],
-      "ref": "path+file://./crates/adapters/se#freemapper-adapters-se@0.28.0"
+      "ref": "path+file://./crates/adapters/se#freemapper-adapters-se@0.29.0"
     },
     {
       "dependsOn": [
@@ -10424,17 +10424,17 @@
         "registry+https://github.com/rust-lang/crates.io-index#chrono@0.4.45",
         "registry+https://github.com/rust-lang/crates.io-index#contour@0.13.1",
         "registry+https://github.com/rust-lang/crates.io-index#dirs@7.0.0",
-        "path+file://./crates/freemapper-adapter-api#0.28.0",
-        "path+file://./crates/adapters/cz#freemapper-adapters-cz@0.28.0",
-        "path+file://./crates/adapters/de#freemapper-adapters-de@0.28.0",
-        "path+file://./crates/adapters/pl#freemapper-adapters-pl@0.28.0",
-        "path+file://./crates/adapters/se#freemapper-adapters-se@0.28.0",
+        "path+file://./crates/freemapper-adapter-api#0.29.0",
+        "path+file://./crates/adapters/cz#freemapper-adapters-cz@0.29.0",
+        "path+file://./crates/adapters/de#freemapper-adapters-de@0.29.0",
+        "path+file://./crates/adapters/pl#freemapper-adapters-pl@0.29.0",
+        "path+file://./crates/adapters/se#freemapper-adapters-se@0.29.0",
         "git+https://github.com/HenryJobst/freemapper-core?tag=v0.33.0#freemapper-contract@0.33.0",
         "git+https://github.com/HenryJobst/freemapper-core?tag=v0.33.0#freemapper-fs@0.33.0",
         "git+https://github.com/HenryJobst/freemapper-core?tag=v0.33.0#freemapper-georef@0.33.0",
         "git+https://github.com/HenryJobst/freemapper-core?tag=v0.33.0#freemapper-omap@0.33.0",
         "git+https://github.com/HenryJobst/freemapper-core?tag=v0.33.0#freemapper-render@0.33.0",
-        "path+file://./crates/freemapper-sources#0.28.0",
+        "path+file://./crates/freemapper-sources#0.29.0",
         "registry+https://github.com/rust-lang/crates.io-index#fs4@0.13.1",
         "registry+https://github.com/rust-lang/crates.io-index#geo@0.33.1",
         "registry+https://github.com/rust-lang/crates.io-index#geo-types@0.7.20",
@@ -10457,7 +10457,7 @@
         "registry+https://github.com/rust-lang/crates.io-index#world_magnetic_model@1.2025.0",
         "registry+https://github.com/rust-lang/crates.io-index#zip@9.0.5"
       ],
-      "ref": "path+file://./crates/freemapper#0.28.0"
+      "ref": "path+file://./crates/freemapper#0.29.0"
     },
     {
       "dependsOn": [
@@ -10472,7 +10472,7 @@
         "registry+https://github.com/rust-lang/crates.io-index#serde_json@1.0.154",
         "registry+https://github.com/rust-lang/crates.io-index#thiserror@2.0.21"
       ],
-      "ref": "path+file://./crates/freemapper-adapter-api#0.28.0"
+      "ref": "path+file://./crates/freemapper-adapter-api#0.29.0"
     },
     {
       "dependsOn": [
@@ -10482,9 +10482,9 @@
         "registry+https://github.com/rust-lang/crates.io-index#chrono@0.4.45",
         "registry+https://github.com/rust-lang/crates.io-index#clap@4.6.7",
         "registry+https://github.com/rust-lang/crates.io-index#dirs@7.0.0",
-        "path+file://./crates/freemapper#0.28.0",
+        "path+file://./crates/freemapper#0.29.0",
         "git+https://github.com/HenryJobst/freemapper-core?tag=v0.33.0#freemapper-fs@0.33.0",
-        "path+file://./crates/freemapper-manifest#0.28.0",
+        "path+file://./crates/freemapper-manifest#0.29.0",
         "git+https://github.com/HenryJobst/freemapper-core?tag=v0.33.0#freemapper-text@0.33.0",
         "git+https://github.com/HenryJobst/freemapper-core?tag=v0.33.0#freemapper-update@0.33.0",
         "git+https://github.com/HenryJobst/freemapper-core?tag=v0.33.0#freemapper-web@0.33.0",
@@ -10498,15 +10498,15 @@
         "registry+https://github.com/rust-lang/crates.io-index#toml@1.2.1+spec-1.1.0",
         "registry+https://github.com/rust-lang/crates.io-index#ureq@3.4.2"
       ],
-      "ref": "path+file://./crates/freemapper-cli#0.28.0"
+      "ref": "path+file://./crates/freemapper-cli#0.29.0"
     },
     {
       "dependsOn": [
         "registry+https://github.com/rust-lang/crates.io-index#chrono@0.4.45",
-        "path+file://./crates/freemapper-adapter-api#0.28.0",
+        "path+file://./crates/freemapper-adapter-api#0.29.0",
         "git+https://github.com/HenryJobst/freemapper-core?tag=v0.33.0#freemapper-fs@0.33.0",
         "git+https://github.com/HenryJobst/freemapper-core?tag=v0.33.0#freemapper-georef@0.33.0",
-        "path+file://./crates/freemapper-sources#0.28.0",
+        "path+file://./crates/freemapper-sources#0.29.0",
         "registry+https://github.com/rust-lang/crates.io-index#geo@0.33.1",
         "registry+https://github.com/rust-lang/crates.io-index#geo-types@0.7.20",
         "registry+https://github.com/rust-lang/crates.io-index#geojson@1.0.0",
@@ -10514,14 +10514,14 @@
         "registry+https://github.com/rust-lang/crates.io-index#serde_json@1.0.154",
         "registry+https://github.com/rust-lang/crates.io-index#toml@1.2.1+spec-1.1.0"
       ],
-      "ref": "path+file://./crates/freemapper-manifest#0.28.0"
+      "ref": "path+file://./crates/freemapper-manifest#0.29.0"
     },
     {
       "dependsOn": [
         "registry+https://github.com/rust-lang/crates.io-index#chrono@0.4.45",
         "registry+https://github.com/rust-lang/crates.io-index#crc32fast@1.5.4",
         "registry+https://github.com/rust-lang/crates.io-index#deflate64@0.1.12",
-        "path+file://./crates/freemapper-adapter-api#0.28.0",
+        "path+file://./crates/freemapper-adapter-api#0.29.0",
         "git+https://github.com/HenryJobst/freemapper-core?tag=v0.33.0#freemapper-contract@0.33.0",
         "git+https://github.com/HenryJobst/freemapper-core?tag=v0.33.0#freemapper-fs@0.33.0",
         "git+https://github.com/HenryJobst/freemapper-core?tag=v0.33.0#freemapper-georef@0.33.0",
@@ -10539,7 +10539,7 @@
         "registry+https://github.com/rust-lang/crates.io-index#weezl@0.1.12",
         "registry+https://github.com/rust-lang/crates.io-index#zip@9.0.5"
       ],
-      "ref": "path+file://./crates/freemapper-sources#0.28.0"
+      "ref": "path+file://./crates/freemapper-sources#0.29.0"
     },
     {
       "ref": "registry+https://github.com/rust-lang/crates.io-index#adler2@2.0.1"
@@ -12692,19 +12692,19 @@
   ],
   "metadata": {
     "component": {
-      "bom-ref": "path+file://./crates/freemapper-cli#0.28.0",
+      "bom-ref": "path+file://./crates/freemapper-cli#0.29.0",
       "components": [
         {
-          "bom-ref": "path+file://./crates/freemapper-cli#0.28.0 bin-target-0",
+          "bom-ref": "path+file://./crates/freemapper-cli#0.29.0 bin-target-0",
           "licenses": [
             {
               "expression": "AGPL-3.0-or-later"
             }
           ],
           "name": "freemapper",
-          "purl": "pkg:cargo/freemapper-cli@0.28.0?download_url=file://.#src/main.rs",
+          "purl": "pkg:cargo/freemapper-cli@0.29.0?download_url=file://.#src/main.rs",
           "type": "application",
-          "version": "0.28.0"
+          "version": "0.29.0"
         }
       ],
       "description": "Command line interface and MCP server of freemapper",
@@ -12720,10 +12720,10 @@
         }
       ],
       "name": "freemapper-cli",
-      "purl": "pkg:cargo/freemapper-cli@0.28.0?download_url=file://.",
+      "purl": "pkg:cargo/freemapper-cli@0.29.0?download_url=file://.",
       "scope": "required",
       "type": "application",
-      "version": "0.28.0"
+      "version": "0.29.0"
     },
     "properties": [
       {

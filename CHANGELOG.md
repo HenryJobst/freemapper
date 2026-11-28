@@ -6,6 +6,8 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+## [0.29.0] - 2026-11-28
+
 ### Hinzugefügt
 
 - Signierte Liste der Korrekturen von Adressen (Issue #273, Stufe 4, ADR 0196): Ein umgezogener Dienst läuft wieder, ohne dass ein neues Release nötig ist. `freemapper sources update` holt die Liste `freemapper-sources.json` samt Signatur aus dem Pre-Release `sources` auf GitHub, prüft die Signatur mit demselben Schlüssel im Programm wie `freemapper update` und speichert beides im Einstellungsordner. Bei jedem Start prüft freemapper das gespeicherte Paar erneut und wendet die Korrekturen auf die eingebauten Manifeste an: Eine Korrektur gilt nur, wo das Manifest noch die Adresse `from` hat, das ganze Manifest muss danach seine Prüfung samt Host-Regeln bestehen, und eine Korrektur, die das nicht tut, wird allein verworfen und mit einer Warnung genannt. Eine ältere Liste ersetzt nie eine neuere, eine ungültige Signatur oder ein veränderter Ordner heißt: die Adressen des Programms gelten, mit einer Warnung. Ihr eigener Adapterordner bleibt unberührt und hat Vorrang. Ohne Ihr Zutun fragt nichts GitHub nach der Liste; `sources update --mode on` schaltet eine tägliche Prüfung ein (höchstens drei Sekunden, nur bei Befehlen, die ohnehin das Netz brauchen, nie mit `--offline` oder in CI), `sources update --remove` löscht die gespeicherte Liste, und `sources corrections [--json]` zeigt sie und was jede Korrektur an diesem Programm tut. Der Workflow `sources-corrections.yml` signiert und veröffentlicht die Liste; er läuft von Hand und wartet auf die Freigabe der Umgebung `release`. Programme aus dem Quelltext holen die Liste nicht.
