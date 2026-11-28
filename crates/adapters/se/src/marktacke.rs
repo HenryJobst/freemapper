@@ -509,6 +509,18 @@ mod tests {
     }
 
     #[test]
+    fn only_a_plain_name_is_fit_to_be_a_file_name() {
+        assert!(is_name("marktacke_kn0183"));
+        assert!(is_name(&"a".repeat(80)));
+        assert!(!is_name(""));
+        assert!(!is_name(&"a".repeat(81)));
+        assert!(!is_name("../etc"));
+        assert!(!is_name("a b"));
+        // A path character alone fails the name, however long the name is.
+        assert!(!is_name("name/with-slash"));
+    }
+
+    #[test]
     fn a_class_without_a_land_use_counterpart_is_left_out_and_named_once() {
         let fetcher = served(&[("0183", ZIP_0183)]);
         let scratch = tempfile::tempdir().unwrap();

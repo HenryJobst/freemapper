@@ -551,6 +551,37 @@ mod tests {
     }
 
     #[test]
+    fn the_estimate_counts_squares_in_both_directions_and_not_the_next_one_at_a_border() {
+        let scratch = tempfile::tempdir().unwrap();
+        let cache = CacheDir::new(scratch.path().join("cache"));
+        let count = |min_e: f64, max_e: f64, min_n: f64, max_n: f64| {
+            let area = BoundingBox {
+                min_e,
+                min_n,
+                max_e,
+                max_n,
+            };
+            backend()
+                .estimate(
+                    &EstimateArea {
+                        bbox_25833: area,
+                        map_bbox: area,
+                        today: NaiveDate::from_ymd_opt(2026, 11, 27).unwrap(),
+                    },
+                    &EstimateEnv { cache: &cache },
+                )
+                .len()
+        };
+        // Two squares across, three up: six, not a quotient.
+        assert_eq!(count(1_000.0, 4_000.0, 1_000.0, 6_000.0), 6);
+        // An area that ends on the border of a square does not take the next one.
+        assert_eq!(count(0.0, 2_500.0, 0.0, 2_500.0), 1);
+        assert_eq!(count(0.0, 5_000.0, 0.0, 2_500.0), 2);
+        // An area of no extent still costs the one square it lies in.
+        assert_eq!(count(100.0, 100.0, 100.0, 100.0), 1);
+    }
+
+    #[test]
     fn the_estimate_lists_each_2_5_km_square_of_the_area_at_80_megabytes() {
         let scratch = tempfile::tempdir().unwrap();
         let cache = CacheDir::new(scratch.path().join("cache"));

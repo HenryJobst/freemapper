@@ -301,6 +301,30 @@ mod tests {
     }
 
     #[test]
+    fn the_estimate_names_the_terrain_model_and_the_land_cover() {
+        let registry = registry();
+        let adapter = adapter(&registry);
+        let bbox = freemapper_georef::crs::BoundingBox {
+            min_e: 389_000.0,
+            min_n: 6_175_000.0,
+            max_e: 391_000.0,
+            max_n: 6_176_000.0,
+        };
+        let scratch = tempfile::tempdir().unwrap();
+        let cache = freemapper_adapter_api::cache::CacheDir::new(scratch.path().join("cache"));
+        let items = adapter.estimate(
+            &freemapper_adapter_api::estimate::EstimateArea {
+                bbox_25833: bbox,
+                map_bbox: bbox,
+                today: NaiveDate::from_ymd_opt(2026, 11, 27).unwrap(),
+            },
+            &freemapper_adapter_api::estimate::EstimateEnv { cache: &cache },
+        );
+        assert!(!items.is_empty());
+        assert!(items.iter().any(|i| i.what.contains("terrain model")), "{items:?}");
+    }
+
+    #[test]
     fn the_credit_names_lantmateriet_once_something_of_it_was_fetched() {
         let registry = registry();
         let adapter = adapter(&registry);

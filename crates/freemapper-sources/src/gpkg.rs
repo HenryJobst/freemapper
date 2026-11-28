@@ -206,7 +206,8 @@ impl Wkb<'_> {
         let rings = self.count(little, 4)?;
         let mut out = Vec::with_capacity(rings);
         for _ in 0..rings {
-            let n = self.count(little, 8 * dims)?;
+            // A point has at least two ordinates of 8 bytes.
+            let n = self.count(little, 16)?;
             out.push(self.points(little, n, dims)?);
         }
         Ok(out)
@@ -256,6 +257,8 @@ pub struct GeoPackage<'a> {
     /// The bytes of a page that hold content (the rest is reserved).
     usable: usize,
     pages: usize,
+    /// The deepest b-tree level read ([`MAX_DEPTH`]; a test sets less).
+    max_depth: usize,
     schema: Vec<SchemaEntry>,
 }
 
@@ -296,6 +299,7 @@ impl<'a> GeoPackage<'a> {
             page_size,
             usable,
             pages,
+            max_depth: MAX_DEPTH,
             schema: Vec::new(),
         };
         let mut schema = Vec::new();
@@ -351,9 +355,7 @@ impl<'a> GeoPackage<'a> {
         let layout = self.layout(table)?;
         self.walk(layout.root, &mut |rowid, record| {
             let mut values = decode_record(record)?;
-            if values.len() < layout.columns.len() {
-                values.resize(layout.columns.len(), Value::Null);
-            }
+            values.resize(values.len().max(layout.columns.len()), Value::Null);
             for (value, _) in values
                 .iter_mut()
                 .zip(&layout.real)
@@ -409,7 +411,7 @@ impl<'a> GeoPackage<'a> {
         budget: &mut usize,
         each: &mut Each<'_>,
     ) -> Result<(), String> {
-        if depth > MAX_DEPTH || *budget == 0 {
+        if depth > self.max_depth || *budget == 0 {
             return Err("a b-tree with a cycle".to_string());
         }
         *budget -= 1;
@@ -500,9 +502,9 @@ fn varint(bytes: &[u8]) -> Option<(u64, usize)> {
     let mut value = 0u64;
     for (i, &byte) in bytes.iter().take(9).enumerate() {
         if i == 8 {
-            return Some(((value << 8) | u64::from(byte), 9));
+            return Some(((value << 8) + u64::from(byte), 9));
         }
-        value = (value << 7) | u64::from(byte & 0x7f);
+        value = (value << 7) + u64::from(byte & 0x7f);
         if byte & 0x80 == 0 {
             return Some((value, i + 1));
         }
@@ -572,7 +574,8 @@ fn parse_columns(sql: &str) -> Result<Columns, String> {
     let mut parts = Vec::new();
     let (mut depth, mut quote, mut part) = (0usize, None::<char>, String::new());
     let mut closed = None;
-    for (i, c) in sql[open + 1..].char_indices() {
+    let mut chars = sql[open + 1..].chars();
+    while let Some(c) = chars.next() {
         match quote {
             Some(q) => {
                 part.push(c);
@@ -590,7 +593,7 @@ fn parse_columns(sql: &str) -> Result<Columns, String> {
                     part.push(c);
                 }
                 ')' if depth == 0 => {
-                    closed = Some(open + 1 + i + 1);
+                    closed = Some(chars.as_str());
                     break;
                 }
                 ')' => {
@@ -604,7 +607,7 @@ fn parse_columns(sql: &str) -> Result<Columns, String> {
     }
     let closed = closed.ok_or("the column list does not end")?;
     parts.push(part);
-    if sql[closed..].to_ascii_uppercase().contains("WITHOUT ROWID") {
+    if closed.to_ascii_uppercase().contains("WITHOUT ROWID") {
         return Err("a WITHOUT ROWID table".to_string());
     }
     let (mut columns, mut alias, mut real) = (Vec::new(), None, Vec::new());
@@ -893,6 +896,99 @@ mod tests {
             cycle[at..at + 4].copy_from_slice(&3u32.to_be_bytes());
         }
         let _ = read(&cycle);
+    }
+
+    #[test]
+    fn quoted_column_names_and_nested_brackets_are_read() {
+        let sql = concat!(
+            "CREATE TABLE t (\"a b\" INTEGER, 'c' TEXT, `d` BLOB, [e f] REAL, ",
+            "g NUMERIC(10,2), h TEXT DEFAULT (1+(2)), PRIMARY KEY (g, h))"
+        );
+        let columns = parse_columns(sql).unwrap();
+        assert_eq!(columns.names, ["a b", "c", "d", "e f", "g", "h"]);
+        assert!(parse_columns("CREATE TABLE t (a INTEGER, b TEXT) WITHOUT ROWID").is_err());
+        // A quote keeps a comma and a bracket inside the name; the type after a quoted name counts.
+        let columns = parse_columns(
+            "CREATE TABLE t (\"i,d\" INTEGER PRIMARY KEY, [x,y] FLOAT, 'z' TEXT, w REAL, v INTEGER PRIMARY KEY, u TEXT PRIMARY KEY)",
+        )
+        .unwrap();
+        assert_eq!(columns.names, ["i,d", "x,y", "z", "w", "v", "u"]);
+        assert_eq!(
+            columns.rowid_alias,
+            Some(0),
+            "the first INTEGER PRIMARY KEY"
+        );
+        assert_eq!(columns.real, [false, true, false, true, false, false]);
+        // A column that is not an INTEGER PRIMARY KEY is no alias, whatever else it is.
+        let columns =
+            parse_columns("CREATE TABLE t (a TEXT PRIMARY KEY, b INTEGER, c REAL)").unwrap();
+        assert_eq!(columns.rowid_alias, None);
+        let columns = parse_columns("CREATE TABLE t (`q` INTEGER PRIMARY KEY)").unwrap();
+        assert_eq!(
+            (columns.names, columns.rowid_alias),
+            (vec!["q".to_string()], Some(0))
+        );
+        assert!(parse_columns("CREATE TABLE t (a INTEGER, b TEXT").is_err());
+    }
+
+    #[test]
+    fn a_varint_of_nine_bytes_keeps_all_bits_of_the_last_byte() {
+        let mut bytes = vec![0xff; 8];
+        bytes.push(0xab);
+        let expected = (((1u64 << 56) - 1) << 8) | 0xab;
+        assert_eq!(varint(&bytes), Some((expected, 9)));
+        assert_eq!(varint(&[0x81, 0x00]), Some((128, 2)));
+        assert_eq!(varint(&[0x7f]), Some((127, 1)));
+    }
+
+    /// Points every child of the interior page `page` (512-byte pages) at page `target`.
+    fn point_children_at(bytes: &mut [u8], page: usize, target: u32) {
+        let at = (page - 1) * 512;
+        let cells = usize::from(u16::from_be_bytes([bytes[at + 3], bytes[at + 4]]));
+        bytes[at + 8..at + 12].copy_from_slice(&target.to_be_bytes());
+        for i in 0..cells {
+            let pointer = at
+                + usize::from(u16::from_be_bytes([
+                    bytes[at + 12 + 2 * i],
+                    bytes[at + 13 + 2 * i],
+                ]));
+            bytes[pointer..pointer + 4].copy_from_slice(&target.to_be_bytes());
+        }
+    }
+
+    #[test]
+    fn a_tree_that_reaches_the_same_page_again_and_again_is_refused() {
+        // The root (page 72) and its child (page 73) point everywhere at one page, so the walk
+        // visits thousands of pages in a file of 191: no cycle, but more visits than pages.
+        let mut bytes = fixture("deep.gpkg");
+        point_children_at(&mut bytes, 72, 73);
+        point_children_at(&mut bytes, 73, 4);
+        let gpkg = GeoPackage::open(&bytes).unwrap();
+        let error = gpkg.rows("ytor", &mut |_, _| Ok(())).unwrap_err();
+        assert!(error.contains("cycle"), "{error}");
+    }
+
+    #[test]
+    fn the_walk_reads_down_to_the_depth_it_allows_and_no_further() {
+        // The tree of `ytor`: the root (page 72), interior pages (73, 147) and the leaves.
+        let bytes = fixture("deep.gpkg");
+        let mut gpkg = GeoPackage::open(&bytes).unwrap();
+        gpkg.max_depth = 2;
+        assert_eq!(all_rows(&gpkg, "ytor").len(), 700);
+        gpkg.max_depth = 1;
+        let error = gpkg.rows("ytor", &mut |_, _| Ok(())).unwrap_err();
+        assert!(error.contains("cycle"), "{error}");
+    }
+
+    #[test]
+    fn a_ring_that_claims_more_points_than_its_bytes_hold_is_refused_whole() {
+        // A polygon of one ring of two points (32 bytes) with only 16 bytes after the count.
+        let mut wkb = vec![1];
+        wkb.extend(3u32.to_le_bytes());
+        wkb.extend(1u32.to_le_bytes());
+        wkb.extend(2u32.to_le_bytes());
+        wkb.extend([0u8; 16]);
+        assert_eq!(geometry(&blob(&wkb)), Err("a damaged geometry".to_string()));
     }
 
     #[test]

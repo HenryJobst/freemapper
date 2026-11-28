@@ -92,53 +92,62 @@ fn refusal(url: &str, error: FetchError) -> FetchError {
     account::refusal(url, ORDER, error)
 }
 
+/// Whether the point (`e`, `n`) lies in `bounds`: the west and south edges belong to it, the east
+/// and north edges to the neighbour.
+fn holds(bounds: &BoundingBox, e: f64, n: f64) -> bool {
+    bounds.min_e <= e && e < bounds.max_e && bounds.min_n <= n && n < bounds.max_n
+}
+
 /// The share of `bbox`, in whole percent rounded up, that no box of `covered` reaches: a tile the
-/// catalogue does not list (the coast, a tile not yet published). Sampled every 10 m.
+/// catalogue does not list (the coast, a tile not yet published). Sampled in the middle of every
+/// 10 m square.
 fn uncovered_percent(bbox: &BoundingBox, covered: &[BoundingBox]) -> u32 {
     const STEP: f64 = 10.0;
-    let (mut total, mut missing) = (0_u64, 0_u64);
-    let mut n = bbox.max_n - STEP / 2.0;
-    while n > bbox.min_n {
-        let mut e = bbox.min_e + STEP / 2.0;
-        while e < bbox.max_e {
-            total += 1;
-            let inside =
-                |b: &BoundingBox| b.min_e <= e && e < b.max_e && b.min_n <= n && n < b.max_n;
-            if !covered.iter().any(inside) {
-                missing += 1;
-            }
-            e += STEP;
-        }
-        n -= STEP;
-    }
+    let across = (bbox.width() / STEP).ceil() as u32;
+    let down = (bbox.height() / STEP).ceil() as u32;
+    let total = u64::from(across) * u64::from(down);
     if total == 0 {
         return 0;
     }
+    let missing = (0..down)
+        .flat_map(|row| (0..across).map(move |column| (column, row)))
+        .filter(|&(column, row)| {
+            let e = bbox.min_e + (f64::from(column) + 0.5) * STEP;
+            let n = bbox.max_n - (f64::from(row) + 0.5) * STEP;
+            !covered.iter().any(|tile| holds(tile, e, n))
+        })
+        .count() as u64;
     (missing * 100).div_ceil(total) as u32
 }
 
-/// The blocks of `layout` that lie under `bbox`.
+/// The blocks of `layout` (cells of 1 m) that lie under `bbox`, row by row.
 fn blocks_under(layout: &TiledTiff, bbox: &BoundingBox) -> Vec<usize> {
-    let grid = layout.grid();
-    let (bw, bh) = (
-        f64::from(layout.block_width),
-        f64::from(layout.block_height),
-    );
-    let first = |from: f64, origin: f64, size: f64| {
-        ((from - origin) / (size * grid.pixel_size))
-            .floor()
-            .max(0.0) as u32
-    };
-    let across = layout.blocks_across();
-    let down = layout.height.div_ceil(layout.block_height);
-    let x0 = first(bbox.min_e, grid.west, bw);
-    let x1 = first(bbox.max_e - 1e-9, grid.west, bw).min(across.saturating_sub(1));
-    let y0 = first(grid.north - bbox.max_n, 0.0, bh).min(down.saturating_sub(1));
-    let y1 = first(grid.north - bbox.min_n - 1e-9, 0.0, bh).min(down.saturating_sub(1));
-    let mut blocks = Vec::new();
-    if bbox.max_e <= grid.west || bbox.min_n >= grid.north {
-        return blocks;
+    let bounds = layout.grid().bounds();
+    let overlaps = bbox.min_e < bounds.max_e
+        && bbox.max_e > bounds.min_e
+        && bbox.min_n < bounds.max_n
+        && bbox.max_n > bounds.min_n;
+    if !overlaps {
+        return Vec::new();
     }
+    let (across, down) = (
+        layout.blocks_across(),
+        layout.height.div_ceil(layout.block_height),
+    );
+    let column = |e: f64| {
+        ((e - bounds.min_e) / f64::from(layout.block_width))
+            .floor()
+            .clamp(0.0, f64::from(across - 1)) as u32
+    };
+    let row = |n: f64| {
+        ((bounds.max_n - n) / f64::from(layout.block_height))
+            .floor()
+            .clamp(0.0, f64::from(down - 1)) as u32
+    };
+    // The far edge of the area belongs to the next block only when it passes the boundary.
+    let (x0, x1) = (column(bbox.min_e), column(bbox.max_e - 1e-9));
+    let (y0, y1) = (row(bbox.max_n), row(bbox.min_n + 1e-9));
+    let mut blocks = Vec::new();
     for by in y0..=y1 {
         for bx in x0..=x1 {
             blocks.push((by * across + bx) as usize);
@@ -180,6 +189,16 @@ fn fetch_model(
                 });
             }
         };
+        let grid = layout.grid();
+        if grid.pixel_size != 1.0 {
+            return Err(FetchError::Http {
+                url: url.clone(),
+                message: format!(
+                    "not a terrain tile freemapper can read: cells of {} m, not 1 m",
+                    grid.pixel_size
+                ),
+            });
+        }
         let blocks = blocks_under(&layout, bbox);
         if blocks.is_empty() {
             continue;
@@ -189,32 +208,26 @@ fn fetch_model(
             model = freemapper_adapter_api::note::model(&format!("{PROVIDER} {}", item.id))
         ));
         let read = read_blocks(fetcher, url, &layout, &blocks).map_err(|e| refusal(url, e))?;
-        let grid = layout.grid();
         let across = layout.blocks_across();
+        // The whole metres between the grid of the tile and the grid of the area.
+        let dx = (grid.west - terrain.grid.west).round() as i64;
+        let dy = (terrain.grid.north - grid.north).round() as i64;
+        let (width, height) = (
+            i64::from(terrain.grid.width),
+            i64::from(terrain.grid.height),
+        );
         for (index, values) in read {
             let (bx, by) = (index as u32 % across, index as u32 / across);
             for row in 0..layout.block_height {
                 let sy = by * layout.block_height + row;
-                if sy >= layout.height {
-                    break;
+                let oy = dy + i64::from(sy);
+                if sy >= layout.height || oy < 0 || oy >= height {
+                    continue;
                 }
                 for column in 0..layout.block_width {
                     let sx = bx * layout.block_width + column;
-                    if sx >= layout.width {
-                        break;
-                    }
-                    // The centre of the source cell, in the grid of the area.
-                    let e = grid.west + (f64::from(sx) + 0.5) * grid.pixel_size;
-                    let n = grid.north - (f64::from(sy) + 0.5) * grid.pixel_size;
-                    let (ox, oy) = (
-                        ((e - terrain.grid.west) / terrain.grid.pixel_size).floor(),
-                        ((terrain.grid.north - n) / terrain.grid.pixel_size).floor(),
-                    );
-                    if ox < 0.0
-                        || oy < 0.0
-                        || ox >= f64::from(terrain.grid.width)
-                        || oy >= f64::from(terrain.grid.height)
-                    {
+                    let ox = dx + i64::from(sx);
+                    if sx >= layout.width || ox < 0 || ox >= width {
                         continue;
                     }
                     let z = values[(row * layout.block_width + column) as usize];
@@ -231,13 +244,7 @@ fn fetch_model(
             (bbox.min_e + bbox.max_e) / 2.0,
             (bbox.min_n + bbox.max_n) / 2.0,
         );
-        let grid_bounds = grid.bounds();
-        if date.is_none()
-            || (grid_bounds.min_e <= mid_e
-                && mid_e < grid_bounds.max_e
-                && grid_bounds.min_n <= mid_n
-                && mid_n < grid_bounds.max_n)
-        {
+        if date.is_none() || holds(&grid.bounds(), mid_e, mid_n) {
             date = item.datetime.clone();
         }
     }
@@ -620,7 +627,178 @@ mod tests {
             record.bbox,
             [389_900.0, 6_175_900.0, 390_100.0, 6_176_000.0]
         );
+        assert_eq!(
+            record.date.as_deref(),
+            Some("2024-05-01"),
+            "the east tile holds the middle"
+        );
         assert!(project.surface.is_none() && project.orthophoto.is_none());
+    }
+
+    fn bounds(min_e: f64, min_n: f64, max_e: f64, max_n: f64) -> BoundingBox {
+        BoundingBox {
+            min_e,
+            min_n,
+            max_e,
+            max_n,
+        }
+    }
+
+    #[test]
+    fn a_box_holds_its_west_and_south_edges_and_not_its_east_and_north_edges() {
+        let b = bounds(10.0, 20.0, 30.0, 40.0);
+        assert!(holds(&b, 20.0, 30.0));
+        assert!(holds(&b, 10.0, 30.0), "west edge");
+        assert!(holds(&b, 20.0, 20.0), "south edge");
+        assert!(!holds(&b, 30.0, 30.0), "east edge");
+        assert!(!holds(&b, 20.0, 40.0), "north edge");
+        assert!(!holds(&b, 9.9, 30.0) && !holds(&b, 30.1, 30.0));
+        assert!(!holds(&b, 20.0, 19.9) && !holds(&b, 20.0, 40.1));
+    }
+
+    /// The blocks of the 1000 m tile `617_38` (4 by 4 blocks of 256 cells) under an area.
+    fn blocks(min_e: f64, min_n: f64, max_e: f64, max_n: f64) -> Vec<usize> {
+        let fetcher = served(&both());
+        let layout = read_layout(&fetcher, "https://dl.example.org/617_38.tif")
+            .unwrap()
+            .unwrap();
+        blocks_under(&layout, &bounds(min_e, min_n, max_e, max_n))
+    }
+
+    #[test]
+    fn the_blocks_under_an_area_are_numbered_row_by_row() {
+        // The tile spans 389 000 to 390 000 by 6 175 000 to 6 176 000. Column 1 is x 256 to 511,
+        // row 2 is 512 to 767 below the north edge.
+        assert_eq!(blocks(389_300.0, 6_175_300.0, 389_400.0, 6_175_400.0), [9]);
+        assert_eq!(
+            blocks(389_000.0, 6_175_000.0, 390_000.0, 6_176_000.0),
+            (0..16).collect::<Vec<_>>()
+        );
+        // An area across a block boundary takes both blocks, each row after the other.
+        assert_eq!(
+            blocks(389_200.0, 6_175_900.0, 389_300.0, 6_175_950.0),
+            [0, 1]
+        );
+        assert_eq!(
+            blocks(389_100.0, 6_175_700.0, 389_150.0, 6_175_800.0),
+            [0, 4]
+        );
+    }
+
+    #[test]
+    fn an_area_that_ends_on_a_block_boundary_does_not_take_the_next_block() {
+        // x = 256 and 512 are boundaries; y = 256 below the north edge is 6 175 744.
+        assert_eq!(blocks(389_100.0, 6_175_800.0, 389_256.0, 6_175_900.0), [0]);
+        assert_eq!(blocks(389_256.0, 6_175_800.0, 389_300.0, 6_175_900.0), [1]);
+        assert_eq!(blocks(389_100.0, 6_175_744.0, 389_200.0, 6_175_900.0), [0]);
+        assert_eq!(
+            blocks(
+                389_100.0,
+                6_175_800.0,
+                389_200.0,
+                6_175_900.0
+            ),
+            [0]
+        );
+    }
+
+    #[test]
+    fn an_area_over_the_edge_of_the_tile_takes_only_the_blocks_of_the_tile() {
+        // The last column and row (3), reached from beyond the south-east corner.
+        assert_eq!(blocks(389_800.0, 6_174_000.0, 391_000.0, 6_175_100.0), [15]);
+        // From beyond the north-west corner: block 0 only.
+        assert_eq!(blocks(388_000.0, 6_175_900.0, 389_100.0, 6_177_000.0), [0]);
+        // Wholly outside, on each side, and touching an edge only: no block.
+        assert!(blocks(388_000.0, 6_175_100.0, 388_900.0, 6_175_200.0).is_empty());
+        assert!(blocks(390_100.0, 6_175_100.0, 390_200.0, 6_175_200.0).is_empty());
+        assert!(blocks(389_100.0, 6_176_100.0, 389_200.0, 6_176_200.0).is_empty());
+        assert!(blocks(389_100.0, 6_174_000.0, 389_200.0, 6_174_900.0).is_empty());
+        assert!(blocks(388_000.0, 6_175_100.0, 389_000.0, 6_175_200.0).is_empty());
+        assert!(blocks(390_000.0, 6_175_100.0, 391_000.0, 6_175_200.0).is_empty());
+        assert!(blocks(389_100.0, 6_176_000.0, 389_200.0, 6_177_000.0).is_empty());
+        assert!(blocks(389_100.0, 6_174_000.0, 389_200.0, 6_175_000.0).is_empty());
+    }
+
+    #[test]
+    fn the_uncovered_share_is_counted_in_percent_rounded_up() {
+        let area = bounds(0.0, 0.0, 100.0, 100.0);
+        let tile = |max_e: f64| bounds(0.0, 0.0, max_e, 100.0);
+        assert_eq!(uncovered_percent(&area, &[tile(50.0)]), 50);
+        assert_eq!(uncovered_percent(&area, &[area]), 0);
+        assert_eq!(uncovered_percent(&area, &[]), 100);
+        assert_eq!(uncovered_percent(&area, &[tile(90.0)]), 10);
+        // Samples lie at 5, 15, ...: a tile ending at 55 holds the sample at 55 not at all.
+        assert_eq!(uncovered_percent(&area, &[tile(55.0)]), 50);
+        assert_eq!(uncovered_percent(&area, &[tile(55.1)]), 40);
+        // One column of ten, from the east: 90 % are missing; rows count from the north.
+        assert_eq!(
+            uncovered_percent(&area, &[bounds(0.0, 0.0, 10.0, 100.0)]),
+            90
+        );
+        assert_eq!(
+            uncovered_percent(&area, &[bounds(0.0, 90.0, 100.0, 100.0)]),
+            90
+        );
+        assert_eq!(
+            uncovered_percent(&area, &[bounds(0.0, 0.0, 100.0, 10.0)]),
+            90
+        );
+        // A share that is not whole is rounded up; an area that is no multiple of 10 m is sampled
+        // in as many squares as it needs.
+        let odd = bounds(0.0, 0.0, 25.0, 100.0);
+        assert_eq!(
+            uncovered_percent(&odd, &[bounds(0.0, 0.0, 10.0, 100.0)]),
+            67
+        );
+        assert_eq!(uncovered_percent(&bounds(0.0, 0.0, 0.0, 100.0), &[]), 0);
+    }
+
+    #[test]
+    fn the_date_is_the_one_of_the_tile_at_the_middle_whatever_the_order() {
+        let both_reversed: Vec<String> = both().into_iter().rev().collect();
+        for items in [both(), both_reversed] {
+            let fetcher = served(&items);
+            let scratch = tempfile::tempdir().unwrap();
+            let (result, _, project) = run(&fetcher, scratch.path(), FetchMode::Online);
+            result.unwrap();
+            assert_eq!(project.terrain.unwrap().date.as_deref(), Some("2024-05-01"));
+        }
+    }
+
+    #[test]
+    fn without_a_tile_at_the_middle_the_date_is_the_first_tile_s() {
+        let fetcher = served(&both()[..1]);
+        let scratch = tempfile::tempdir().unwrap();
+        let (result, _, project) = run(&fetcher, scratch.path(), FetchMode::Online);
+        result.unwrap();
+        assert_eq!(project.terrain.unwrap().date.as_deref(), Some("2025-09-29"));
+    }
+
+    #[test]
+    fn the_estimate_counts_the_area_in_square_kilometres() {
+        let scratch = tempfile::tempdir().unwrap();
+        let cache = CacheDir::new(scratch.path().join("cache"));
+        let two_km2 = BoundingBox {
+            min_e: 389_000.0,
+            min_n: 6_175_000.0,
+            max_e: 391_000.0,
+            max_n: 6_176_000.0,
+        };
+        let items = backend().estimate(
+            &EstimateArea {
+                bbox_25833: two_km2,
+                map_bbox: two_km2,
+                today: NaiveDate::from_ymd_opt(2026, 11, 27).unwrap(),
+            },
+            &EstimateEnv { cache: &cache },
+        );
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].part, Part::Terrain);
+        assert!(
+            (items[0].megabytes - 6.0).abs() < 1e-9,
+            "{}",
+            items[0].megabytes
+        );
     }
 
     #[test]
