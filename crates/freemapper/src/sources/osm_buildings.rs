@@ -147,6 +147,21 @@ mod tests {
             tags: tags(&[("building", "yes")]),
             geometry: OsmGeometry::Line(vec![at(59.0, 18.0), at(59.1, 18.1), at(59.2, 18.2)]),
         };
+        let open_with_four = OsmFeature {
+            id: "way/10".into(),
+            tags: tags(&[("building", "yes")]),
+            geometry: OsmGeometry::Line(vec![
+                at(59.0, 18.0),
+                at(59.1, 18.1),
+                at(59.2, 18.2),
+                at(59.3, 18.3),
+            ]),
+        };
+        let closed_with_three = OsmFeature {
+            id: "way/11".into(),
+            tags: tags(&[("building", "yes")]),
+            geometry: OsmGeometry::Line(vec![at(59.0, 18.0), at(59.1, 18.1), at(59.0, 18.0)]),
+        };
         let node = OsmFeature {
             id: "node/9".into(),
             tags: tags(&[("building", "yes")]),
@@ -156,6 +171,8 @@ mod tests {
             square("way/1", &[("building", "no")]),
             square("way/2", &[("highway", "service")]),
             open,
+            open_with_four,
+            closed_with_three,
             node,
             square("way/3", &[("building", "yes")]),
         ];
