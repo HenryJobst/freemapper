@@ -29,6 +29,10 @@ mod tests {
             let out = dir.path().join(format!("{model:?}.tif"));
             let found = fetch_model(
                 &fetcher,
+                &Addresses {
+                    portal: PORTAL.to_string(),
+                    atom: ATOM_DATA.to_string(),
+                },
                 &cache,
                 FetchMode::Online,
                 model,

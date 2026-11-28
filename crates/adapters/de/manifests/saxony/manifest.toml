@@ -43,6 +43,13 @@ url = "https://geodienste.sachsen.de/wms_geosn_dop-rgb/guest"
 layer = "sn_dop_020"
 max_px = 4000
 
+# The ArcGIS index of the height-model tiles and the shares they are fetched from when a row of the
+# index has no link (issue #273).
+[orthophoto.endpoints]
+index = "https://geodienste.sachsen.de/ags-relay/ArcGISServer/guest/arcgis/rest/services/geosn/rest_geosn_downloadlinks/MapServer"
+dgm1 = "https://geocloud.landesvermessung.sachsen.de/public.php/dav/files/JCcXyifaNdLDnxZ"
+dom1 = "https://geocloud.landesvermessung.sachsen.de/public.php/dav/files/S6wwnFwX7882sZm"
+
 [terrain]
 backend = "geosn"
 

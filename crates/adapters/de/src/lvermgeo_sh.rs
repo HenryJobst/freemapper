@@ -11,7 +11,7 @@
 use freemapper_adapter_api::env::AdapterEnv;
 use freemapper_adapter_api::error::AdapterError;
 use freemapper_adapter_api::project::RasterProject;
-use freemapper_adapter_api::rasters::{ProviderInfo, RasterBackend, RasterKind};
+use freemapper_adapter_api::rasters::{ProviderInfo, RasterBackend, RasterConfig, RasterKind};
 use freemapper_adapter_api::records::AdapterId;
 use freemapper_adapter_api::trust::TrustAnchors;
 use freemapper_sources::raster_fetch::{
@@ -44,7 +44,10 @@ use crate::sources::wms::WmsService;
 use crate::tiles::{TileId, tiles_covering};
 use freemapper_adapter_api::cache::STALE_PART_AGE;
 
-/// The Downloadportal; its host is reached through the bundled D-TRUST anchors (see `fetch`).
+/// The Downloadportal; its host is reached through the bundled D-TRUST anchors (see `fetch`). The
+/// manifest of Schleswig-Holstein declares it as `portal` of its `endpoints`; the tests are held
+/// to it.
+#[cfg(any(test, feature = "testing"))]
 pub const PORTAL: &str = "https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload";
 
 /// A product of the Downloadportal.
@@ -81,18 +84,19 @@ pub struct PortalTile {
 
 /// The AJAX tile lookup of `product` over `bbox` (EPSG:25832), rounded outward to whole metres.
 /// The product comes first, so a test server can answer each product by URL prefix.
-pub(crate) fn overview_url(bbox: &BoundingBox, product: Product) -> String {
+pub(crate) fn overview_url(addresses: &Addresses, bbox: &BoundingBox, product: Product) -> String {
     format!(
         "{}{}&crs=EPSG:25832",
-        overview_prefix(product),
+        overview_prefix(addresses, product),
         bbox_key(bbox).replace('_', ",")
     )
 }
 
 /// The start of every `overview_url` of `product`, up to the bbox.
-pub fn overview_prefix(product: Product) -> String {
+pub fn overview_prefix(addresses: &Addresses, product: Product) -> String {
     format!(
-        "{PORTAL}/_ajax/overview.php?type[]={}&bbox=",
+        "{}/_ajax/overview.php?type[]={}&bbox=",
+        addresses.portal,
         product.overview_type()
     )
 }
@@ -114,17 +118,19 @@ fn bbox_key(bbox: &BoundingBox) -> String {
 /// not a tile overview (the portal reports errors as HTML with status 200), are errors.
 pub fn overview(
     fetcher: &dyn Fetcher,
+    addresses: &Addresses,
     bbox: &BoundingBox,
     product: Product,
 ) -> Result<Vec<PortalTile>, FetchError> {
-    let url = overview_url(bbox, product);
+    let url = overview_url(addresses, bbox, product);
     // Retries cover the transport only; a refused or malformed answer does not change.
     let bytes = get_with_retries(fetcher, &url, |bytes| Ok(bytes.to_vec()))?;
-    parse_overview(&url, &bytes, product)
+    parse_overview(&addresses.portal, &url, &bytes, product)
 }
 
 /// An `overview.php` answer from `url` (see [`overview`]).
 fn parse_overview(
+    portal: &str,
     url: &str,
     bytes: &[u8],
     product: Product,
@@ -166,14 +172,14 @@ fn parse_overview(
     }
     let mut tiles = matching
         .into_iter()
-        .map(|properties| portal_tile(properties, product).map_err(error))
+        .map(|properties| portal_tile(portal, properties, product).map_err(error))
         .collect::<Result<Vec<_>, _>>()?;
     tiles.sort_by_key(|t| t.tile);
     Ok(tiles)
 }
 
 /// One overview entry; every part of the link is checked to be plain letters, digits and `_`.
-fn portal_tile(properties: &Value, product: Product) -> Result<PortalTile, String> {
+fn portal_tile(portal: &str, properties: &Value, product: Product) -> Result<PortalTile, String> {
     let field = |key: &str| {
         text(&properties[key])
             .filter(|value| is_plain(value))
@@ -189,7 +195,7 @@ fn portal_tile(properties: &Value, product: Product) -> Result<PortalTile, Strin
         Product::Dgm1 => {
             let name = field("kaname")?;
             let km = field("filepath")?;
-            let link = format!("{PORTAL}/massen.php?file={name}.xyz&id=2&live={year}&km={km}");
+            let link = format!("{portal}/massen.php?file={name}.xyz&id=2&live={year}&km={km}");
             (name, link)
         }
         Product::Bdom => {
@@ -204,7 +210,7 @@ fn portal_tile(properties: &Value, product: Product) -> Result<PortalTile, Strin
             let km = field("kach10km")?;
             let stack = field("filepath")?;
             let link = format!(
-                "{PORTAL}/massen.php?file={name}.tif&id=6&live={year}&km={km}&stack={stack}"
+                "{portal}/massen.php?file={name}.tif&id=6&live={year}&km={km}&stack={stack}"
             );
             (name, link)
         }
@@ -334,7 +340,9 @@ fn parse_flight_date(text: &str) -> Option<String> {
 }
 
 /// The INSPIRE ATOM data directory of the DGM1 GeoTIFFs (`<name>.tif`); a static server, valid
-/// TLS, 404 for a name it does not have.
+/// TLS, 404 for a name it does not have. The manifest declares it as `atom` of its `endpoints`;
+/// the tests are held to it.
+#[cfg(any(test, feature = "testing"))]
 pub const ATOM_DATA: &str = "https://service.gdi-sh.de/INSPIRE_Atom/EL/data";
 
 /// The height models are the Downloadportal's products.
@@ -376,6 +384,7 @@ const _: () = assert!(XYZ_MAX_BYTES > XYZ_MB as u64 * 1024 * 1024);
 #[allow(clippy::too_many_arguments)]
 pub fn fetch_model(
     fetcher: &dyn Fetcher,
+    addresses: &Addresses,
     cache: &CacheDir,
     mode: FetchMode,
     model: Model,
@@ -385,7 +394,7 @@ pub fn fetch_model(
     progress: &mut dyn FnMut(Note),
 ) -> Result<HeightModel, FetchError> {
     fetch_model_with(
-        fetcher, cache, mode, model, bbox, root, out, progress, XYZ_CELLS,
+        fetcher, addresses, cache, mode, model, bbox, root, out, progress, XYZ_CELLS,
     )
 }
 
@@ -393,6 +402,7 @@ pub fn fetch_model(
 #[allow(clippy::too_many_arguments)]
 fn fetch_model_with(
     fetcher: &dyn Fetcher,
+    addresses: &Addresses,
     cache: &CacheDir,
     mode: FetchMode,
     model: Model,
@@ -404,7 +414,7 @@ fn fetch_model_with(
 ) -> Result<HeightModel, FetchError> {
     let dir = cache.provider_dir("lvermgeo_sh");
     let mut warnings = Vec::new();
-    let listed = tile_list(fetcher, &dir, mode, bbox, model, &mut warnings)?;
+    let listed = tile_list(fetcher, addresses, &dir, mode, bbox, model, &mut warnings)?;
     let mut raster = Raster::filled(GridSpec::covering(bbox, 1.0), f32::NAN);
     let tiles: Vec<(TileId, Option<&PortalTile>)> = tiles_covering(bbox)
         .into_iter()
@@ -454,7 +464,8 @@ fn fetch_model_with(
     for (n, entry) in pending.iter().enumerate() {
         let part = match model {
             Model::Dgm1 => {
-                let (part, fallback) = dgm1_tile(fetcher, &dir, entry, xyz_cells, progress)?;
+                let (part, fallback) =
+                    dgm1_tile(fetcher, &addresses.atom, &dir, entry, xyz_cells, progress)?;
                 fallbacks.extend(fallback);
                 part
             }
@@ -474,14 +485,14 @@ fn fetch_model_with(
     warnings.extend(fallbacks);
     if found == 0 {
         return Err(FetchError::Http {
-            url: overview_url(bbox, model),
+            url: overview_url(addresses, bbox, model),
             message: format!(
                 "no tile of the {} covers the map area; the Downloadportal may have changed",
                 model.label()
             ),
         });
     }
-    write_float_raster(&raster, root, out, PORTAL)?;
+    write_float_raster(&raster, root, out, &addresses.portal)?;
     let centre = TileId {
         east_km: ((bbox.min_e + bbox.max_e) / 2000.0).floor() as u32,
         north_km: ((bbox.min_n + bbox.max_n) / 2000.0).floor() as u32,
@@ -514,13 +525,14 @@ fn short_name(tile: TileId) -> String {
 /// run whose overview request fails, with a warning).
 fn tile_list(
     fetcher: &dyn Fetcher,
+    addresses: &Addresses,
     dir: &Path,
     mode: FetchMode,
     bbox: &BoundingBox,
     product: Product,
     warnings: &mut Vec<Note>,
 ) -> Result<Vec<PortalTile>, FetchError> {
-    let url = overview_url(bbox, product);
+    let url = overview_url(addresses, bbox, product);
     let path = dir.join("overview").join(format!(
         "{}_{}.json",
         product.overview_type(),
@@ -529,7 +541,7 @@ fn tile_list(
     let cached = || {
         std::fs::read(&path)
             .ok()
-            .and_then(|bytes| parse_overview(&url, &bytes, product).ok())
+            .and_then(|bytes| parse_overview(&addresses.portal, &url, &bytes, product).ok())
     };
     if mode == FetchMode::Offline {
         return cached().ok_or_else(|| FetchError::Http {
@@ -542,7 +554,7 @@ fn tile_list(
         });
     }
     let answer = get_with_retries(fetcher, &url, |bytes| Ok(bytes.to_vec())).and_then(|bytes| {
-        let tiles = parse_overview(&url, &bytes, product)?;
+        let tiles = parse_overview(&addresses.portal, &url, &bytes, product)?;
         Ok((tiles, bytes))
     });
     match answer {
@@ -588,7 +600,7 @@ pub fn cached_tile_files(
     lists
         .into_iter()
         .filter_map(|(_, path)| std::fs::read(path).ok())
-        .filter_map(|bytes| parse_overview("", &bytes, model).ok())
+        .filter_map(|bytes| parse_overview("", "", &bytes, model).ok())
         .flatten()
         .map(|entry| (entry.tile, cache_path(&dir, model, &entry)))
         .collect()
@@ -643,13 +655,36 @@ pub struct LvermgeoShBackend {
     info: ProviderInfo,
     /// The orthophoto WMS, as the manifest says it.
     wms: WmsService,
+    /// The addresses of the Downloadportal and the ATOM directory, as the manifest says them.
+    addresses: Addresses,
+}
+
+/// The addresses of the height models of Schleswig-Holstein.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Addresses {
+    /// The Downloadportal: the tile lookup and the downloads.
+    pub portal: String,
+    /// The INSPIRE ATOM directory of the DGM1 GeoTIFFs.
+    pub atom: String,
+}
+
+impl Addresses {
+    /// The addresses `config` states.
+    pub fn of(config: &RasterConfig) -> Result<Self, String> {
+        Ok(Self {
+            portal: config.require("lvermgeo-sh", "portal")?,
+            atom: config.require("lvermgeo-sh", "atom")?,
+        })
+    }
 }
 
 impl LvermgeoShBackend {
-    /// The backend that asks `wms` for the orthophoto.
-    pub fn with_wms(wms: WmsService) -> Self {
+    /// The backend that asks `wms` for the orthophoto and the portal and the ATOM directory at
+    /// `addresses` for the models.
+    pub fn with_addresses(wms: WmsService, addresses: Addresses) -> Self {
         Self {
             wms,
+            addresses,
             info: ProviderInfo {
                 id: AdapterId::built_in(PROVIDER),
                 cache_dir: Some("lvermgeo_sh".to_string()),
@@ -664,7 +699,13 @@ impl LvermgeoShBackend {
 impl LvermgeoShBackend {
     /// The backend with the WMS the manifest of the state declares.
     pub fn new() -> Self {
-        Self::with_wms(WMS)
+        Self::with_addresses(
+            WMS,
+            Addresses {
+                portal: PORTAL.to_string(),
+                atom: ATOM_DATA.to_string(),
+            },
+        )
     }
 }
 
@@ -686,7 +727,7 @@ impl RasterBackend for LvermgeoShBackend {
         project: &mut dyn RasterProject,
         bbox: &BoundingBox,
     ) -> Result<(), AdapterError> {
-        fetch_rasters(env, project, bbox, &self.wms)
+        fetch_rasters(env, project, bbox, (&self.wms, &self.addresses))
     }
 
     fn trust(&self) -> Option<&TrustAnchors> {
@@ -701,7 +742,7 @@ fn fetch_rasters(
     env: &mut AdapterEnv<'_>,
     project: &mut dyn RasterProject,
     bbox: &BoundingBox,
-    wms: &WmsService,
+    (wms, addresses): (&WmsService, &Addresses),
 ) -> Result<(), AdapterError> {
     let (fetcher, mode) = (env.fetcher, env.mode);
     let cache = env.cache;
@@ -729,7 +770,9 @@ fn fetch_rasters(
         (Model::Dgm1.label(), Model::Bdom.label()),
         &mut |surface, out, progress| {
             let model = if surface { Model::Bdom } else { Model::Dgm1 };
-            fetch_model(fetcher, cache, mode, model, bbox, dir, out, progress)
+            fetch_model(
+                fetcher, addresses, cache, mode, model, bbox, dir, out, progress,
+            )
         },
         &mut |surface, found, project, progress| {
             for warning in &found.warnings {
@@ -773,6 +816,7 @@ fn fetch_rasters(
 /// warning naming the tile and the reason; when the XYZ fails too, the error names both.
 fn dgm1_tile(
     fetcher: &dyn Fetcher,
+    atom: &str,
     dir: &Path,
     entry: &PortalTile,
     xyz_cells: u32,
@@ -780,7 +824,7 @@ fn dgm1_tile(
 ) -> Result<(Raster<f32>, Option<Note>), FetchError> {
     let path = cache_path(dir, Model::Dgm1, entry);
     let what = format!("{} tile {}", Model::Dgm1.label(), entry.name);
-    let url = format!("{ATOM_DATA}/{}.tif", entry.name);
+    let url = format!("{atom}/{}.tif", entry.name);
     let atom = get_with_retries(fetcher, &url, |bytes| {
         decode_float_tiff(bytes)
             .and_then(|raster| whole_tile(raster, entry.tile, &[1.0]))
@@ -958,7 +1002,7 @@ impl Drop for TempFile {
 
 fn cache_raster(path: &Path, raster: &Raster<f32>, what: &str) -> Result<(), FetchError> {
     let bytes = encode_float_geotiff(raster).map_err(|message| FetchError::Http {
-        url: PORTAL.to_string(),
+        url: path.display().to_string(),
         message: format!("{what}: {message}"),
     })?;
     write_cache_file(path, &bytes)
@@ -1106,6 +1150,34 @@ fn median(values: &mut [f32]) -> f32 {
 mod tests {
     use super::*;
     use crate::fetch::test_support::MapFetcher;
+
+    /// The addresses the manifest of the state declares.
+    fn built_in() -> Addresses {
+        Addresses {
+            portal: PORTAL.to_string(),
+            atom: ATOM_DATA.to_string(),
+        }
+    }
+
+    fn overview(
+        fetcher: &dyn Fetcher,
+        bbox: &BoundingBox,
+        product: Product,
+    ) -> Result<Vec<PortalTile>, FetchError> {
+        super::overview(fetcher, &built_in(), bbox, product)
+    }
+
+    fn overview_url(bbox: &BoundingBox, product: Product) -> String {
+        super::overview_url(&built_in(), bbox, product)
+    }
+
+    fn parse_overview(
+        url: &str,
+        bytes: &[u8],
+        product: Product,
+    ) -> Result<Vec<PortalTile>, FetchError> {
+        super::parse_overview(PORTAL, url, bytes, product)
+    }
 
     const DGM1: &str =
         include_str!("../../../../tests/fixtures/schleswig-holstein-overview-dgm1.json");
@@ -1360,11 +1432,57 @@ mod tests {
     }
 
     /// DGM1 and bDOM tiles (Task 4).
+    #[test]
+    fn the_portal_and_the_atom_directory_are_where_the_config_says() {
+        let a = Addresses {
+            portal: "https://x.example/p".to_string(),
+            atom: "https://x.example/a".to_string(),
+        };
+        assert!(
+            super::overview_url(&a, &SCHOOL, Product::Dgm1)
+                .starts_with("https://x.example/p/_ajax/overview.php?type[]=")
+        );
+        let tiles =
+            super::parse_overview(&a.portal, "fixture", DGM1.as_bytes(), Product::Dgm1).unwrap();
+        assert!(
+            tiles[0]
+                .link
+                .starts_with("https://x.example/p/massen.php?file=")
+        );
+        let tiles =
+            super::parse_overview(&a.portal, "fixture", BDOM.as_bytes(), Product::Bdom).unwrap();
+        assert!(
+            tiles[0]
+                .link
+                .starts_with("https://x.example/p/massen.php?file=")
+        );
+    }
+
     mod model {
         use super::*;
         use crate::fetch::{Cache, FetchMode};
         use crate::raster::{GridSpec, Raster};
         use crate::sources::float_tiff::decode_float_tiff;
+
+        #[test]
+        fn fetch_model_asks_the_cache_before_the_portal_offline() {
+            let dir = tempfile::tempdir().unwrap();
+            let cache = Cache::new(dir.path().join("cache"));
+            let out = dir.path().join("out.tif");
+            let err = fetch_model(
+                &MapFetcher::default(),
+                &built_in(),
+                &cache,
+                FetchMode::Offline,
+                Model::Dgm1,
+                &SCHOOL,
+                dir.path(),
+                &out,
+                &mut |_| {},
+            )
+            .unwrap_err();
+            assert!(err.to_string().contains("offline and not cached"), "{err}");
+        }
 
         const DGM1_TIF: &[u8] =
             include_bytes!("../../../../tests/fixtures/schleswig-holstein-dgm1-nw.tif");
@@ -1408,6 +1526,7 @@ mod tests {
         ) -> Result<HeightModel, FetchError> {
             fetch_model_with(
                 fetcher,
+                &built_in(),
                 cache,
                 mode,
                 model,
@@ -2381,6 +2500,7 @@ mod tests {
                 let started = std::time::Instant::now();
                 let found = fetch_model(
                     &fetcher,
+                    &built_in(),
                     &cache,
                     FetchMode::Online,
                     model,

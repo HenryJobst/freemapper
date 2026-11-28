@@ -157,7 +157,7 @@ außerhalb dieser Liste nimmt in keiner Tabelle einen.
 | `layer` | Text | Die Ebene des Orthofotos: 1 bis 100 Buchstaben, Ziffern und `_.:-`. |
 | `max_px` | Ganzzahl | Die längste Seite einer Anfrage in Pixeln, 256 bis 10000. |
 
-Neun Backends nennen weitere Adressen in `endpoints`, einer Tabelle aus Namen und Adressen (`[orthophoto.endpoints]`
+Dreizehn Backends nennen weitere Adressen in `endpoints`, einer Tabelle aus Namen und Adressen (`[orthophoto.endpoints]`
 oder eine Inline-Tabelle), jede eine https-Adresse auf einem Host aus `[net] hosts`, ohne Query (Issue #273). Ein Name,
 den das Backend nicht abfragt, ist `manifest.unknown-key`; was fehlt, nimmt das Backend aus dem eingebauten Manifest. Ein Manifest, das `endpoints` oder die Schlüssel `url`, `layer` und `max_px` eines Backends nutzt, braucht freemapper 0.29.0 oder neuer (`min_freemapper`).
 Der Code behält, was er mit den Dateien tut: die Kachellisten, die Coverages und Ausdehnungen der Dienste sowie die
@@ -175,6 +175,10 @@ Namen der Ebenen und Jahre.
 | `lgl-bw` (Baden-Württemberg) | `flights`, `files` | dem WFS der Befliegungskacheln des Orthofotos und dem Dateiserver (Archive von DGM1 und nDOM1) |
 | `lvgl` (Saarland) | `share` | der Freigabe mit den Archiven von DGM1 und DOM1 |
 | `lvermgeo-rp` (Rheinland-Pfalz) | `tile-list`, `data` | dem WFS mit der Kachelliste der Laserbefliegung und dem Dateiserver (DGM1, DOM1 und ihre Metalinks) |
+| `hvbg` (Hessen) | `rest` | der REST-Schnittstelle des Downloadcenters (Produktbäume und Dateilisten von DGM1 und DOM1); Dateien, auf die sie per Pfad verweist, liegen auf demselben Host |
+| `lvermgeo-sh` (Schleswig-Holstein) | `portal`, `atom` | dem Downloadportal (Kachelsuche und Downloads von DGM1 und bDOM) und dem INSPIRE-ATOM-Verzeichnis der DGM1-Kacheln |
+| `geosn` (Sachsen) | `index`, `dgm1`, `dom1` | dem ArcGIS-Kachelindex von DGM1 und DOM1 und den Freigaben, aus denen eine Kachel ohne Link im Index geladen wird |
+| `ldbv` (Bayern) | `files` | dem Dateiserver der DGM1- und DOM20-Kacheln |
 
 Der Cache-Ordner der Hamburger Archive folgt dem Dateinamen der Adresse: Ein Archiv unter neuer Adresse bekommt einen
 eigenen Ordner; die Download-Schätzung schaut weiter in den der eingebauten Adresse.

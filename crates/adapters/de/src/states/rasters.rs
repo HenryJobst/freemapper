@@ -4,7 +4,7 @@
 
 use crate::geobasis_nrw::GeobasisNrwBackend;
 use crate::geobremen::{self, GeoBremenBackend};
-use crate::geosn::GeosnBackend;
+use crate::geosn::{self, GeosnBackend};
 use crate::hvbg::HvbgBackend;
 use crate::laiv_mv::{self, LaivMvBackend};
 use crate::ldbv::LdbvBackend;
@@ -13,7 +13,7 @@ use crate::lgl_bw::{self, LglBwBackend};
 use crate::lgln::{self, LglnBackend};
 use crate::lgv::{self, LgvBackend};
 use crate::lvermgeo_rp::{self, LvermgeoRpBackend};
-use crate::lvermgeo_sh::LvermgeoShBackend;
+use crate::lvermgeo_sh::{self, LvermgeoShBackend};
 use crate::lvgl::LvglBackend;
 use freemapper_adapter_api::rasters::{RasterBackend, RasterConfig};
 use freemapper_sources::wms::WmsService;
@@ -77,9 +77,15 @@ pub fn backend_with_wms(
     config: &RasterConfig,
 ) -> Result<Option<Box<dyn RasterBackend>>, String> {
     Ok(Some(match agency {
-        Agency::GeoSn => Box::new(GeosnBackend::with_wms(wms)),
-        Agency::Hvbg => Box::new(HvbgBackend::with_wms(wms)),
-        Agency::LvermGeoSh => Box::new(LvermgeoShBackend::with_wms(wms)),
+        Agency::GeoSn => Box::new(GeosnBackend::with_addresses(
+            wms,
+            geosn::Addresses::of(config)?,
+        )),
+        Agency::Hvbg => Box::new(HvbgBackend::with_rest(wms, config.require("hvbg", "rest")?)),
+        Agency::LvermGeoSh => Box::new(LvermgeoShBackend::with_addresses(
+            wms,
+            lvermgeo_sh::Addresses::of(config)?,
+        )),
         Agency::GeobasisNrw => Box::new(GeobasisNrwBackend::with_addresses(
             wms,
             config.require("geobasis-nrw", "hm")?,
@@ -100,7 +106,10 @@ pub fn backend_with_wms(
             wms,
             lgl_bw::Addresses::of(config)?,
         )),
-        Agency::Ldbv => Box::new(LdbvBackend::with_wms(wms)),
+        Agency::Ldbv => Box::new(LdbvBackend::with_files(
+            wms,
+            config.require("ldbv", "files")?,
+        )),
         Agency::Lgv => Box::new(LgvBackend::with_addresses(wms, lgv::Addresses::of(config)?)),
         _ => return Ok(None),
     }))

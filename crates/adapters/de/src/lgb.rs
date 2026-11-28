@@ -27,9 +27,14 @@ use crate::tiles::TileId;
 
 /// GeoSN GeoCloud link shares (Nextcloud); the tokens change now and then (§2.1 of the Saxony
 /// reference), so the tile index is asked first.
-const GEOSN_SHARES: &str = "https://geocloud.landesvermessung.sachsen.de/public.php/dav/files";
-const GEOSN_DGM1_SHARE: &str = "JCcXyifaNdLDnxZ";
-const GEOSN_DOM1_SHARE: &str = "S6wwnFwX7882sZm";
+/// The shares GeoSN serves its tiles from, as the manifest of Saxony declares them (`dgm1` and
+/// `dom1` of its `endpoints`); the tests are held to them.
+#[cfg(any(test, feature = "testing"))]
+pub const GEOSN_DGM1_SHARE: &str =
+    "https://geocloud.landesvermessung.sachsen.de/public.php/dav/files/JCcXyifaNdLDnxZ";
+#[cfg(any(test, feature = "testing"))]
+pub const GEOSN_DOM1_SHARE: &str =
+    "https://geocloud.landesvermessung.sachsen.de/public.php/dav/files/S6wwnFwX7882sZm";
 
 /// The two folders LGB serves its tiles and their currency lists from (issue #273): where the
 /// `[orthophoto]` of Brandenburg and Berlin says they are. The code keeps the names of the files
@@ -40,6 +45,9 @@ pub struct Addresses {
     pub data: String,
     /// The folder of the currency lists (CSV).
     pub currency: String,
+    /// The addresses of GeoSN, for the Saxon products; a manifest of LGB does not state them, so
+    /// those of the built-in manifest of Saxony stand.
+    pub geosn: crate::geosn::Addresses,
 }
 
 impl Addresses {
@@ -48,7 +56,13 @@ impl Addresses {
         Ok(Self {
             data: config.require("lgb", "data")?,
             currency: config.require("lgb", "currency")?,
+            geosn: crate::geosn::Addresses::builtin(),
         })
+    }
+
+    /// These addresses with the GeoSN ones `geosn`.
+    pub fn with_geosn(self, geosn: crate::geosn::Addresses) -> Self {
+        Self { geosn, ..self }
     }
 
     /// The addresses the manifest of Brandenburg declares.
@@ -94,7 +108,13 @@ impl Addresses {
     pub fn tile_url_of(&self, product: Product, t: TileId) -> String {
         match product.provider() {
             TileProvider::Lgb => self.tile_url(product, t),
-            TileProvider::GeoSn => product.tile_url(t),
+            TileProvider::GeoSn => {
+                let share = match product {
+                    Product::SaxonyDsm => &self.geosn.dom1,
+                    _ => &self.geosn.dgm1,
+                };
+                format!("{share}/{}_tiff.zip", stem(product, t))
+            }
         }
     }
 
@@ -102,7 +122,7 @@ impl Addresses {
     pub fn currency_url_of(&self, product: Product) -> String {
         match product.provider() {
             TileProvider::Lgb => self.currency_csv_url(product),
-            TileProvider::GeoSn => product.currency_csv_url().to_string(),
+            TileProvider::GeoSn => self.geosn.index.clone(),
         }
     }
 }
@@ -179,14 +199,7 @@ impl ProductTiles for Product {
     fn tile_url(self, t: TileId) -> String {
         match self {
             Self::Orthophoto | Self::Dtm | Self::ImageDsm => Addresses::builtin().tile_url(self, t),
-            Self::SaxonyDtm => format!(
-                "{GEOSN_SHARES}/{GEOSN_DGM1_SHARE}/{}_tiff.zip",
-                stem(self, t)
-            ),
-            Self::SaxonyDsm => format!(
-                "{GEOSN_SHARES}/{GEOSN_DOM1_SHARE}/{}_tiff.zip",
-                stem(self, t)
-            ),
+            Self::SaxonyDtm | Self::SaxonyDsm => Addresses::builtin().tile_url_of(self, t),
         }
     }
 
@@ -195,7 +208,7 @@ impl ProductTiles for Product {
             Self::Orthophoto | Self::Dtm | Self::ImageDsm => {
                 Addresses::builtin().currency_csv_url(self)
             }
-            Self::SaxonyDtm | Self::SaxonyDsm => crate::sources::geosn::INDEX_URL.to_string(),
+            Self::SaxonyDtm | Self::SaxonyDsm => Addresses::builtin().geosn.index,
         }
     }
 
@@ -768,6 +781,7 @@ mod tests {
         Addresses {
             data: "https://tiles.example.org/data".to_string(),
             currency: "https://tiles.example.org/lists".to_string(),
+            geosn: crate::geosn::Addresses::builtin(),
         }
     }
 
@@ -779,6 +793,7 @@ mod tests {
                 data: "https://data.geobasis-bb.de/geobasis/daten".to_string(),
                 currency: "https://data.geobasis-bb.de/geobasis/information/aktualitaeten"
                     .to_string(),
+                geosn: crate::geosn::Addresses::builtin(),
             }
         );
         let mut config = RasterConfig::default();

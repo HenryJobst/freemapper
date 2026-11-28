@@ -235,6 +235,10 @@ fn the_backends_that_take_endpoints_and_the_names_they_ask() {
             ("lgl-bw", vec!["flights", "files"]),
             ("lvgl", vec!["share"]),
             ("lvermgeo-rp", vec!["tile-list", "data"]),
+            ("hvbg", vec!["rest"]),
+            ("lvermgeo-sh", vec!["portal", "atom"]),
+            ("geosn", vec!["index", "dgm1", "dom1"]),
+            ("ldbv", vec!["files"]),
         ]
     );
 }
@@ -282,12 +286,8 @@ fn an_endpoint_is_a_plain_address_on_a_declared_host() {
 }
 
 #[test]
-fn a_backend_without_endpoints_and_the_other_tables_take_none() {
+fn the_other_tables_take_no_endpoints() {
     let line = endpoints_line(&["metadata"]);
-    for name in ["geosn", "ldbv"] {
-        let findings = backend(name, &line).unwrap_err();
-        assert_eq!(keys(&findings), ["orthophoto.endpoints"], "{name}");
-    }
     for table in ["terrain", "surface"] {
         let (terrain, surface) = match table {
             "terrain" => (

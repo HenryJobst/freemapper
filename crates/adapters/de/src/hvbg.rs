@@ -38,7 +38,9 @@ use crate::sources::zip_range::{
 };
 use crate::tiles::{TileId, tiles_covering};
 
-/// The Downloadcenter's REST API (undocumented): the product tree and the files per district.
+/// The Downloadcenter's REST API (undocumented): the product tree and the files per district, as
+/// the manifest of Hesse declares it (`rest` of its `endpoints`); the tests are held to it.
+#[cfg(any(test, feature = "testing"))]
 pub const REST_URL: &str =
     "https://gds.hessen.de/INTERSHOP/rest/WFS/HLBG-Geodaten-Site/-/downloadcenter";
 /// The orthophoto WMS. `he_dop20_rgb` is only served below scale 1:9000, which is where the
@@ -54,8 +56,14 @@ pub const WMS: WmsService = WmsService {
 /// The queryable info layer with the flight date per tile.
 const WMS_INFO_LAYER: &str = "he_dop_rgb_info";
 
-/// The host of the files and documents the REST answers link by path.
-const HOST: &str = "https://gds.hessen.de";
+/// The host of the files and documents the REST answers link by path: the scheme and host of
+/// the address of the REST API `rest`.
+fn host(rest: &str) -> &str {
+    let after_scheme = rest.find("://").map_or(0, |at| at + 3);
+    rest[after_scheme..]
+        .find('/')
+        .map_or(rest, |at| &rest[..after_scheme + at])
+}
 /// Most listing pages read per district (20 files each; Marburg-Biedenkopf needs two).
 const MAX_PAGES: u64 = 20;
 
@@ -377,17 +385,17 @@ fn percent_encode(text: &str, path: bool) -> String {
 }
 
 /// The product tree of `model` (its district nodes and description).
-pub fn tree_url(model: Model) -> String {
+pub fn tree_url(rest: &str, model: Model) -> String {
     format!(
-        "{REST_URL}?path={}&navigation=all",
+        "{rest}?path={}&navigation=all",
         percent_encode(model.product(), false)
     )
 }
 
 /// Page `page` (from 1) of the file listing of `district` under `product`.
-pub fn listing_url(product: &str, district: &str, page: u64) -> String {
+pub fn listing_url(rest: &str, product: &str, district: &str, page: u64) -> String {
     let url = format!(
-        "{REST_URL}?path={}",
+        "{rest}?path={}",
         percent_encode(&format!("{product}/{district}"), false)
     );
     if page > 1 {
@@ -399,10 +407,11 @@ pub fn listing_url(product: &str, district: &str, page: u64) -> String {
 
 /// The URL of a server path from a REST answer (`/downloadcenter/…/Wiesbaden - DGM1.zip`);
 /// `None` for anything but a path on the Downloadcenter's host.
-pub fn file_url(path: &str) -> Option<String> {
-    let path = path.strip_prefix(HOST).unwrap_or(path);
+pub fn file_url(rest: &str, path: &str) -> Option<String> {
+    let host = host(rest);
+    let path = path.strip_prefix(host).unwrap_or(path);
     (path.starts_with('/') && !path.starts_with("//"))
-        .then(|| format!("{HOST}{}", percent_encode(path, true)))
+        .then(|| format!("{host}{}", percent_encode(path, true)))
 }
 
 fn answer(bytes: &[u8]) -> Result<Value, String> {
@@ -419,7 +428,7 @@ type Link = (String, String);
 
 /// The district nodes of a product tree answer and the metadata list linked in the product
 /// description.
-fn parse_tree(bytes: &[u8]) -> Result<(Vec<String>, Option<Link>), String> {
+fn parse_tree(rest: &str, bytes: &[u8]) -> Result<(Vec<String>, Option<Link>), String> {
     let answer = answer(bytes)?;
     let product = &answer["searchresult"]["product"];
     if product["id"].is_null() {
@@ -438,12 +447,12 @@ fn parse_tree(bytes: &[u8]) -> Result<(Vec<String>, Option<Link>), String> {
         return Err("the product tree lists no district".to_string());
     }
     let description = product["description"].as_str().unwrap_or_default();
-    Ok((districts, metadata_link(description)))
+    Ok((districts, metadata_link(rest, description)))
 }
 
 /// The metadata list (`…/Metadaten_DGM-DOM_<Monat>-<Jahr>.xlsx`) linked in a product
 /// description: its URL and a file name for its release.
-fn metadata_link(description: &str) -> Option<Link> {
+fn metadata_link(rest: &str, description: &str) -> Option<Link> {
     let href = description
         .split("href=\"")
         .skip(1)
@@ -464,7 +473,7 @@ fn metadata_link(description: &str) -> Option<Link> {
             }
         })
         .collect();
-    Some((file_url(href)?, name))
+    Some((file_url(rest, href)?, name))
 }
 
 /// The files of a district listing: name and URL.
@@ -472,7 +481,7 @@ pub type Files = Vec<(String, String)>;
 
 /// One listing page: its files (name, URL), the number of files in all (if told), per page,
 /// and on this page (any kind).
-fn parse_listing(bytes: &[u8]) -> Result<(Files, Option<u64>, u64, u64), String> {
+fn parse_listing(rest: &str, bytes: &[u8]) -> Result<(Files, Option<u64>, u64, u64), String> {
     let answer = answer(bytes)?;
     let result = &answer["searchresult"];
     let downloads = result["downloads"]
@@ -483,7 +492,9 @@ fn parse_listing(bytes: &[u8]) -> Result<(Files, Option<u64>, u64, u64), String>
         .filter(|d| d["downloadType"].as_str().is_none_or(|t| t == "File"))
         .map(|d| {
             let name = d["name"].as_str();
-            let url = d["downloadLink"]["uri"].as_str().and_then(file_url);
+            let url = d["downloadLink"]["uri"]
+                .as_str()
+                .and_then(|uri| file_url(rest, uri));
             match (name, url) {
                 (Some(name), Some(url)) => Ok((name.to_string(), url)),
                 _ => Err(format!("a download without name or link: {d}")),
@@ -503,6 +514,7 @@ fn parse_listing(bytes: &[u8]) -> Result<(Files, Option<u64>, u64, u64), String>
 /// and expire after a day or two, so they are never cached.
 pub fn downloadcenter_files(
     fetcher: &dyn Fetcher,
+    rest: &str,
     product: &str,
     district: &str,
 ) -> Result<Files, FetchError> {
@@ -511,9 +523,9 @@ pub fn downloadcenter_files(
     let mut pages = None;
     let mut previous: Option<Files> = None;
     for page in 1..=MAX_PAGES {
-        let url = listing_url(product, district, page);
+        let url = listing_url(rest, product, district, page);
         let (found, total, size, count) = get_with_retries(fetcher, &url, |b| {
-            parse_listing(b).map_err(|m| refused(&url, m))
+            parse_listing(rest, b).map_err(|m| refused(&url, m))
         })?;
         if !found.is_empty() && previous.as_ref() == Some(&found) {
             return Err(refused(
@@ -535,14 +547,14 @@ pub fn downloadcenter_files(
         }
     }
     Err(refused(
-        &listing_url(product, district, 1),
+        &listing_url(rest, product, district, 1),
         format!("the listing has more than {MAX_PAGES} pages"),
     ))
 }
 
-fn offline_hint(what: &str) -> FetchError {
+fn offline_hint(rest: &str, what: &str) -> FetchError {
     refused(
-        REST_URL,
+        rest,
         format!("offline and not cached: {what}; run `freemapper fetch` online"),
     )
 }
@@ -556,6 +568,8 @@ struct Zip {
 /// One [`fetch_model`] run: the metadata list, and each listing and zip directory read once.
 struct Session<'a> {
     fetcher: &'a dyn Fetcher,
+    /// The address of the Downloadcenter's REST API.
+    rest: &'a str,
     mode: FetchMode,
     model: Model,
     dir: PathBuf,
@@ -603,6 +617,7 @@ fn kept_lists(dir: &Path) -> Vec<PathBuf> {
 /// falls back to the newest kept one with a warning. Offline the newest kept one.
 fn metadata_list(
     fetcher: &dyn Fetcher,
+    rest: &str,
     mode: FetchMode,
     dir: &Path,
     link: Option<Link>,
@@ -612,7 +627,7 @@ fn metadata_list(
         let newest = kept_lists(dir)
             .into_iter()
             .next()
-            .ok_or_else(|| offline_hint("HVBG DGM/DOM metadata list"))?;
+            .ok_or_else(|| offline_hint(rest, "HVBG DGM/DOM metadata list"))?;
         let bytes = std::fs::read(&newest).map_err(|e| FetchError::Io(newest.clone(), e))?;
         let index = read_index(&bytes).map_err(|m| refused(&newest.display().to_string(), m))?;
         return Ok((index, Vec::new()));
@@ -620,7 +635,7 @@ fn metadata_list(
     // Both models take the list from the DGM1 description, as the plan says.
     let (url, name) = link.ok_or_else(|| {
         refused(
-            &tree_url(Model::Dgm1),
+            &tree_url(rest, Model::Dgm1),
             "the product description links no metadata list (Metadaten_….xlsx)",
         )
     })?;
@@ -667,7 +682,7 @@ fn metadata_list(
 
 /// `e` once more, for a place that failed earlier in the run: the same kind with the same URL
 /// or path (only the kinds a zip read cannot produce keep just their text).
-fn again(e: &FetchError) -> FetchError {
+fn again(rest: &str, e: &FetchError) -> FetchError {
     match e {
         FetchError::Http { url, message } => FetchError::Http {
             url: url.clone(),
@@ -719,7 +734,7 @@ fn again(e: &FetchError) -> FetchError {
             reason: reason.clone(),
         },
         FetchError::HostNotNamed(refused) => FetchError::HostNotNamed(refused.clone()),
-        FetchError::CurrencyCsv(_) | FetchError::Alkis(_) => refused(REST_URL, e.to_string()),
+        FetchError::CurrencyCsv(_) | FetchError::Alkis(_) => refused(rest, e.to_string()),
     }
 }
 
@@ -728,15 +743,16 @@ impl<'a> Session<'a> {
     /// read again.
     fn open(
         fetcher: &'a dyn Fetcher,
+        rest: &'a str,
         cache: &CacheDir,
         mode: FetchMode,
         model: Model,
         memo: &mut MetadataMemo,
     ) -> Result<Self, FetchError> {
         let read_tree = |model: Model| {
-            let url = tree_url(model);
+            let url = tree_url(rest, model);
             get_with_retries(fetcher, &url, |b| {
-                parse_tree(b).map_err(|m| refused(&url, m))
+                parse_tree(rest, b).map_err(|m| refused(&url, m))
             })
         };
         let mut districts = Vec::new();
@@ -754,7 +770,7 @@ impl<'a> Session<'a> {
         if memo.loaded.is_none() {
             let link = memo.tree.as_ref().and_then(|t| t.1.clone());
             let dir = cache.provider_dir("hvbg").join("metadata");
-            let (index, mut warnings) = metadata_list(fetcher, mode, &dir, link)?;
+            let (index, mut warnings) = metadata_list(fetcher, rest, mode, &dir, link)?;
             if !index.undated.is_empty() {
                 let shown: Vec<&str> = index.undated.iter().take(5).map(String::as_str).collect();
                 let more = index.undated.len() - shown.len();
@@ -773,6 +789,7 @@ impl<'a> Session<'a> {
         let (index, warnings) = memo.loaded.clone().expect("loaded above");
         Ok(Self {
             fetcher,
+            rest,
             mode,
             model,
             dir: cache.provider_dir("hvbg").join(model.code()),
@@ -837,7 +854,7 @@ impl<'a> Session<'a> {
                 .join(format!("32_{:03}_{:04}.tif", tile.east_km, tile.north_km));
             let label = self.model.label();
             return cached_member(self.fetcher, self.mode, &zip.url, member, &file, || {
-                offline_hint(&format!("{label} {}", member.name))
+                offline_hint(self.rest, &format!("{label} {}", member.name))
             })
             .map(Some);
         }
@@ -853,10 +870,10 @@ impl<'a> Session<'a> {
             return Ok(zip.clone());
         }
         if let Some(e) = self.failed.get(&key) {
-            return Err(again(e));
+            return Err(again(self.rest, e));
         }
         let zip = self.read_zip(place, &key).inspect_err(|e| {
-            self.failed.insert(key.clone(), again(e));
+            self.failed.insert(key.clone(), again(self.rest, e));
         })?;
         let zip = zip.map(Rc::new);
         if zip.is_none() {
@@ -901,8 +918,12 @@ impl<'a> Session<'a> {
                 if !file.exists() && no_zip.exists() {
                     return Ok(None);
                 }
-                let hint =
-                    || offline_hint(&format!("{} of {}", self.model.label(), place.municipality));
+                let hint = || {
+                    offline_hint(
+                        self.rest,
+                        &format!("{} of {}", self.model.label(), place.municipality),
+                    )
+                };
                 let cached = std::fs::read(&file).map_err(|_| hint())?;
                 let (count, directory) = cached.split_at_checked(2).ok_or_else(hint)?;
                 let url = file.display().to_string();
@@ -924,7 +945,12 @@ impl<'a> Session<'a> {
         let files = match self.listings.get(&district) {
             Some(files) => Rc::clone(files),
             None => {
-                let files = Rc::new(downloadcenter_files(self.fetcher, product, &district)?);
+                let files = Rc::new(downloadcenter_files(
+                    self.fetcher,
+                    self.rest,
+                    product,
+                    &district,
+                )?);
                 self.listings.insert(district.clone(), Rc::clone(&files));
                 files
             }
@@ -976,8 +1002,10 @@ fn parse_flight_date(text: &str) -> Option<String> {
 /// their files are looked up in the district listings right before reading, since the file URLs
 /// expire. Tiles outside Hesse stay empty; returned are the missing tiles inside Hesse and the
 /// flight date of the centre tile. No tile at all is an error.
+#[allow(clippy::too_many_arguments)]
 pub fn fetch_model(
     fetcher: &dyn Fetcher,
+    rest: &str,
     cache: &CacheDir,
     mode: FetchMode,
     model: Model,
@@ -987,6 +1015,7 @@ pub fn fetch_model(
 ) -> Result<HeightModel, FetchError> {
     fetch_model_with(
         fetcher,
+        rest,
         cache,
         mode,
         model,
@@ -1002,6 +1031,7 @@ pub fn fetch_model(
 #[allow(clippy::too_many_arguments)]
 pub fn fetch_model_with(
     fetcher: &dyn Fetcher,
+    rest: &str,
     cache: &CacheDir,
     mode: FetchMode,
     model: Model,
@@ -1010,7 +1040,7 @@ pub fn fetch_model_with(
     out: &Path,
     memo: &mut MetadataMemo,
 ) -> Result<HeightModel, FetchError> {
-    let mut session = Session::open(fetcher, cache, mode, model, memo)?;
+    let mut session = Session::open(fetcher, rest, cache, mode, model, memo)?;
     let grid = GridSpec::covering(bbox, 1.0);
     let mut raster = Raster::filled(grid, f32::NAN);
     let (mut found, mut missing) = (0, Vec::new());
@@ -1029,22 +1059,21 @@ pub fn fetch_model_with(
             tile.east_km,
             tile.north_km
         );
-        let part =
-            decode_float_tiff(&bytes).map_err(|m| refused(REST_URL, format!("{name}: {m}")))?;
+        let part = decode_float_tiff(&bytes).map_err(|m| refused(rest, format!("{name}: {m}")))?;
         raster
             .paste_with(&part.grid, |x, y| part.get(x, y))
-            .map_err(|e| refused(REST_URL, format!("{name}: {e}")))?;
+            .map_err(|e| refused(rest, format!("{name}: {e}")))?;
     }
     if found == 0 {
         return Err(refused(
-            REST_URL,
+            rest,
             format!(
                 "no tile of the {} covers the map area; the Downloadcenter may have changed",
                 model.label()
             ),
         ));
     }
-    write_float_raster(&raster, root, out, REST_URL)?;
+    write_float_raster(&raster, root, out, rest)?;
     let centre = TileId {
         east_km: ((bbox.min_e + bbox.max_e) / 2000.0).floor() as u32,
         north_km: ((bbox.min_n + bbox.max_n) / 2000.0).floor() as u32,
@@ -1077,13 +1106,16 @@ pub struct HvbgBackend {
     info: ProviderInfo,
     /// The orthophoto WMS, as the manifest says it.
     wms: WmsService,
+    /// The Downloadcenter's REST API, as the manifest says it.
+    rest: String,
 }
 
 impl HvbgBackend {
-    /// The backend that asks `wms` for the orthophoto.
-    pub fn with_wms(wms: WmsService) -> Self {
+    /// The backend that asks `wms` for the orthophoto and the REST API at `rest` for the models.
+    pub fn with_rest(wms: WmsService, rest: String) -> Self {
         Self {
             wms,
+            rest,
             info: ProviderInfo {
                 id: AdapterId::built_in(PROVIDER),
                 cache_dir: Some("hvbg".to_string()),
@@ -1098,7 +1130,7 @@ impl HvbgBackend {
 impl HvbgBackend {
     /// The backend with the WMS the manifest of the state declares.
     pub fn new() -> Self {
-        Self::with_wms(WMS)
+        Self::with_rest(WMS, REST_URL.to_string())
     }
 }
 
@@ -1120,7 +1152,7 @@ impl RasterBackend for HvbgBackend {
         project: &mut dyn RasterProject,
         bbox: &BoundingBox,
     ) -> Result<(), AdapterError> {
-        fetch_rasters(env, project, bbox, &self.wms)
+        fetch_rasters(env, project, bbox, (&self.wms, &self.rest))
     }
 }
 
@@ -1131,7 +1163,7 @@ fn fetch_rasters(
     env: &mut AdapterEnv<'_>,
     project: &mut dyn RasterProject,
     bbox: &BoundingBox,
-    wms: &WmsService,
+    (wms, rest): (&WmsService, &str),
 ) -> Result<(), AdapterError> {
     let (fetcher, mode) = (env.fetcher, env.mode);
     let cache = env.cache;
@@ -1161,7 +1193,7 @@ fn fetch_rasters(
         (Model::Dgm1.label(), Model::Dom1.label()),
         &mut |surface, out, _| {
             let model = if surface { Model::Dom1 } else { Model::Dgm1 };
-            fetch_model_with(fetcher, cache, mode, model, bbox, dir, out, &mut memo)
+            fetch_model_with(fetcher, rest, cache, mode, model, bbox, dir, out, &mut memo)
         },
         &mut |_, found, _, _| {
             for place in &found.unresolved {
@@ -1467,17 +1499,17 @@ mod tests {
         let product = "Luftbildinformationen/Digitale Orthophotos DOP20";
         let district = "Landkreis Marburg-Biedenkopf";
         assert_eq!(
-            listing_url(product, district, 1),
+            listing_url(REST_URL, product, district, 1),
             "https://gds.hessen.de/INTERSHOP/rest/WFS/HLBG-Geodaten-Site/-/downloadcenter?path=Luftbildinformationen%2FDigitale+Orthophotos+DOP20%2FLandkreis+Marburg-Biedenkopf"
         );
         let fetcher = MapFetcher::default();
         for (page, body) in [(1, DOP_MARBURG[0]), (2, DOP_MARBURG[1])] {
             fetcher.insert(
-                &listing_url(product, district, page),
+                &listing_url(REST_URL, product, district, page),
                 body.as_bytes().to_vec(),
             );
         }
-        let files = downloadcenter_files(&fetcher, product, district).unwrap();
+        let files = downloadcenter_files(&fetcher, REST_URL, product, district).unwrap();
         let names: Vec<&str> = files.iter().map(|(n, _)| n.as_str()).collect();
         assert_eq!(
             names,
@@ -1498,10 +1530,11 @@ mod tests {
         // The package of all files is not a municipality.
         let frankfurt = "Kreisfreie Stadt Frankfurt am Main";
         fetcher.insert(
-            &listing_url(Model::Dgm1.product(), frankfurt, 1),
+            &listing_url(REST_URL, Model::Dgm1.product(), frankfurt, 1),
             DGM1_FRANKFURT.as_bytes().to_vec(),
         );
-        let files = downloadcenter_files(&fetcher, Model::Dgm1.product(), frankfurt).unwrap();
+        let files =
+            downloadcenter_files(&fetcher, REST_URL, Model::Dgm1.product(), frankfurt).unwrap();
         assert_eq!(
             files,
             [(
@@ -1509,9 +1542,9 @@ mod tests {
                 "https://gds.hessen.de/downloadcenter/20261108/3D-Daten/Digitales%20Gel%C3%A4ndemodell%20%28DGM1%29/Kreisfreie%20Stadt%20Frankfurt%20am%20Main/Frankfurt_am_Main-DGM1.zip".to_string()
             )]
         );
-        assert_eq!(file_url("//evil.example/x.zip"), None);
+        assert_eq!(file_url(REST_URL, "//evil.example/x.zip"), None);
         assert_eq!(
-            file_url("/a%20b/c d.zip").as_deref(),
+            file_url(REST_URL, "/a%20b/c d.zip").as_deref(),
             Some("https://gds.hessen.de/a%20b/c%20d.zip")
         );
     }
@@ -1596,16 +1629,20 @@ mod tests {
 
     /// Frankfurt's DGM1 zip with `members` (name, tile, value), its listing and the tree.
     fn serve_frankfurt(fetcher: &MapFetcher, members: &[(&str, TileId, f32)]) -> String {
-        fetcher.insert(&tree_url(Model::Dgm1), DGM1_TREE.as_bytes().to_vec());
+        fetcher.insert(
+            &tree_url(REST_URL, Model::Dgm1),
+            DGM1_TREE.as_bytes().to_vec(),
+        );
         fetcher.insert(
             &listing_url(
+                REST_URL,
                 Model::Dgm1.product(),
                 "Kreisfreie Stadt Frankfurt am Main",
                 1,
             ),
             DGM1_FRANKFURT.as_bytes().to_vec(),
         );
-        let url = file_url("/downloadcenter/20261108/3D-Daten/Digitales Geländemodell (DGM1)/Kreisfreie Stadt Frankfurt am Main/Frankfurt_am_Main-DGM1.zip").unwrap();
+        let url = file_url(REST_URL, "/downloadcenter/20261108/3D-Daten/Digitales Geländemodell (DGM1)/Kreisfreie Stadt Frankfurt am Main/Frankfurt_am_Main-DGM1.zip").unwrap();
         let mut parts: Vec<(&str, Vec<u8>, bool)> = members
             .iter()
             .map(|(name, t, v)| (*name, tile_tiff(*t, *v, 0.0), true))
@@ -1661,6 +1698,7 @@ mod tests {
         let out = dir.path().join("dgm1.tif");
         let fetched = fetch_model(
             &fetcher,
+            REST_URL,
             &cache,
             FetchMode::Online,
             Model::Dgm1,
@@ -1690,6 +1728,7 @@ mod tests {
         let before = zip_reads();
         fetch_model(
             &fetcher,
+            REST_URL,
             &cache,
             FetchMode::Online,
             Model::Dgm1,
@@ -1703,6 +1742,7 @@ mod tests {
         let offline = MapFetcher::default();
         let again = fetch_model(
             &offline,
+            REST_URL,
             &cache,
             FetchMode::Offline,
             Model::Dgm1,
@@ -1715,6 +1755,7 @@ mod tests {
         assert_eq!(offline.calls.get(), 0);
         let err = fetch_model(
             &offline,
+            REST_URL,
             &cache,
             FetchMode::Offline,
             Model::Dom1,
@@ -1746,6 +1787,7 @@ mod tests {
         };
         let fetched = fetch_model(
             &fetcher,
+            REST_URL,
             &cache,
             FetchMode::Online,
             Model::Dgm1,
@@ -1764,6 +1806,7 @@ mod tests {
         none.insert(METADATA_URL, frankfurt_rows(&[(tile(476, 5552), 44985)]));
         let err = fetch_model(
             &none,
+            REST_URL,
             &cache,
             FetchMode::Online,
             Model::Dgm1,
@@ -1787,15 +1830,18 @@ mod tests {
         taunusstein_tiles: &[TileId],
         rows: &[(TileId, (&str, &str))],
     ) -> (String, String) {
-        fetcher.insert(&tree_url(Model::Dgm1), DGM1_TREE.as_bytes().to_vec());
+        fetcher.insert(
+            &tree_url(REST_URL, Model::Dgm1),
+            DGM1_TREE.as_bytes().to_vec(),
+        );
         let product = Model::Dgm1.product();
         fetcher.insert(
-            &listing_url(product, "Kreisfreie Stadt Wiesbaden", 1),
+            &listing_url(REST_URL, product, "Kreisfreie Stadt Wiesbaden", 1),
             DGM1_WIESBADEN.as_bytes().to_vec(),
         );
         let taunusstein_uri = "/downloadcenter/20261108/3D-Daten/Digitales Geländemodell (DGM1)/Rheingau-Taunus-Kreis/Taunusstein_DGM1.zip";
         fetcher.insert(
-            &listing_url(product, "Rheingau-Taunus-Kreis", 1),
+            &listing_url(REST_URL, product, "Rheingau-Taunus-Kreis", 1),
             listing_answer(&[
                 (
                     "Niedernhausen - DGM1",
@@ -1821,9 +1867,9 @@ mod tests {
                 .collect();
             archive(&members)
         };
-        let wiesbaden = file_url("/downloadcenter/20261108/3D-Daten/Digitales Geländemodell (DGM1)/Kreisfreie Stadt Wiesbaden/Wiesbaden - DGM1.zip").unwrap();
+        let wiesbaden = file_url(REST_URL, "/downloadcenter/20261108/3D-Daten/Digitales Geländemodell (DGM1)/Kreisfreie Stadt Wiesbaden/Wiesbaden - DGM1.zip").unwrap();
         fetcher.insert(&wiesbaden, zip("dgm1", wiesbaden_tiles, 1.0));
-        let taunusstein = file_url(taunusstein_uri).unwrap();
+        let taunusstein = file_url(REST_URL, taunusstein_uri).unwrap();
         fetcher.insert(&taunusstein, zip("DGM1", taunusstein_tiles, 2.0));
         let rows: Vec<(TileId, u32, &str, &str)> =
             rows.iter().map(|&(t, (m, d))| (t, 44629, m, d)).collect();
@@ -1863,6 +1909,7 @@ mod tests {
         let out = dir.path().join("dgm1.tif");
         let fetched = fetch_model(
             &fetcher,
+            REST_URL,
             &cache,
             FetchMode::Online,
             Model::Dgm1,
@@ -1949,6 +1996,7 @@ mod tests {
         };
         let err = fetch_model(
             &fetcher,
+            REST_URL,
             &cache,
             FetchMode::Online,
             Model::Dgm1,
@@ -1985,6 +2033,7 @@ mod tests {
         };
         let err = fetch_model(
             &fetcher,
+            REST_URL,
             &cache,
             FetchMode::Online,
             Model::Dgm1,
@@ -2022,16 +2071,16 @@ mod tests {
             listing_page(&entries, None)
         };
         let fetcher = MapFetcher::default();
-        fetcher.insert(&listing_url(product, district, 1), page(0..20));
-        fetcher.insert(&listing_url(product, district, 2), page(20..22));
-        let found = downloadcenter_files(&fetcher, product, district).unwrap();
+        fetcher.insert(&listing_url(REST_URL, product, district, 1), page(0..20));
+        fetcher.insert(&listing_url(REST_URL, product, district, 2), page(20..22));
+        let found = downloadcenter_files(&fetcher, REST_URL, product, district).unwrap();
         assert_eq!(found.len(), 22);
         assert_eq!(fetcher.calls.get(), 2);
         // A short first page is the whole listing.
         let short = MapFetcher::default();
-        short.insert(&listing_url(product, district, 1), page(0..3));
+        short.insert(&listing_url(REST_URL, product, district, 1), page(0..3));
         assert_eq!(
-            downloadcenter_files(&short, product, district)
+            downloadcenter_files(&short, REST_URL, product, district)
                 .unwrap()
                 .len(),
             3
@@ -2039,9 +2088,9 @@ mod tests {
         assert_eq!(short.calls.get(), 1);
         // A server that ignores the page answers page 1 again: an error, not 20 copies.
         let repeating = MapFetcher::default();
-        repeating.insert(&listing_url(product, district, 1), page(0..20));
-        repeating.insert(&listing_url(product, district, 2), page(0..20));
-        let err = downloadcenter_files(&repeating, product, district).unwrap_err();
+        repeating.insert(&listing_url(REST_URL, product, district, 1), page(0..20));
+        repeating.insert(&listing_url(REST_URL, product, district, 2), page(0..20));
+        let err = downloadcenter_files(&repeating, REST_URL, product, district).unwrap_err();
         assert!(err.to_string().contains("page 2"), "{err}");
     }
 
@@ -2058,6 +2107,7 @@ mod tests {
         fetcher.insert(METADATA_URL, frankfurt_rows(&[(tile(476, 5552), 44985)]));
         let err = fetch_model(
             &fetcher,
+            REST_URL,
             &cache,
             FetchMode::Online,
             Model::Dgm1,
@@ -2121,6 +2171,7 @@ mod tests {
         );
         let fetched = fetch_model(
             &fetcher,
+            REST_URL,
             &cache,
             FetchMode::Online,
             Model::Dgm1,
@@ -2151,6 +2202,7 @@ mod tests {
         let out = dir.path().join("o.tif");
         let fetched = fetch_model(
             &fetcher,
+            REST_URL,
             &cache,
             FetchMode::Online,
             Model::Dgm1,
@@ -2173,6 +2225,7 @@ mod tests {
         std::fs::remove_file(&older).unwrap();
         let err = fetch_model(
             &fetcher,
+            REST_URL,
             &cache,
             FetchMode::Online,
             Model::Dgm1,
@@ -2202,6 +2255,7 @@ mod tests {
         let run = || {
             fetch_model(
                 &fetcher,
+                REST_URL,
                 &cache,
                 FetchMode::Online,
                 Model::Dgm1,
@@ -2241,6 +2295,7 @@ mod tests {
         std::fs::write(metadata.join("other.part"), b"partial").unwrap();
         fetch_model(
             &fetcher,
+            REST_URL,
             &cache,
             FetchMode::Online,
             Model::Dgm1,
@@ -2269,6 +2324,7 @@ mod tests {
         for _ in 0..2 {
             fetch_model_with(
                 &fetcher,
+                REST_URL,
                 &cache,
                 FetchMode::Online,
                 Model::Dgm1,
@@ -2280,7 +2336,7 @@ mod tests {
             .unwrap();
         }
         let reads = |url: &str| fetcher.log.borrow().iter().filter(|u| *u == url).count();
-        assert_eq!(reads(&tree_url(Model::Dgm1)), 1);
+        assert_eq!(reads(&tree_url(REST_URL, Model::Dgm1)), 1);
         assert_eq!(reads(METADATA_URL), 1);
     }
 
@@ -2331,14 +2387,17 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let cache = Cache::new(dir.path().join("cache"));
         let fetcher = MapFetcher::default();
-        fetcher.insert(&tree_url(Model::Dgm1), DGM1_TREE.as_bytes().to_vec());
+        fetcher.insert(
+            &tree_url(REST_URL, Model::Dgm1),
+            DGM1_TREE.as_bytes().to_vec(),
+        );
         let uri = "/downloadcenter/20261108/3D-Daten/Digitales Geländemodell (DGM1)/Rheingau-Taunus-Kreis/Lorch - DGM1.zip";
         fetcher.insert(
-            &listing_url(Model::Dgm1.product(), "Rheingau-Taunus-Kreis", 1),
+            &listing_url(REST_URL, Model::Dgm1.product(), "Rheingau-Taunus-Kreis", 1),
             listing_answer(&[("Lorch - DGM1", uri)]),
         );
         fetcher.insert(
-            &file_url(uri).unwrap(),
+            &file_url(REST_URL, uri).unwrap(),
             archive(&[(
                 "DGM1_32_418_5550_1_he.tif",
                 tile_tiff(tile(418, 5550), 300.0, 0.0),
@@ -2357,6 +2416,7 @@ mod tests {
         };
         let fetched = fetch_model(
             &fetcher,
+            REST_URL,
             &cache,
             FetchMode::Online,
             Model::Dgm1,
@@ -2377,6 +2437,7 @@ mod tests {
         );
         let fetched = fetch_model(
             &fetcher,
+            REST_URL,
             &cache,
             FetchMode::Online,
             Model::Dgm1,
@@ -2394,7 +2455,7 @@ mod tests {
             "navigation": [{"name": "Hochtaunuskreis", "parentId": "DC0100057"}],
             "searchresult": {"product": {"name": "Digitales Geländemodell (DGM1)"}},
         });
-        let err = parse_tree(tree.to_string().as_bytes()).unwrap_err();
+        let err = parse_tree(REST_URL, tree.to_string().as_bytes()).unwrap_err();
         assert!(err.contains("product id"), "{err}");
     }
 
@@ -2417,6 +2478,7 @@ mod tests {
         };
         fetch_model(
             fetcher,
+            REST_URL,
             cache,
             mode,
             Model::Dgm1,
@@ -2522,7 +2584,7 @@ mod tests {
                 detail: Some("NoApplicableCode: forbidden".to_string()),
             },
         ] {
-            assert_eq!(again(&e).to_string(), e.to_string());
+            assert_eq!(again(REST_URL, &e).to_string(), e.to_string());
         }
     }
 
@@ -2552,7 +2614,7 @@ mod tests {
         // The listing loses Taunusstein for a while: unresolved now, but the cached directory
         // stays for offline runs.
         fetcher.insert(
-            &listing_url(Model::Dgm1.product(), "Rheingau-Taunus-Kreis", 1),
+            &listing_url(REST_URL, Model::Dgm1.product(), "Rheingau-Taunus-Kreis", 1),
             listing_answer(&[(
                 "Niedernhausen - DGM1",
                 "/downloadcenter/20261108/x/Niedernhausen - DGM1.zip",
@@ -2567,5 +2629,35 @@ mod tests {
         assert_eq!(offline, first);
         let raster = crate::derive::terrain::read_float_raster(&out).unwrap();
         assert_eq!(raster.get(250, 50), 2.0, "445/5554 from the cache");
+    }
+
+    #[test]
+    fn the_downloadcenter_is_asked_where_the_config_says() {
+        let rest = "https://x.example/a/rest";
+        assert_eq!(
+            tree_url(rest, Model::Dgm1),
+            format!(
+                "{rest}?path={}&navigation=all",
+                percent_encode(Model::Dgm1.product(), false)
+            )
+        );
+        assert_eq!(
+            listing_url(rest, "P", "D", 2),
+            format!("{rest}?path=P%2FD&page=2")
+        );
+        // The files it names by path lie on the host of the address.
+        assert_eq!(
+            file_url(rest, "/d/a b.zip").as_deref(),
+            Some("https://x.example/d/a%20b.zip")
+        );
+        assert_eq!(
+            file_url(rest, "https://x.example/d/a.zip").as_deref(),
+            Some("https://x.example/d/a.zip")
+        );
+        assert_eq!(host("https://x.example"), "https://x.example");
+        assert_eq!(host("https://x.example/a/rest"), "https://x.example");
+        assert_eq!(host("http://h/p"), "http://h");
+        assert_eq!(host("h/p"), "h");
+        assert_eq!(host(REST_URL), "https://gds.hessen.de");
     }
 }
