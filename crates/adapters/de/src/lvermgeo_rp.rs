@@ -12,7 +12,7 @@
 use freemapper_adapter_api::env::AdapterEnv;
 use freemapper_adapter_api::error::AdapterError;
 use freemapper_adapter_api::project::RasterProject;
-use freemapper_adapter_api::rasters::{ProviderInfo, RasterBackend, RasterKind};
+use freemapper_adapter_api::rasters::{ProviderInfo, RasterBackend, RasterConfig, RasterKind};
 use freemapper_adapter_api::records::AdapterId;
 use freemapper_sources::raster_fetch::{
     fetch_area_heights, fetch_wms_orthophoto, warn_beyond_state,
@@ -99,12 +99,15 @@ fn parse_flight_date(text: &str) -> Option<String> {
     (digits(d, 2) && digits(m, 2) && digits(y, 4)).then(|| format!("{d}.{m}.{y}"))
 }
 
-/// The Blattschnitt WFS (MapServer) with the tile list.
+/// The Blattschnitt WFS (MapServer) with the tile list, as the manifest of the state declares it
+/// (`tile-list` of its `endpoints`); the tests are held to it.
+#[cfg(any(test, feature = "testing"))]
 pub const TILE_LIST_URL: &str = "https://geo5.service24.rlp.de/wfs/blattschnitt_rp.fcgi";
 /// The layer with one feature per 1 km tile of the laser scan (DGM1, DOM1, point clouds).
 const TILE_LIST_LAYER: &str = "Laserbefliegung";
-/// The file server of the tiles.
-const DATA: &str = "https://geobasis-rlp.de/data";
+/// The file server of the tiles, as the manifest declares it (`data` of its `endpoints`).
+#[cfg(any(test, feature = "testing"))]
+pub const DATA: &str = "https://geobasis-rlp.de/data";
 
 /// The height models of LVermGeo RP.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -130,28 +133,67 @@ impl Model {
     }
 }
 
-/// The start of every [`tile_list_url`], up to the bbox.
-pub fn tile_list_prefix() -> String {
-    format!(
-        "{TILE_LIST_URL}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES={TILE_LIST_LAYER}"
-    )
+/// The addresses LVermGeo RP serves the tiles from besides the WMS.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Addresses {
+    /// The Blattschnitt WFS with the tile list.
+    pub tile_list: String,
+    /// The file server of the tiles.
+    pub data: String,
 }
 
-/// The tile list over `bbox` (EPSG:25832), rounded outward to whole metres.
-pub fn tile_list_url(bbox: &BoundingBox) -> String {
-    format!(
-        "{}&BBOX={},{},{},{},urn:ogc:def:crs:EPSG::25832",
-        tile_list_prefix(),
-        bbox.min_e.floor(),
-        bbox.min_n.floor(),
-        bbox.max_e.ceil(),
-        bbox.max_n.ceil()
-    )
+impl Addresses {
+    /// The addresses `config` states.
+    pub fn of(config: &RasterConfig) -> Result<Self, String> {
+        Ok(Self {
+            tile_list: config.require("lvermgeo-rp", "tile-list")?,
+            data: config.require("lvermgeo-rp", "data")?,
+        })
+    }
+
+    /// The start of every [`Self::tile_list_url`], up to the bbox.
+    pub fn tile_list_prefix(&self) -> String {
+        format!(
+            "{}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES={TILE_LIST_LAYER}",
+            self.tile_list
+        )
+    }
+
+    /// The tile list over `bbox` (EPSG:25832), rounded outward to whole metres.
+    pub fn tile_list_url(&self, bbox: &BoundingBox) -> String {
+        format!(
+            "{}&BBOX={},{},{},{},urn:ogc:def:crs:EPSG::25832",
+            self.tile_list_prefix(),
+            bbox.min_e.floor(),
+            bbox.min_n.floor(),
+            bbox.max_e.ceil(),
+            bbox.max_n.ceil()
+        )
+    }
+
+    /// The GeoTIFF `name` (without extension) of `model`.
+    pub fn tile_url(&self, model: Model, name: &str) -> String {
+        format!("{}/{}/current/tif/{name}.tif", self.data, model.slug())
+    }
+
+    /// The Metalink of `model` for the whole Land (AGS `07`, 11 MB): file name, size and SHA-256
+    /// of every file. The Kreis and Gemeinde ones are smaller, but which of them covers the map
+    /// area would need the area's municipality key.
+    pub fn metalink_url(&self, model: Model) -> String {
+        let slug = model.slug();
+        format!("{}/{slug}/current/meta4/{slug}_tif_07.meta4", self.data)
+    }
 }
 
-/// The GeoTIFF `name` (without extension) of `model`.
-pub fn tile_url(model: Model, name: &str) -> String {
-    format!("{DATA}/{}/current/tif/{name}.tif", model.slug())
+#[cfg(any(test, feature = "testing"))]
+impl Addresses {
+    /// The addresses the manifest of the state declares.
+    pub fn builtin() -> Self {
+        Self {
+            tile_list: TILE_LIST_URL.to_string(),
+            data: DATA.to_string(),
+        }
+    }
 }
 
 /// One tile of the tile list.
@@ -358,12 +400,13 @@ fn bbox_key(bbox: &BoundingBox) -> String {
 /// stays unreadable, with a warning). DGM1 and DOM1 share it: one flight gives both.
 fn tile_list(
     fetcher: &dyn Fetcher,
+    addresses: &Addresses,
     dir: &Path,
     mode: FetchMode,
     bbox: &BoundingBox,
     warnings: &mut Vec<Note>,
 ) -> Result<TileList, FetchError> {
-    let url = tile_list_url(bbox);
+    let url = addresses.tile_list_url(bbox);
     let path = list_path(dir, bbox);
     let kept = || {
         let bytes = std::fs::read(&path).ok()?;
@@ -428,14 +471,6 @@ fn known_missing(path: &Path, mode: FetchMode) -> bool {
     mode == FetchMode::Offline || crate::clock::age_of(path).is_some_and(|age| age < RECHECK_AFTER)
 }
 
-/// The Metalink of `model` for the whole Land (AGS `07`, 11 MB): file name, size and SHA-256 of
-/// every file. The Kreis and Gemeinde ones are smaller, but which of them covers the map area
-/// would need the area's municipality key.
-pub fn metalink_url(model: Model) -> String {
-    let slug = model.slug();
-    format!("{DATA}/{slug}/current/meta4/{slug}_tif_07.meta4")
-}
-
 /// The largest Metalink accepted (11 MB expected); a larger one is stopped while it is read.
 const MAX_METALINK_BYTES: u64 = 32 * 1024 * 1024;
 
@@ -483,6 +518,7 @@ fn kept_metalink(dir: &Path, model: Model) -> Option<HashMap<TileId, String>> {
 /// Metalink each.
 fn metalink_names(
     fetcher: &dyn Fetcher,
+    addresses: &Addresses,
     dir: &Path,
     mode: FetchMode,
     model: Model,
@@ -495,7 +531,7 @@ fn metalink_names(
             if let Some(names) = fresh_metalink(dir, model) {
                 return Some(names);
             }
-            let url = metalink_url(model);
+            let url = addresses.metalink_url(model);
             let part = path.with_extension("meta4.part");
             let answer =
                 get_limited_with_retries(fetcher, &url, &part, MAX_METALINK_BYTES, |bytes| {
@@ -675,8 +711,10 @@ fn is_tiff(bytes: &[u8]) -> bool {
 /// month), a listed tile the list gives no year for, and a tile inside Rhineland-Palatinate the
 /// list does not name are returned as missing; the date is the centre tile's last flight day.
 /// No tile at all is an error.
+#[allow(clippy::too_many_arguments)]
 pub fn fetch_model(
     fetcher: &dyn Fetcher,
+    addresses: &Addresses,
     cache: &CacheDir,
     mode: FetchMode,
     model: Model,
@@ -686,7 +724,7 @@ pub fn fetch_model(
 ) -> Result<HeightModel, FetchError> {
     let dir = cache.provider_dir("lvermgeo_rp");
     let mut warnings = Vec::new();
-    let list = tile_list(fetcher, &dir, mode, bbox, &mut warnings)?;
+    let list = tile_list(fetcher, addresses, &dir, mode, bbox, &mut warnings)?;
     warnings.extend(list.warnings.iter().cloned());
     let mut area = AreaTiles::default();
     let mut unnamed = Vec::new();
@@ -707,7 +745,7 @@ pub fn fetch_model(
     let metalink = if unnamed.is_empty() {
         None
     } else {
-        metalink_names(fetcher, &dir, mode, model, &mut warnings)
+        metalink_names(fetcher, addresses, &dir, mode, model, &mut warnings)
     };
     for entry in unnamed {
         if let Some(name) = metalink.as_ref().and_then(|names| names.get(&entry.tile)) {
@@ -739,12 +777,12 @@ pub fn fetch_model(
         ));
         area.missing.push((entry.tile, why.to_string()));
     }
-    let list_url = tile_list_url(bbox);
+    let list_url = addresses.tile_list_url(bbox);
     let store = TileStore {
         label: model.label(),
         list_url: &list_url,
-        source: DATA,
-        url: &|name| tile_url(model, name),
+        source: &addresses.data,
+        url: &|name| addresses.tile_url(model, name),
         cache_path: &|name| cache_path(&dir, model, name),
         marker_path: &|name| marker_path(&dir, model, name),
         known_missing: &|path| known_missing(path, mode),
@@ -791,13 +829,15 @@ pub struct LvermgeoRpBackend {
     info: ProviderInfo,
     /// The orthophoto WMS, as the manifest says it.
     wms: WmsService,
+    addresses: Addresses,
 }
 
 impl LvermgeoRpBackend {
-    /// The backend that asks `wms` for the orthophoto.
-    pub fn with_wms(wms: WmsService) -> Self {
+    /// The backend that asks `wms` for the orthophoto and the servers at `addresses`.
+    pub fn with_addresses(wms: WmsService, addresses: Addresses) -> Self {
         Self {
             wms,
+            addresses,
             info: ProviderInfo {
                 id: AdapterId::built_in(PROVIDER),
                 cache_dir: Some("lvermgeo_rp".to_string()),
@@ -812,7 +852,7 @@ impl LvermgeoRpBackend {
 impl LvermgeoRpBackend {
     /// The backend with the WMS the manifest of the state declares.
     pub fn new() -> Self {
-        Self::with_wms(WMS)
+        Self::with_addresses(WMS, Addresses::builtin())
     }
 }
 
@@ -834,7 +874,7 @@ impl RasterBackend for LvermgeoRpBackend {
         project: &mut dyn RasterProject,
         bbox: &BoundingBox,
     ) -> Result<(), AdapterError> {
-        fetch_rasters(env, project, bbox, &self.wms)
+        fetch_rasters(env, project, bbox, (&self.wms, &self.addresses))
     }
 }
 
@@ -845,7 +885,7 @@ fn fetch_rasters(
     env: &mut AdapterEnv<'_>,
     project: &mut dyn RasterProject,
     bbox: &BoundingBox,
-    wms: &WmsService,
+    (wms, addresses): (&WmsService, &Addresses),
 ) -> Result<(), AdapterError> {
     let (fetcher, mode) = (env.fetcher, env.mode);
     let cache = env.cache;
@@ -875,7 +915,7 @@ fn fetch_rasters(
         (Model::Dgm1.label(), Model::Dom1.label()),
         &mut |surface, out, _| {
             let model = if surface { Model::Dom1 } else { Model::Dgm1 };
-            fetch_model(fetcher, cache, mode, model, bbox, dir, out)
+            fetch_model(fetcher, addresses, cache, mode, model, bbox, dir, out)
         },
         &mut |_, found, _, progress| {
             for warning in &found.warnings {
@@ -947,13 +987,16 @@ pub mod test_support {
     /// the DGM1 and DOM1 tiles (terrain 20 m rising 0.01 m per metre east, the surface 12 m
     /// above).
     pub fn serve_synthetic_rp_heights(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
-        use super::{Model, tile_list_prefix, tile_url};
+        use super::{Addresses, Model};
         let tiles = crate::tiles::tiles_covering(bbox);
         let rows: Vec<(TileId, &str, &str)> = tiles
             .iter()
             .map(|t| (*t, "2024", "30.03.24, 06.04.24"))
             .collect();
-        fetcher.insert_prefix(&tile_list_prefix(), rp_tile_list(&rows).into_bytes());
+        fetcher.insert_prefix(
+            &Addresses::builtin().tile_list_prefix(),
+            rp_tile_list(&rows).into_bytes(),
+        );
         for (model, slug, lift) in [(Model::Dgm1, "dgm1", 0.0), (Model::Dom1, "dom1", 12.0)] {
             for tile in &tiles {
                 let grid = crate::raster::GridSpec {
@@ -967,7 +1010,10 @@ pub mod test_support {
                     .map(|i| 20.0 + (i % 1000) as f32 * 0.01 + lift)
                     .collect();
                 let name = format!("{slug}_32_{}_{}_1_rp_2024", tile.east_km, tile.north_km);
-                fetcher.insert(&tile_url(model, &name), geotiff(&grid, &heights));
+                fetcher.insert(
+                    &Addresses::builtin().tile_url(model, &name),
+                    geotiff(&grid, &heights),
+                );
             }
         }
     }
@@ -1048,6 +1094,7 @@ mod tests {
     ) -> Result<HeightModel, FetchError> {
         fetch_model(
             fetcher,
+            &Addresses::builtin(),
             cache,
             mode,
             model,
@@ -1152,7 +1199,10 @@ mod tests {
         let fetcher = MapFetcher::default();
         serve_synthetic_rp_heights(&fetcher, &BBOX);
         // The live list: it also names the neighbours that touch the box.
-        fetcher.insert_prefix(&tile_list_prefix(), TILE_LIST.as_bytes().to_vec());
+        fetcher.insert_prefix(
+            &Addresses::builtin().tile_list_prefix(),
+            TILE_LIST.as_bytes().to_vec(),
+        );
         let (cache_dir, cache) = temp_cache();
         let out = tempfile::tempdir().unwrap();
         for (model, lift) in [(Model::Dgm1, 0.0), (Model::Dom1, 12.0)] {
@@ -1201,7 +1251,7 @@ mod tests {
     fn listed_but_missing_tile_is_reported() {
         let fetcher = MapFetcher::default();
         serve_synthetic_rp_heights(&fetcher, &BBOX);
-        let east_url = tile_url(Model::Dgm1, "dgm1_32_400_5579_1_rp_2024");
+        let east_url = Addresses::builtin().tile_url(Model::Dgm1, "dgm1_32_400_5579_1_rp_2024");
         fetcher.responses.borrow_mut().remove(&east_url);
         let (_cache_dir, cache) = temp_cache();
         let out = tempfile::tempdir().unwrap();
@@ -1231,7 +1281,7 @@ mod tests {
         fetcher
             .responses
             .borrow_mut()
-            .remove(&tile_url(Model::Dgm1, "dgm1_32_399_5579_1_rp_2024"));
+            .remove(&Addresses::builtin().tile_url(Model::Dgm1, "dgm1_32_399_5579_1_rp_2024"));
         let (_empty_dir, empty) = temp_cache();
         let err = run(
             &fetcher,
@@ -1248,7 +1298,7 @@ mod tests {
     fn a_missing_tile_is_asked_again_after_a_month() {
         let fetcher = MapFetcher::default();
         serve_synthetic_rp_heights(&fetcher, &BBOX);
-        let east_url = tile_url(Model::Dgm1, "dgm1_32_400_5579_1_rp_2024");
+        let east_url = Addresses::builtin().tile_url(Model::Dgm1, "dgm1_32_400_5579_1_rp_2024");
         let east_file = fetcher.responses.borrow_mut().remove(&east_url).unwrap();
         let (cache_dir, cache) = temp_cache();
         let tif = cache_dir.path().join("dgm1.tif");
@@ -1273,7 +1323,7 @@ mod tests {
     fn rp_rechecks_missing_tiles_after_30_days_by_the_clock() {
         let fetcher = MapFetcher::default();
         serve_synthetic_rp_heights(&fetcher, &BBOX);
-        let east_url = tile_url(Model::Dgm1, "dgm1_32_400_5579_1_rp_2024");
+        let east_url = Addresses::builtin().tile_url(Model::Dgm1, "dgm1_32_400_5579_1_rp_2024");
         let east_file = fetcher.responses.borrow_mut().remove(&east_url).unwrap();
         let (cache_dir, cache) = temp_cache();
         let tif = cache_dir.path().join("dgm1.tif");
@@ -1305,7 +1355,10 @@ mod tests {
         let fetcher = MapFetcher::default();
         serve_synthetic_rp_heights(&fetcher, &BBOX);
         let rows = [(WEST, "2024", "30.03.24, 06.04.24"), (EAST, "", "")];
-        fetcher.insert_prefix(&tile_list_prefix(), rp_tile_list(&rows).into_bytes());
+        fetcher.insert_prefix(
+            &Addresses::builtin().tile_list_prefix(),
+            rp_tile_list(&rows).into_bytes(),
+        );
         let (cache_dir, cache) = temp_cache();
         let tif = cache_dir.path().join("dgm1.tif");
         let found = run(&fetcher, &cache, FetchMode::Online, Model::Dgm1, &tif).unwrap();
@@ -1332,7 +1385,7 @@ mod tests {
         let page = b"<!DOCTYPE html><html>\x1b[2J<body>No wfs_conf data\xe2\x80\xae</body></html>";
         let fetcher = MapFetcher::default();
         serve_synthetic_rp_heights(&fetcher, &BBOX);
-        fetcher.insert_prefix(&tile_list_prefix(), page.to_vec());
+        fetcher.insert_prefix(&Addresses::builtin().tile_list_prefix(), page.to_vec());
         let (cache_dir, cache) = temp_cache();
         let tif = cache_dir.path().join("dgm1.tif");
         let err = run(&fetcher, &cache, FetchMode::Online, Model::Dgm1, &tif)
@@ -1345,7 +1398,10 @@ mod tests {
         let fetcher = MapFetcher::default();
         serve_synthetic_rp_heights(&fetcher, &BBOX);
         for name in ["dgm1_32_399_5579_1_rp_2024", "dgm1_32_400_5579_1_rp_2024"] {
-            fetcher.insert(&tile_url(Model::Dgm1, name), page.to_vec());
+            fetcher.insert(
+                &Addresses::builtin().tile_url(Model::Dgm1, name),
+                page.to_vec(),
+            );
         }
         let err = run(&fetcher, &cache, FetchMode::Online, Model::Dgm1, &tif)
             .unwrap_err()
@@ -1428,9 +1484,12 @@ mod tests {
         let fetcher = MapFetcher::default();
         serve_synthetic_rp_heights(&fetcher, &BBOX);
         let rows = [(WEST, "", ""), (EAST, "", "")];
-        fetcher.insert_prefix(&tile_list_prefix(), rp_tile_list(&rows).into_bytes());
+        fetcher.insert_prefix(
+            &Addresses::builtin().tile_list_prefix(),
+            rp_tile_list(&rows).into_bytes(),
+        );
         fetcher.insert(
-            &metalink_url(Model::Dgm1),
+            &Addresses::builtin().metalink_url(Model::Dgm1),
             include_bytes!("../../../../tests/fixtures/rheinland-pfalz-dgm1.meta4").to_vec(),
         );
         let (cache_dir, cache) = temp_cache();
@@ -1450,11 +1509,14 @@ mod tests {
         let fetcher = MapFetcher::default();
         serve_synthetic_rp_heights(&fetcher, &BBOX);
         let rows = [(WEST, "2024", "30.03.24, 06.04.24"), (EAST, "", "")];
-        fetcher.insert_prefix(&tile_list_prefix(), rp_tile_list(&rows).into_bytes());
+        fetcher.insert_prefix(
+            &Addresses::builtin().tile_list_prefix(),
+            rp_tile_list(&rows).into_bytes(),
+        );
         fetcher
             .responses
             .borrow_mut()
-            .remove(&tile_url(Model::Dgm1, "dgm1_32_399_5579_1_rp_2024"));
+            .remove(&Addresses::builtin().tile_url(Model::Dgm1, "dgm1_32_399_5579_1_rp_2024"));
         let (_empty_dir, empty) = temp_cache();
         let err = run(&fetcher, &empty, FetchMode::Online, Model::Dgm1, &tif)
             .unwrap_err()
@@ -1502,8 +1564,11 @@ mod tests {
         let fetcher = MapFetcher::default();
         serve_synthetic_rp_heights(&fetcher, &BBOX);
         let rows = [(WEST, "2024", "30.03.24, 06.04.24"), (EAST, "", "")];
-        fetcher.insert_prefix(&tile_list_prefix(), rp_tile_list(&rows).into_bytes());
-        fetcher.insert(&metalink_url(Model::Dgm1), synthetic);
+        fetcher.insert_prefix(
+            &Addresses::builtin().tile_list_prefix(),
+            rp_tile_list(&rows).into_bytes(),
+        );
+        fetcher.insert(&Addresses::builtin().metalink_url(Model::Dgm1), synthetic);
         let grid = GridSpec {
             west: 400_000.0,
             north: 5_580_000.0,
@@ -1512,7 +1577,7 @@ mod tests {
             height: 1000,
         };
         fetcher.insert(
-            &tile_url(Model::Dgm1, "dgm1_32_400_5579_1_rp_2025"),
+            &Addresses::builtin().tile_url(Model::Dgm1, "dgm1_32_400_5579_1_rp_2025"),
             crate::fetch::test_support::geotiff(&grid, &vec![77.0; 1_000_000]),
         );
         let (cache_dir, cache) = temp_cache();
@@ -1521,11 +1586,11 @@ mod tests {
         assert!(found.missing.is_empty(), "{:?}", found.missing);
         assert_eq!(read_out(&tif).2[100 * 200 + 190], 77.0);
         assert_eq!(
-            metalink_url(Model::Dgm1),
+            Addresses::builtin().metalink_url(Model::Dgm1),
             "https://geobasis-rlp.de/data/dgm1/current/meta4/dgm1_tif_07.meta4"
         );
         let asked = |url: &str| fetcher.log.borrow().iter().filter(|u| *u == url).count();
-        assert_eq!(asked(&metalink_url(Model::Dgm1)), 1);
+        assert_eq!(asked(&Addresses::builtin().metalink_url(Model::Dgm1)), 1);
         // Offline: the kept Metalink, nothing requested.
         let silent = MapFetcher::default();
         let offline = run(&silent, &cache, FetchMode::Offline, Model::Dgm1, &tif).unwrap();
@@ -1560,9 +1625,12 @@ mod tests {
         let inner = MapFetcher::default();
         serve_synthetic_rp_heights(&inner, &BBOX);
         let rows = [(WEST, "2024", "30.03.24, 06.04.24"), (EAST, "", "")];
-        inner.insert_prefix(&tile_list_prefix(), rp_tile_list(&rows).into_bytes());
+        inner.insert_prefix(
+            &Addresses::builtin().tile_list_prefix(),
+            rp_tile_list(&rows).into_bytes(),
+        );
         inner.insert(
-            &metalink_url(Model::Dgm1),
+            &Addresses::builtin().metalink_url(Model::Dgm1),
             metalink(&["dgm1_32_400_5579_1_rp_2024.tif"]),
         );
         let fetcher = StreamOnly(inner);
@@ -1570,6 +1638,7 @@ mod tests {
         let tif = cache_dir.path().join("dgm1.tif");
         let found = fetch_model(
             &fetcher,
+            &Addresses::builtin(),
             &cache,
             FetchMode::Online,
             Model::Dgm1,
@@ -1580,13 +1649,15 @@ mod tests {
         .unwrap();
         assert!(found.missing.is_empty(), "{:?}", found.missing);
         // Over the limit: stopped, not asked again.
-        fetcher
-            .0
-            .insert_prefix(&tile_list_prefix(), vec![b' '; MAX_LIST_BYTES as usize + 1]);
+        fetcher.0.insert_prefix(
+            &Addresses::builtin().tile_list_prefix(),
+            vec![b' '; MAX_LIST_BYTES as usize + 1],
+        );
         fetcher.0.calls.set(0);
         let (_empty_dir, empty) = temp_cache();
         let err = fetch_model(
             &fetcher,
+            &Addresses::builtin(),
             &empty,
             FetchMode::Online,
             Model::Dgm1,
@@ -1615,10 +1686,16 @@ mod tests {
         let fetcher = MapFetcher::default();
         serve_synthetic_rp_heights(&fetcher, &BBOX);
         let rows = [(WEST, "2024", "30.03.24, 06.04.24"), (EAST, "", "")];
-        fetcher.insert_prefix(&tile_list_prefix(), rp_tile_list(&rows).into_bytes());
+        fetcher.insert_prefix(
+            &Addresses::builtin().tile_list_prefix(),
+            rp_tile_list(&rows).into_bytes(),
+        );
         for (model, slug) in [(Model::Dgm1, "dgm1"), (Model::Dom1, "dom1")] {
             let name = format!("{slug}_32_400_5579_1_rp_2025");
-            fetcher.insert(&metalink_url(model), metalink(&[&format!("{name}.tif")]));
+            fetcher.insert(
+                &Addresses::builtin().metalink_url(model),
+                metalink(&[&format!("{name}.tif")]),
+            );
             let grid = GridSpec {
                 west: 400_000.0,
                 north: 5_580_000.0,
@@ -1627,7 +1704,7 @@ mod tests {
                 height: 1000,
             };
             fetcher.insert(
-                &tile_url(model, &name),
+                &Addresses::builtin().tile_url(model, &name),
                 crate::fetch::test_support::geotiff(&grid, &vec![77.0; 1_000_000]),
             );
         }
@@ -1637,7 +1714,7 @@ mod tests {
         // Before any run nothing tells that a Metalink is needed.
         assert!(!metalink_to_fetch(&cache, Model::Dgm1, &BBOX, &area));
         let asked = |url: &str| fetcher.log.borrow().iter().filter(|u| *u == url).count();
-        let dgm1 = metalink_url(Model::Dgm1);
+        let dgm1 = Addresses::builtin().metalink_url(Model::Dgm1);
         run(&fetcher, &cache, FetchMode::Online, Model::Dgm1, &tif).unwrap();
         assert_eq!(asked(&dgm1), 1);
         // The DOM1 has its own Metalink, still to be fetched; the DGM1 one is fresh.
@@ -1655,7 +1732,7 @@ mod tests {
         assert_eq!(asked(&dgm1), 1);
         let dom1 = run(&fetcher, &cache, FetchMode::Online, Model::Dom1, &tif).unwrap();
         assert!(dom1.missing.is_empty(), "{:?}", dom1.missing);
-        assert_eq!(asked(&metalink_url(Model::Dom1)), 1);
+        assert_eq!(asked(&Addresses::builtin().metalink_url(Model::Dom1)), 1);
         assert!(!metalink_to_fetch(&cache, Model::Dom1, &BBOX, &area));
         // A month later it is fetched again.
         age(
@@ -1745,7 +1822,10 @@ mod tests {
         serve_synthetic_rp_heights(&fetcher, &BBOX);
         // The west tile is not on the server; the list gives the east one no year.
         let rows = [(WEST, "2024", "30.03.24, 06.04.24"), (EAST, "", "")];
-        fetcher.insert_prefix(&tile_list_prefix(), rp_tile_list(&rows).into_bytes());
+        fetcher.insert_prefix(
+            &Addresses::builtin().tile_list_prefix(),
+            rp_tile_list(&rows).into_bytes(),
+        );
         let (cache_dir, cache) = temp_cache();
         let tif = cache_dir.path().join("dgm1.tif");
         let area = [WEST, EAST, tile(401, 5579)];
@@ -1753,7 +1833,7 @@ mod tests {
         fetcher
             .responses
             .borrow_mut()
-            .remove(&tile_url(Model::Dgm1, "dgm1_32_399_5579_1_rp_2024"));
+            .remove(&Addresses::builtin().tile_url(Model::Dgm1, "dgm1_32_399_5579_1_rp_2024"));
         let _ = run(&fetcher, &cache, FetchMode::Online, Model::Dgm1, &tif);
         // A recent 404 needs no download. The tile the list cannot name does: no Metalink is
         // kept, so the next run downloads one, and it names the file.
@@ -1935,6 +2015,7 @@ mod tests {
             let tif = cache_dir.path().join(format!("{}.tif", model.slug()));
             let found = fetch_model(
                 &fetcher,
+                &Addresses::builtin(),
                 &cache,
                 FetchMode::Online,
                 model,
@@ -1948,5 +2029,44 @@ mod tests {
             println!("{model:?}: {found:?}; {} cells", finite.len());
             assert!(finite.len() > 39_000);
         }
+    }
+
+    #[test]
+    fn the_tiles_are_asked_where_the_config_says() {
+        let config = RasterConfig {
+            endpoints: [
+                ("tile-list", "https://a.example/list"),
+                ("data", "https://b.example/data"),
+            ]
+            .map(|(name, url)| (name.to_string(), url.to_string()))
+            .into(),
+            ..RasterConfig::default()
+        };
+        let addresses = Addresses::of(&config).unwrap();
+        assert_eq!(
+            addresses.tile_list_prefix(),
+            "https://a.example/list?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=Laserbefliegung"
+        );
+        assert_eq!(
+            addresses.tile_list_url(&BBOX),
+            format!(
+                "{}&BBOX={},{},{},{},urn:ogc:def:crs:EPSG::25832",
+                addresses.tile_list_prefix(),
+                BBOX.min_e.floor(),
+                BBOX.min_n.floor(),
+                BBOX.max_e.ceil(),
+                BBOX.max_n.ceil()
+            )
+        );
+        assert_eq!(
+            addresses.tile_url(Model::Dom1, "dom1_x"),
+            "https://b.example/data/dom1/current/tif/dom1_x.tif"
+        );
+        assert_eq!(
+            addresses.metalink_url(Model::Dgm1),
+            "https://b.example/data/dgm1/current/meta4/dgm1_tif_07.meta4"
+        );
+        let missing = Addresses::of(&RasterConfig::default()).unwrap_err();
+        assert!(missing.contains("tile-list"), "{missing}");
     }
 }

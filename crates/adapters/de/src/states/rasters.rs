@@ -9,10 +9,10 @@ use crate::hvbg::HvbgBackend;
 use crate::laiv_mv::{self, LaivMvBackend};
 use crate::ldbv::LdbvBackend;
 use crate::lgb::{self, LgbBackend};
-use crate::lgl_bw::LglBwBackend;
+use crate::lgl_bw::{self, LglBwBackend};
 use crate::lgln::{self, LglnBackend};
 use crate::lgv::{self, LgvBackend};
-use crate::lvermgeo_rp::LvermgeoRpBackend;
+use crate::lvermgeo_rp::{self, LvermgeoRpBackend};
 use crate::lvermgeo_sh::LvermgeoShBackend;
 use crate::lvgl::LvglBackend;
 use freemapper_adapter_api::rasters::{RasterBackend, RasterConfig};
@@ -88,9 +88,18 @@ pub fn backend_with_wms(
             wms,
             lgln::Addresses::of(config)?,
         )),
-        Agency::LvermGeoRp => Box::new(LvermgeoRpBackend::with_wms(wms)),
-        Agency::Lvgl => Box::new(LvglBackend::with_wms(wms)),
-        Agency::LglBw => Box::new(LglBwBackend::with_wms(wms)),
+        Agency::LvermGeoRp => Box::new(LvermgeoRpBackend::with_addresses(
+            wms,
+            lvermgeo_rp::Addresses::of(config)?,
+        )),
+        Agency::Lvgl => Box::new(LvglBackend::with_share(
+            wms,
+            config.require("lvgl", "share")?,
+        )),
+        Agency::LglBw => Box::new(LglBwBackend::with_addresses(
+            wms,
+            lgl_bw::Addresses::of(config)?,
+        )),
         Agency::Ldbv => Box::new(LdbvBackend::with_wms(wms)),
         Agency::Lgv => Box::new(LgvBackend::with_addresses(wms, lgv::Addresses::of(config)?)),
         _ => return Ok(None),

@@ -61,6 +61,10 @@ url = "https://owsproxy.lgl-bw.de/owsproxy/ows/WMS_LGL-BW_ATKIS_DOP_20_C"
 layer = "IMAGES_DOP_20_RGB"
 max_px = 4000
 
+[orthophoto.endpoints]
+flights = "https://owsproxy.lgl-bw.de/owsproxy/wfs/WFS_LGL-BW_ATKIS_DOP_20_Bildflugkacheln_Aktualitaet"
+files = "https://opengeodata.lgl-bw.de/data"
+
 [terrain]
 backend = "lgl-bw"
 

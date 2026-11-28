@@ -127,6 +127,10 @@ url = "https://geoportal.saarland.de/freewms/dop2025"
 layer = "sl_dop20_rgb"
 max_px = 4000
 
+# The open-data share the archives of DGM1 and DOM1 lie on (issue #273).
+[orthophoto.endpoints]
+share = "https://www.shop.lvgl.saarland.de/cloud/public.php/dav/files/NK8ndP55qAqGEZD"
+
 [terrain]
 backend = "lvgl"
 

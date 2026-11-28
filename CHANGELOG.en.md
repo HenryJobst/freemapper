@@ -10,6 +10,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 - The layer pages, README, manual and website now also show the base map itself (without candidates), cut to the map frame like the candidate layers; 30 of 34 examples also show their raster templates (orthophoto, hillshade, slope, relief, nDSM), the forest maps too. `scripts/layer-previews.sh` writes `layers/map.webp` and cuts it at the frame.
 
+### Changed
+
+- The addresses of the height models of Baden-Württemberg, Saarland and Rhineland-Palatinate are in the manifest now (issue #273): `[orthophoto.endpoints]` names for Baden-Württemberg the WFS of the flight tiles (`flights`) and the file server of the archives (`files`), for Saarland the share of the DGM1 and DOM1 archives (`share`) and for Rhineland-Palatinate the WFS with the tile list (`tile-list`) and the file server with the Metalinks (`data`). A folder that replaces a built-in state names only what moved; `sources list`, `sources set` and `adapters probe` know the new addresses. Maps and cache folders do not change. Hesse, Schleswig-Holstein, Saxony, Bavaria and Saxony-Anhalt follow.
+
 ## [0.29.0] - 2026-11-28
 
 ### Added

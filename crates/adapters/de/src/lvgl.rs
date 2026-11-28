@@ -70,7 +70,9 @@ pub const ALKIS: WfsService = WfsService {
     sorted: false,
 };
 
-/// The open-data share of the LVGL, as the download feeds of DGM1 and DOM1 name it.
+/// The open-data share of the LVGL, as the download feeds of DGM1 and DOM1 name it and as the
+/// manifest of Saarland declares it (`share` of its `endpoints`); the tests are held to it.
+#[cfg(any(test, feature = "testing"))]
 pub const SHARE: &str =
     "https://www.shop.lvgl.saarland.de/cloud/public.php/dav/files/NK8ndP55qAqGEZD";
 
@@ -130,13 +132,13 @@ impl Model {
     }
 
     /// The archive of `district` (one of [`DISTRICTS`]).
-    pub fn archive_url(self, district: &str) -> String {
+    pub fn archive_url(self, share: &str, district: &str) -> String {
         let product = match self {
             Self::Dgm1 => "DGM1",
             Self::Dom1 => "DOM1",
         };
         format!(
-            "{SHARE}/{}/{product}_tif_{district}_EPSG-25832_Entstehung-2025.zip",
+            "{share}/{}/{product}_tif_{district}_EPSG-25832_Entstehung-2025.zip",
             self.folder()
         )
     }
@@ -216,12 +218,13 @@ struct Listing {
 /// when the directory was never read (a tile that was fetched has its directory there).
 fn directory(
     fetcher: &dyn Fetcher,
+    share: &str,
     cache: &CacheDir,
     mode: FetchMode,
     model: Model,
     district: &str,
 ) -> Result<Listing, FetchError> {
-    let url = model.archive_url(district);
+    let url = model.archive_url(share, district);
     // The member count (u16, little-endian), then the central directory.
     let file = model
         .cache_folder(cache)
@@ -285,6 +288,7 @@ fn directory(
 #[allow(clippy::too_many_arguments)]
 pub fn fetch_model(
     fetcher: &dyn Fetcher,
+    share: &str,
     cache: &CacheDir,
     mode: FetchMode,
     model: Model,
@@ -295,7 +299,7 @@ pub fn fetch_model(
 ) -> Result<Vec<TileId>, FetchError> {
     let grid = GridSpec::covering(bbox, 1.0);
     let mut raster = Raster::filled(grid, f32::NAN);
-    let folder = format!("{SHARE}/{}", model.folder());
+    let folder = format!("{share}/{}", model.folder());
     let offline_hint = |what: &str| {
         refused(
             &folder,
@@ -320,20 +324,22 @@ pub fn fetch_model(
         let mut holder = None;
         for (index, district) in DISTRICTS.iter().enumerate() {
             if directories[index].is_none() {
-                directories[index] = Some(match directory(fetcher, cache, mode, model, district) {
-                    Ok(listing) => {
-                        if let Some(reason) = listing.kept_because {
-                            unread.push((district, reason, true));
+                directories[index] = Some(
+                    match directory(fetcher, share, cache, mode, model, district) {
+                        Ok(listing) => {
+                            if let Some(reason) = listing.kept_because {
+                                unread.push((district, reason, true));
+                            }
+                            listing.members
                         }
-                        listing.members
-                    }
-                    Err(e) if of_the_archive(&e) => {
-                        passed_over.get_or_insert(unread.len());
-                        unread.push((district, e, false));
-                        Vec::new()
-                    }
-                    Err(e) => return Err(e),
-                });
+                        Err(e) if of_the_archive(&e) => {
+                            passed_over.get_or_insert(unread.len());
+                            unread.push((district, e, false));
+                            Vec::new()
+                        }
+                        Err(e) => return Err(e),
+                    },
+                );
             }
             let members = directories[index].as_deref().unwrap_or_default();
             if let Some(member) = find_member(members, |file| {
@@ -357,7 +363,7 @@ pub fn fetch_model(
         // Named after the tile, never after the archive's member name (which comes from the
         // server and could hold `..` or `\`).
         let file = model.tile_cache_file(cache, tile);
-        let url = model.archive_url(district);
+        let url = model.archive_url(share, district);
         let bytes = cached_member(fetcher, mode, &url, &member, &file, || {
             offline_hint(&member.name)
         })?;
@@ -407,13 +413,16 @@ pub struct LvglBackend {
     info: ProviderInfo,
     /// The orthophoto WMS, as the manifest says it.
     wms: WmsService,
+    /// The open-data share the archives of DGM1 and DOM1 lie on, as the manifest says it.
+    share: String,
 }
 
 impl LvglBackend {
-    /// The backend that asks `wms` for the orthophoto.
-    pub fn with_wms(wms: WmsService) -> Self {
+    /// The backend that asks `wms` for the orthophoto and the archives of the model at `share`.
+    pub fn with_share(wms: WmsService, share: String) -> Self {
         Self {
             wms,
+            share,
             info: ProviderInfo {
                 id: AdapterId::built_in(PROVIDER),
                 cache_dir: Some(PROVIDER.to_string()),
@@ -428,7 +437,7 @@ impl LvglBackend {
 impl LvglBackend {
     /// The backend with the WMS the manifest of the state declares.
     pub fn new() -> Self {
-        Self::with_wms(WMS)
+        Self::with_share(WMS, SHARE.to_string())
     }
 }
 
@@ -450,7 +459,7 @@ impl RasterBackend for LvglBackend {
         project: &mut dyn RasterProject,
         bbox: &BoundingBox,
     ) -> Result<(), AdapterError> {
-        fetch_rasters(env, project, bbox, &self.wms)
+        fetch_rasters(env, project, bbox, (&self.wms, &self.share))
     }
 }
 
@@ -461,7 +470,7 @@ fn fetch_rasters(
     env: &mut AdapterEnv<'_>,
     project: &mut dyn RasterProject,
     bbox: &BoundingBox,
-    wms: &WmsService,
+    (wms, share): (&WmsService, &str),
 ) -> Result<(), AdapterError> {
     let (fetcher, mode, skip_surface) = (env.fetcher, env.mode, env.skip_surface);
     let cache = env.cache;
@@ -508,6 +517,7 @@ fn fetch_rasters(
     ));
     let missing = fetch_model(
         fetcher,
+        share,
         cache,
         mode,
         Model::Dgm1,
@@ -530,6 +540,7 @@ fn fetch_rasters(
     ));
     match fetch_model(
         fetcher,
+        share,
         cache,
         mode,
         Model::Dom1,
@@ -584,7 +595,7 @@ mod tests {
                 .iter()
                 .map(|(name, bytes, deflated)| (name.as_str(), bytes.clone(), *deflated))
                 .collect();
-            fetcher.insert(&Model::Dgm1.archive_url(district), archive(&members));
+            fetcher.insert(&Model::Dgm1.archive_url(SHARE, district), archive(&members));
         }
     }
 
@@ -599,7 +610,7 @@ mod tests {
     }
 
     fn requests_of(fetcher: &MapFetcher, district: &str) -> usize {
-        let url = Model::Dgm1.archive_url(district);
+        let url = Model::Dgm1.archive_url(SHARE, district);
         fetcher
             .log
             .borrow()
@@ -611,12 +622,12 @@ mod tests {
     #[test]
     fn the_archives_are_named_after_their_district() {
         assert_eq!(
-            Model::Dgm1.archive_url("NK"),
+            Model::Dgm1.archive_url(SHARE, "NK"),
             "https://www.shop.lvgl.saarland.de/cloud/public.php/dav/files/NK8ndP55qAqGEZD/\
              OD_DGM1_2025_tif_LK/DGM1_tif_NK_EPSG-25832_Entstehung-2025.zip"
         );
         assert_eq!(
-            Model::Dom1.archive_url("SB"),
+            Model::Dom1.archive_url(SHARE, "SB"),
             "https://www.shop.lvgl.saarland.de/cloud/public.php/dav/files/NK8ndP55qAqGEZD/\
              OD_DOM1_2025_tif_LK/DOM1_tif_SB_EPSG-25832_Entstehung-2025.zip"
         );
@@ -655,6 +666,7 @@ mod tests {
         let out = dir.path().join("dgm1.tif");
         let missing = fetch_model(
             &fetcher,
+            SHARE,
             &cache,
             FetchMode::Online,
             Model::Dgm1,
@@ -688,6 +700,7 @@ mod tests {
         let fetch = |fetcher: &MapFetcher, mode| {
             fetch_model(
                 fetcher,
+                SHARE,
                 &cache,
                 mode,
                 Model::Dgm1,
@@ -707,6 +720,7 @@ mod tests {
         let empty = Cache::new(dir.path().join("empty"));
         let refused = fetch_model(
             &offline,
+            SHARE,
             &empty,
             FetchMode::Offline,
             Model::Dgm1,
@@ -727,7 +741,7 @@ mod tests {
             fetcher
                 .responses
                 .borrow_mut()
-                .remove(&Model::Dgm1.archive_url(district));
+                .remove(&Model::Dgm1.archive_url(SHARE, district));
         }
     }
 
@@ -746,6 +760,7 @@ mod tests {
         let out = dir.path().join("dgm1.tif");
         let missing = fetch_model(
             &fetcher,
+            SHARE,
             &cache,
             FetchMode::Online,
             Model::Dgm1,
@@ -773,6 +788,7 @@ mod tests {
         let out = dir.path().join("dgm1.tif");
         let refused = fetch_model(
             &fetcher,
+            SHARE,
             &cache,
             FetchMode::Online,
             Model::Dgm1,
@@ -799,6 +815,7 @@ mod tests {
         let fetch = |fetcher: &MapFetcher| {
             fetch_model(
                 fetcher,
+                SHARE,
                 &cache,
                 FetchMode::Online,
                 Model::Dgm1,
@@ -831,6 +848,7 @@ mod tests {
             let mut notes = Vec::new();
             fetch_model(
                 fetcher,
+                SHARE,
                 &cache,
                 FetchMode::Online,
                 Model::Dgm1,
@@ -845,7 +863,7 @@ mod tests {
         // MZG is gone and was never read: passed over.
         let without_mzg = MapFetcher::default();
         serve_without(&without_mzg, &tiles, &["MZG"]);
-        let url = Model::Dgm1.archive_url("MZG");
+        let url = Model::Dgm1.archive_url(SHARE, "MZG");
         assert_eq!(
             fetch(&without_mzg),
             [format!(
@@ -861,7 +879,7 @@ mod tests {
         // NK is down now, and its directory of the run before stands in.
         let without_nk = MapFetcher::default();
         serve_without(&without_nk, &tiles, &["NK"]);
-        let url = Model::Dgm1.archive_url("NK");
+        let url = Model::Dgm1.archive_url(SHARE, "NK");
         assert_eq!(
             fetch(&without_nk),
             [format!(
@@ -887,6 +905,7 @@ mod tests {
         let fetch = |notes: &mut Vec<String>| {
             fetch_model(
                 &fetcher,
+                SHARE,
                 &cache,
                 FetchMode::Online,
                 Model::Dgm1,
@@ -939,6 +958,7 @@ mod tests {
         let out = dir.path().join("dgm1.tif");
         let refused = fetch_model(
             &fetcher,
+            SHARE,
             &cache,
             FetchMode::Online,
             Model::Dgm1,
@@ -982,6 +1002,7 @@ mod tests {
         assert!(tile_centre_in(inside, SAARLAND));
         let missing = fetch_model(
             &fetcher,
+            SHARE,
             &cache,
             FetchMode::Online,
             Model::Dgm1,
@@ -1015,6 +1036,7 @@ mod tests {
         let cache = Cache::new(dir.path().join("cache"));
         let refused = fetch_model(
             &WholeFile,
+            SHARE,
             &cache,
             FetchMode::Online,
             Model::Dgm1,
@@ -1149,7 +1171,7 @@ mod tests {
                 skip_surface: false,
                 progress: &mut |n| notes.push(n.to_string()),
             };
-            fetch_rasters(&mut env, &mut project, &bbox, &WMS).unwrap();
+            fetch_rasters(&mut env, &mut project, &bbox, (&WMS, SHARE)).unwrap();
             let unavailable = format!("warning: {} unavailable", Model::Dom1.label());
             let warning = notes
                 .iter()
@@ -1179,5 +1201,13 @@ mod tests {
         assert_eq!(info.cache_dir.as_deref(), Some("lvgl"));
         assert_eq!(info.terrain_source, "lvgl-dgm1");
         assert_eq!(info.kind, RasterKind::PerArea);
+    }
+
+    #[test]
+    fn the_archives_lie_on_the_share_the_config_says() {
+        assert_eq!(
+            Model::Dgm1.archive_url("https://x.example/share", "NK"),
+            "https://x.example/share/OD_DGM1_2025_tif_LK/DGM1_tif_NK_EPSG-25832_Entstehung-2025.zip"
+        );
     }
 }

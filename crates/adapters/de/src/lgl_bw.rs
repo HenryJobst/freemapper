@@ -11,7 +11,7 @@ use freemapper_adapter_api::alkis::{AlkisPart, AlkisSource, FetchArea};
 use freemapper_adapter_api::env::AdapterEnv;
 use freemapper_adapter_api::error::AdapterError;
 use freemapper_adapter_api::project::RasterProject;
-use freemapper_adapter_api::rasters::{ProviderInfo, RasterBackend, RasterKind};
+use freemapper_adapter_api::rasters::{ProviderInfo, RasterBackend, RasterConfig, RasterKind};
 use freemapper_adapter_api::records::AdapterId;
 use freemapper_sources::raster_fetch::{
     fetch_area_heights, fetch_wms_orthophoto, warn_beyond_state,
@@ -48,7 +48,9 @@ pub const WMS: WmsService = WmsService {
     max_px: 4000,
 };
 
-/// The WFS with the flight of each 1 km tile of the orthophoto.
+/// The WFS with the flight of each 1 km tile of the orthophoto, as the manifest of the state
+/// declares it (`flights` of its `endpoints`); the tests are held to it.
+#[cfg(any(test, feature = "testing"))]
 pub const FLIGHTS: &str =
     "https://owsproxy.lgl-bw.de/owsproxy/wfs/WFS_LGL-BW_ATKIS_DOP_20_Bildflugkacheln_Aktualitaet";
 
@@ -64,7 +66,9 @@ pub const ALKIS: WfsService = WfsService {
     sorted: true,
 };
 
-/// The file server of the open data.
+/// The file server of the open data, as the manifest of the state declares it (`files` of its
+/// `endpoints`); the tests are held to it.
+#[cfg(any(test, feature = "testing"))]
 pub const FILES: &str = "https://opengeodata.lgl-bw.de/data";
 
 /// The provider id of the adapter, and the name of its folder in the cache.
@@ -86,13 +90,13 @@ fn is_date(text: &str) -> bool {
 /// from the WFS of the flight tiles; `None` when the service does not answer or has no date.
 /// The WMS shows the flight this service names; the tiles of the file server can be a year
 /// older.
-pub fn flight_date(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Option<String> {
+pub fn flight_date(fetcher: &dyn Fetcher, flights: &str, bbox: &BoundingBox) -> Option<String> {
     let (e, n) = (
         ((bbox.min_e + bbox.max_e) / 2.0).round(),
         ((bbox.min_n + bbox.max_n) / 2.0).round(),
     );
     let url = format!(
-        "{FLIGHTS}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature\
+        "{flights}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature\
          &TYPENAMES=verm:v_dop_20_bildflugkacheln\
          &BBOX={},{},{},{},urn:ogc:def:crs:EPSG::25832&COUNT=10",
         e - 1.0,
@@ -151,9 +155,9 @@ impl Model {
     }
 
     /// The archive of `block` ([`block_of`]).
-    pub fn archive_url(self, block: TileId) -> String {
+    pub fn archive_url(self, files: &str, block: TileId) -> String {
         format!(
-            "{FILES}/{}/{}_32_{:03}_{:04}_2_bw.zip",
+            "{files}/{}/{}_32_{:03}_{:04}_2_bw.zip",
             self.folder(),
             self.prefix(),
             block.east_km,
@@ -317,6 +321,7 @@ fn csv_date(csv: &str, column: &str) -> Option<String> {
 /// is being replaced, and the 404 is the error that names its address.
 fn directory(
     fetcher: &dyn Fetcher,
+    files: &str,
     cache: &CacheDir,
     mode: FetchMode,
     model: Model,
@@ -326,7 +331,7 @@ fn directory(
         "directory-{:03}_{:04}.bin",
         block.east_km, block.north_km
     ));
-    match kept_directory(fetcher, mode, &model.archive_url(block), &file) {
+    match kept_directory(fetcher, mode, &model.archive_url(files, block), &file) {
         Err(FetchError::NotFound(_)) if !block_in_state(block) => Ok(Vec::new()),
         members => members,
     }
@@ -350,13 +355,14 @@ fn block_in_state(block: TileId) -> bool {
 /// read anew. The name of the member comes from the server and never becomes a path.
 fn tile_heights(
     fetcher: &dyn Fetcher,
+    files: &str,
     cache: &CacheDir,
     mode: FetchMode,
     model: Model,
     tile: TileId,
     member: &Member,
 ) -> Result<Raster<f32>, FetchError> {
-    let url = model.archive_url(block_of(tile));
+    let url = model.archive_url(files, block_of(tile));
     let file =
         model
             .cache_folder(cache)
@@ -381,12 +387,13 @@ fn tile_heights(
 /// is an archive that cannot be read.
 fn mosaic(
     fetcher: &dyn Fetcher,
+    files: &str,
     cache: &CacheDir,
     mode: FetchMode,
     model: Model,
     bbox: &BoundingBox,
 ) -> Result<(Raster<f32>, HeightModel), FetchError> {
-    let folder = format!("{FILES}/{}", model.folder());
+    let folder = format!("{files}/{}", model.folder());
     let mut raster = Raster::filled(GridSpec::covering(bbox, 1.0), f32::NAN);
     let mut found = HeightModel::default();
     let mut blocks: BTreeMap<TileId, Vec<Member>> = BTreeMap::new();
@@ -395,7 +402,9 @@ fn mosaic(
         let block = block_of(tile);
         let members = match blocks.entry(block) {
             Entry::Occupied(read) => read.into_mut(),
-            Entry::Vacant(unread) => unread.insert(directory(fetcher, cache, mode, model, block)?),
+            Entry::Vacant(unread) => {
+                unread.insert(directory(fetcher, files, cache, mode, model, block)?)
+            }
         };
         let Some(member) = model.member_of(members, tile, model.extension()) else {
             if tile_centre_in(tile, BADEN_WUERTTEMBERG) {
@@ -403,7 +412,7 @@ fn mosaic(
             }
             continue;
         };
-        let part = tile_heights(fetcher, cache, mode, model, tile, member)?;
+        let part = tile_heights(fetcher, files, cache, mode, model, tile, member)?;
         raster
             .paste_with(&part.grid, |x, y| part.get(x, y))
             .map_err(|e| refused(&folder, e.to_string()))?;
@@ -425,7 +434,7 @@ fn mosaic(
     }
     found.missing.sort();
     if mode == FetchMode::Online {
-        found.date = date(fetcher, model, bbox, &blocks);
+        found.date = date(fetcher, files, model, bbox, &blocks);
     }
     Ok((raster, found))
 }
@@ -434,6 +443,7 @@ fn mosaic(
 /// the first other tile of the area that has one when the centre tile is in no archive.
 fn date(
     fetcher: &dyn Fetcher,
+    files: &str,
     model: Model,
     bbox: &BoundingBox,
     blocks: &BTreeMap<TileId, Vec<Member>>,
@@ -447,7 +457,7 @@ fn date(
         let member = model.member_of(blocks.get(&block)?, tile, ".csv")?;
         Some((block, member))
     })?;
-    let bytes = read_member(fetcher, &model.archive_url(block), member).ok()?;
+    let bytes = read_member(fetcher, &model.archive_url(files, block), member).ok()?;
     csv_date(&String::from_utf8_lossy(&bytes), model.date_column())
 }
 
@@ -558,13 +568,34 @@ pub struct LglBwBackend {
     info: ProviderInfo,
     /// The orthophoto WMS, as the manifest says it.
     wms: WmsService,
+    addresses: Addresses,
+}
+
+/// The addresses of the files the LGL serves besides the WMS.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Addresses {
+    /// The WFS with the flight of each tile of the orthophoto.
+    pub flights: String,
+    /// The file server of the open data.
+    pub files: String,
+}
+
+impl Addresses {
+    /// The addresses `config` states.
+    pub fn of(config: &RasterConfig) -> Result<Self, String> {
+        Ok(Self {
+            flights: config.require("lgl-bw", "flights")?,
+            files: config.require("lgl-bw", "files")?,
+        })
+    }
 }
 
 impl LglBwBackend {
-    /// The backend that asks `wms` for the orthophoto.
-    pub fn with_wms(wms: WmsService) -> Self {
+    /// The backend that asks `wms` for the orthophoto and the servers at `addresses`.
+    pub fn with_addresses(wms: WmsService, addresses: Addresses) -> Self {
         Self {
             wms,
+            addresses,
             info: ProviderInfo {
                 id: AdapterId::built_in(PROVIDER),
                 cache_dir: Some(PROVIDER.to_string()),
@@ -577,9 +608,15 @@ impl LglBwBackend {
 
 #[cfg(any(test, feature = "testing"))]
 impl LglBwBackend {
-    /// The backend with the WMS the manifest of the state declares.
+    /// The backend with the addresses the manifest of the state declares.
     pub fn new() -> Self {
-        Self::with_wms(WMS)
+        Self::with_addresses(
+            WMS,
+            Addresses {
+                flights: FLIGHTS.to_string(),
+                files: FILES.to_string(),
+            },
+        )
     }
 }
 
@@ -601,7 +638,7 @@ impl RasterBackend for LglBwBackend {
         project: &mut dyn RasterProject,
         bbox: &BoundingBox,
     ) -> Result<(), AdapterError> {
-        fetch_rasters(env, project, bbox, &self.wms)
+        fetch_rasters(env, project, bbox, (&self.wms, &self.addresses))
     }
 }
 
@@ -614,14 +651,14 @@ fn fetch_rasters(
     env: &mut AdapterEnv<'_>,
     project: &mut dyn RasterProject,
     bbox: &BoundingBox,
-    wms: &WmsService,
+    (wms, addresses): (&WmsService, &Addresses),
 ) -> Result<(), AdapterError> {
     let (fetcher, mode, cache) = (env.fetcher, env.mode, env.cache);
     let root = project.dir().to_path_buf();
     project.records().tiles.clear();
     project.records().ndsm_tiles.clear();
     warn_beyond_state(env, project, PROVIDER, "LGL");
-    let flight = || flight_date(fetcher, bbox);
+    let flight = || flight_date(fetcher, &addresses.flights, bbox);
     fetch_wms_orthophoto(
         env,
         project,
@@ -637,7 +674,8 @@ fn fetch_rasters(
         (Model::Dgm1.label(), Model::Ndom1.label()),
         &mut |surface, out, progress| {
             let model = if surface { Model::Ndom1 } else { Model::Dgm1 };
-            let (mut raster, mut found) = mosaic(fetcher, cache, mode, model, bbox)?;
+            let (mut raster, mut found) =
+                mosaic(fetcher, &addresses.files, cache, mode, model, bbox)?;
             match (&ground, surface) {
                 (Some(ground), true) => {
                     for (height, ground) in raster.data.iter_mut().zip(&ground.data) {
@@ -646,7 +684,12 @@ fn fetch_rasters(
                 }
                 _ => ground = Some(raster.clone()),
             }
-            write_float_raster(&raster, &root, out, &format!("{FILES}/{}", model.folder()))?;
+            write_float_raster(
+                &raster,
+                &root,
+                out,
+                &format!("{}/{}", addresses.files, model.folder()),
+            )?;
             // Told here, with the state as it is written: the shared warning makes a key of
             // the name, and the catalogs have none with an umlaut.
             let missing = std::mem::take(&mut found.missing);
@@ -740,7 +783,11 @@ mod tests {
             "dgm1_32_511_5402_2_bw/Meta-ATKIS_DGM1_ALS2.txt".to_string(),
             b"https://metadaten.geoportal-bw.de".to_vec(),
         ));
-        insert_archive(fetcher, &Model::Dgm1.archive_url(tile(511, 5402)), &members);
+        insert_archive(
+            fetcher,
+            &Model::Dgm1.archive_url(FILES, tile(511, 5402)),
+            &members,
+        );
     }
 
     /// The archive of the block of the school with the nDOM of the tiles `tiles`.
@@ -754,7 +801,7 @@ mod tests {
         }
         insert_archive(
             fetcher,
-            &Model::Ndom1.archive_url(tile(511, 5402)),
+            &Model::Ndom1.archive_url(FILES, tile(511, 5402)),
             &members,
         );
     }
@@ -779,11 +826,11 @@ mod tests {
         assert_eq!(block_of(tile(413, 5315)), tile(413, 5314));
         assert_eq!(block_of(tile(572, 5359)), tile(571, 5358));
         assert_eq!(
-            Model::Dgm1.archive_url(tile(511, 5402)),
+            Model::Dgm1.archive_url(FILES, tile(511, 5402)),
             "https://opengeodata.lgl-bw.de/data/dgm/dgm1_32_511_5402_2_bw.zip"
         );
         assert_eq!(
-            Model::Ndom1.archive_url(tile(459, 5482)),
+            Model::Ndom1.archive_url(FILES, tile(459, 5482)),
             "https://opengeodata.lgl-bw.de/data/ndom1/ndom1_32_459_5482_2_bw.zip"
         );
     }
@@ -832,7 +879,7 @@ mod tests {
             max_n: 5_403_930.0,
         };
         assert_eq!(
-            flight_date(&fetcher, &school).as_deref(),
+            flight_date(&fetcher, FLIGHTS, &school).as_deref(),
             Some("2026-05-24")
         );
         assert_eq!(
@@ -1073,6 +1120,7 @@ mod tests {
         serve_terrain(&fetcher, &[(511, 5403, 300.0), (512, 5403, 400.0)]);
         let (raster, found) = mosaic(
             &fetcher,
+            FILES,
             &cache,
             FetchMode::Online,
             Model::Dgm1,
@@ -1089,6 +1137,7 @@ mod tests {
         let asked = fetcher.calls.get();
         let (again, _) = mosaic(
             &fetcher,
+            FILES,
             &cache,
             FetchMode::Online,
             Model::Dgm1,
@@ -1102,6 +1151,7 @@ mod tests {
         let asked = fetcher.calls.get();
         let (offline, found) = mosaic(
             &fetcher,
+            FILES,
             &cache,
             FetchMode::Offline,
             Model::Dgm1,
@@ -1121,6 +1171,7 @@ mod tests {
         let fetcher = MapFetcher::default();
         let err = mosaic(
             &fetcher,
+            FILES,
             &cache,
             FetchMode::Offline,
             Model::Dgm1,
@@ -1141,6 +1192,7 @@ mod tests {
         serve_surface(&fetcher, &[(511, 5403, 7.5)]);
         let (raster, found) = mosaic(
             &fetcher,
+            FILES,
             &cache,
             FetchMode::Online,
             Model::Ndom1,
@@ -1169,7 +1221,7 @@ mod tests {
         };
         insert_archive(
             &fetcher,
-            &Model::Ndom1.archive_url(tile(459, 5480)),
+            &Model::Ndom1.archive_url(FILES, tile(459, 5480)),
             &[(
                 "ndom1_32_459_5480_2_bw/ndom1_32_459_5480_1_bw.tif".to_string(),
                 ndom(459, 5480, 4.0),
@@ -1178,7 +1230,7 @@ mod tests {
         // The block between them holds a tile of the Mannheim bank only.
         insert_archive(
             &fetcher,
-            &Model::Ndom1.archive_url(tile(457, 5480)),
+            &Model::Ndom1.archive_url(FILES, tile(457, 5480)),
             &[(
                 "ndom1_32_457_5480_2_bw/ndom1_32_458_5480_1_bw.tif".to_string(),
                 ndom(458, 5480, 2.0),
@@ -1186,8 +1238,15 @@ mod tests {
         );
         assert!(!tile_centre_in(tile(456, 5480), BADEN_WUERTTEMBERG));
         assert!(!tile_centre_in(tile(457, 5480), BADEN_WUERTTEMBERG));
-        let (raster, found) =
-            mosaic(&fetcher, &cache, FetchMode::Online, Model::Ndom1, &bbox).unwrap();
+        let (raster, found) = mosaic(
+            &fetcher,
+            FILES,
+            &cache,
+            FetchMode::Online,
+            Model::Ndom1,
+            &bbox,
+        )
+        .unwrap();
         assert!(raster.get(50, 5).is_nan());
         assert_eq!(raster.get(1500, 5), 2.0);
         assert_eq!(raster.get(2150, 5), 4.0);
@@ -1211,7 +1270,15 @@ mod tests {
             max_n: 5_404_000.0,
         };
         assert!(tile_centre_in(tile(513, 5403), BADEN_WUERTTEMBERG));
-        let err = mosaic(&fetcher, &cache, FetchMode::Online, Model::Dgm1, &bbox).unwrap_err();
+        let err = mosaic(
+            &fetcher,
+            FILES,
+            &cache,
+            FetchMode::Online,
+            Model::Dgm1,
+            &bbox,
+        )
+        .unwrap_err();
         assert!(matches!(err, FetchError::NotFound(_)), "{err:?}");
         assert!(
             err.to_string()
@@ -1222,6 +1289,7 @@ mod tests {
         let fetcher = MapFetcher::default();
         let err = mosaic(
             &fetcher,
+            FILES,
             &cache,
             FetchMode::Online,
             Model::Dgm1,
@@ -1250,7 +1318,7 @@ mod tests {
         }
         insert_archive(
             &fetcher,
-            &Model::Dgm1.archive_url(tile(457, 5480)),
+            &Model::Dgm1.archive_url(FILES, tile(457, 5480)),
             &[(
                 "dgm1_32_457_5480_2_bw/dgm1_32_458_5480_1_bw_2023.xyz".to_string(),
                 xyz(458, 5480, 10, 95.0),
@@ -1262,8 +1330,15 @@ mod tests {
             max_e: 458_100.0,
             max_n: 5_481_000.0,
         };
-        let (raster, found) =
-            mosaic(&fetcher, &cache, FetchMode::Online, Model::Dgm1, &bbox).unwrap();
+        let (raster, found) = mosaic(
+            &fetcher,
+            FILES,
+            &cache,
+            FetchMode::Online,
+            Model::Dgm1,
+            &bbox,
+        )
+        .unwrap();
         assert!(raster.get(50, 5).is_nan());
         assert_eq!(raster.get(1100, 5), 95.0);
         assert!(found.missing.is_empty(), "{:?}", found.missing);
@@ -1279,6 +1354,7 @@ mod tests {
         serve_terrain(&fetcher, &[]);
         let err = mosaic(
             &fetcher,
+            FILES,
             &cache,
             FetchMode::Online,
             Model::Dgm1,
@@ -1307,9 +1383,10 @@ mod tests {
         fetcher
             .failing
             .borrow_mut()
-            .push(Model::Dgm1.archive_url(tile(511, 5402)));
+            .push(Model::Dgm1.archive_url(FILES, tile(511, 5402)));
         let err = mosaic(
             &fetcher,
+            FILES,
             &cache,
             FetchMode::Online,
             Model::Dgm1,
@@ -1411,7 +1488,13 @@ mod tests {
             skip_surface: false,
             progress: &mut |n| notes.push(n.to_string()),
         };
-        fetch_rasters(&mut env, &mut project, &bbox, &WMS).unwrap();
+        fetch_rasters(
+            &mut env,
+            &mut project,
+            &bbox,
+            (&WMS, &LglBwBackend::new().addresses),
+        )
+        .unwrap();
         let terrain = read(&project.dir.join(TERRAIN_RELPATH));
         let surface = read(&project.dir.join(SURFACE_RELPATH));
         assert_eq!(terrain.get(0, 5), 309.0);
@@ -1472,7 +1555,13 @@ mod tests {
             skip_surface: false,
             progress: &mut |n| notes.push(n.to_string()),
         };
-        fetch_rasters(&mut env, &mut project, &bbox, &WMS).unwrap();
+        fetch_rasters(
+            &mut env,
+            &mut project,
+            &bbox,
+            (&WMS, &LglBwBackend::new().addresses),
+        )
+        .unwrap();
         let warning = notes
             .iter()
             .find(|n| n.starts_with("warning: surface model (LGL nDOM1) unavailable"))
@@ -1495,5 +1584,42 @@ mod tests {
         assert_eq!(info.cache_dir.as_deref(), Some("lglbw"));
         assert_eq!(info.terrain_source, "lgl-bw-dgm1");
         assert_eq!(info.kind, RasterKind::PerArea);
+    }
+
+    #[test]
+    fn the_archives_and_the_flights_are_asked_where_the_config_says() {
+        let config = RasterConfig {
+            endpoints: [
+                ("flights", "https://a.example/flights"),
+                ("files", "https://b.example/files"),
+            ]
+            .map(|(name, url)| (name.to_string(), url.to_string()))
+            .into(),
+            ..RasterConfig::default()
+        };
+        let addresses = Addresses::of(&config).unwrap();
+        assert_eq!(addresses.flights, "https://a.example/flights");
+        assert_eq!(addresses.files, "https://b.example/files");
+        assert_eq!(
+            Model::Dgm1.archive_url(&addresses.files, tile(511, 5402)),
+            Model::Dgm1.archive_url("https://b.example/files", tile(511, 5402))
+        );
+        assert!(
+            Model::Dgm1
+                .archive_url(&addresses.files, tile(511, 5402))
+                .starts_with("https://b.example/files/")
+        );
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix("https://a.example/flights?", Vec::new());
+        flight_date(&fetcher, &addresses.flights, &stuttgart());
+        assert!(
+            fetcher
+                .log
+                .borrow()
+                .iter()
+                .all(|url| url.starts_with("https://a.example/flights?"))
+        );
+        let missing = Addresses::of(&RasterConfig::default()).unwrap_err();
+        assert!(missing.contains("flights"), "{missing}");
     }
 }

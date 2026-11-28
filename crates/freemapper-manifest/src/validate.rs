@@ -160,7 +160,7 @@ pub const TAKES_ADDRESSES: [&str; 10] = [
 
 /// The raster backends whose `[orthophoto]` states more addresses (`endpoints`), with the names
 /// each asks for (issue #273). The code of the backend keeps what it does with them.
-pub const TAKES_ENDPOINTS: [(&str, &[&str]); 7] = [
+pub const TAKES_ENDPOINTS: [(&str, &[&str]); 10] = [
     ("lgv", &["metadata", "dgm1", "bdom"]),
     ("geobasis-nrw", &["hm"]),
     (
@@ -171,6 +171,9 @@ pub const TAKES_ENDPOINTS: [(&str, &[&str]); 7] = [
     ("geobremen", &["wms", "files"]),
     ("lgb", &["data", "currency"]),
     ("lantmateriet", &["stac-hojd", "stac-vektor"]),
+    ("lgl-bw", &["flights", "files"]),
+    ("lvgl", &["share"]),
+    ("lvermgeo-rp", &["tile-list", "data"]),
 ];
 
 /// The names of the addresses the raster backend `backend` asks; none for a backend not in

@@ -969,6 +969,24 @@ mod tests {
                 ("dom-wcs", &crate::lgln::DOM1_WCS.url),
             ])
         );
+        assert_eq!(
+            endpoints(State::BadenWuerttemberg),
+            named(&[
+                ("flights", crate::lgl_bw::FLIGHTS),
+                ("files", crate::lgl_bw::FILES),
+            ])
+        );
+        assert_eq!(
+            endpoints(State::Saarland),
+            named(&[("share", crate::lvgl::SHARE)])
+        );
+        assert_eq!(
+            endpoints(State::RheinlandPfalz),
+            named(&[
+                ("tile-list", crate::lvermgeo_rp::TILE_LIST_URL),
+                ("data", crate::lvermgeo_rp::DATA),
+            ])
+        );
         // The folders of LGB, which the constants of `lgb.rs` held; Berlin asks the same.
         for state in [State::Brandenburg, State::Berlin] {
             assert_eq!(

@@ -44,6 +44,11 @@ url = "https://geo4.service24.rlp.de/wms/rp_dop20.fcgi"
 layer = "rp_dop20"
 max_px = 4000
 
+# The tile list of the laser scan and the file server of DGM1 and DOM1 (issue #273).
+[orthophoto.endpoints]
+tile-list = "https://geo5.service24.rlp.de/wfs/blattschnitt_rp.fcgi"
+data = "https://geobasis-rlp.de/data"
+
 [terrain]
 backend = "lvermgeo-rp"
 
