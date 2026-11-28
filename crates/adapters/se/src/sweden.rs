@@ -131,10 +131,6 @@ impl RegionAdapter for SwedenAdapter {
         self.manifest.boundary()
     }
 
-    fn extract_boundary(&self, index: usize) -> Option<&MultiPolygon<f64>> {
-        self.manifest.extract_boundary(index)
-    }
-
     fn bounds(&self) -> BoundingBox {
         self.manifest.bounds()
     }

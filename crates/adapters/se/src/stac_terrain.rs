@@ -173,7 +173,6 @@ fn fetch_model(
     let items = stac::search(fetcher, stac_hojd, COLLECTION, wgs84, 100)?;
     let mut terrain = Raster::filled(GridSpec::covering(bbox, 1.0), f32::NAN);
     let mut date = None;
-    let mut used = 0;
     let mut covered: Vec<BoundingBox> = Vec::new();
     for item in &items {
         let Some(asset) = item.assets.get("data") else {
@@ -237,7 +236,6 @@ fn fetch_model(
                 }
             }
         }
-        used += 1;
         covered.push(grid.bounds());
         // The date of the tile that holds the middle of the area.
         let (mid_e, mid_n) = (
@@ -248,7 +246,7 @@ fn fetch_model(
             date = item.datetime.clone();
         }
     }
-    if used == 0 {
+    if covered.is_empty() {
         return Err(FetchError::Http {
             url: stac_hojd.to_string(),
             message: "no terrain model tile covers the map area; the terrain model of Lantmäteriet covers Sweden only".to_string(),

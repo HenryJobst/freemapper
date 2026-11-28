@@ -142,12 +142,12 @@ impl Wkb<'_> {
         };
         let code = self.u32(little)?;
         // ISO adds 1000 per Z, 2000 per M; EWKB sets high bits for them.
-        let (base, dims) = match (code & 0xffff, code >> 16, code / 1000) {
-            (_, flags, _) if flags & 0xe000 != 0 => (
+        let (base, dims) = match (code >> 16, code / 1000) {
+            (flags, _) if flags & 0xe000 != 0 => (
                 code & 0xff,
                 2 + usize::from(flags & 0x8000 != 0) + usize::from(flags & 0x4000 != 0),
             ),
-            (_, _, thousands @ 0..=3) => (
+            (_, thousands @ 0..=3) => (
                 code % 1000,
                 2 + match thousands {
                     0 => 0,
@@ -978,6 +978,39 @@ mod tests {
         gpkg.max_depth = 1;
         let error = gpkg.rows("ytor", &mut |_, _| Ok(())).unwrap_err();
         assert!(error.contains("cycle"), "{error}");
+    }
+
+    #[test]
+    fn multi_polygons_nested_beyond_the_limit_are_refused() {
+        // A multi polygon of one multi polygon of one ..., ending in an empty one.
+        let nested = |levels: usize| {
+            let mut wkb = Vec::new();
+            for _ in 0..levels {
+                wkb.push(1);
+                wkb.extend(6u32.to_le_bytes());
+                wkb.extend(1u32.to_le_bytes());
+            }
+            wkb.push(1);
+            wkb.extend(6u32.to_le_bytes());
+            wkb.extend(0u32.to_le_bytes());
+            blob(&wkb)
+        };
+        assert!(geometry(&nested(2)).is_ok());
+        let error = geometry(&nested(10)).unwrap_err();
+        assert!(error.contains("nested"), "{error}");
+    }
+
+    #[test]
+    fn an_overflow_chain_that_does_not_end_is_refused() {
+        // Page 5 points at itself: a row of 4 611 bytes wants nine pages of chain.
+        let mut bytes = fixture("deep.gpkg");
+        bytes[4 * 512..4 * 512 + 4].copy_from_slice(&5u32.to_be_bytes());
+        let mut gpkg = GeoPackage::open(&bytes).unwrap();
+        gpkg.pages = 6;
+        let mut body = vec![0u8; 39];
+        body.extend(5u32.to_be_bytes());
+        let error = gpkg.payload(&body, 39 + 508 * 9).unwrap_err();
+        assert!(error.contains("does not end"), "{error}");
     }
 
     #[test]
