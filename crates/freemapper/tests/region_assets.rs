@@ -4,7 +4,7 @@
 //! (`crates/adapters/de/manifests/<id>/`) are valid geometries: a ring that crosses itself can put a point near the
 //! crossing into the wrong state or extract.
 
-use geo::{MultiPolygon, Validation};
+use geo::MultiPolygon;
 
 /// Checks the GeoJSON boundary `path`.
 fn check_boundary(path: &std::path::Path) {
@@ -18,7 +18,7 @@ fn check_boundary(path: &std::path::Path) {
             geo_types::Geometry::Polygon(p) => MultiPolygon(vec![p]),
             other => panic!("{}: not a polygon: {other:?}", path.display()),
         };
-        if let Err(e) = shape.check_validation() {
+        if let Err(e) = freemapper_manifest::boundary::invalid_reason(&shape) {
             panic!("{}: invalid boundary: {e}", path.display());
         }
     }

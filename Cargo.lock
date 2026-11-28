@@ -754,6 +754,7 @@ dependencies = [
  "freemapper-contract",
  "freemapper-fs",
  "freemapper-georef",
+ "freemapper-manifest",
  "freemapper-omap",
  "freemapper-render",
  "freemapper-sources",

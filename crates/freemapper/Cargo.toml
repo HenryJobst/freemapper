@@ -60,6 +60,7 @@ workspace = true
 freemapper = { workspace = true, features = ["golden"] }
 freemapper-adapter-api = { workspace = true, features = ["testing"] }
 freemapper-adapters-de = { workspace = true, features = ["testing"] }
+freemapper-manifest.workspace = true
 freemapper-sources = { workspace = true, features = ["testing"] }
 freemapper-contract = { workspace = true, features = ["fixtures"] }
 quick-xml.workspace = true

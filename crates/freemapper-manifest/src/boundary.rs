@@ -150,7 +150,7 @@ fn parse_with(
             })
         }
     };
-    boundary.check_validation().map_err(|e| {
+    invalid_reason(&boundary).map_err(|e| {
         finding(
             "boundary.invalid",
             path,
@@ -160,9 +160,50 @@ fn parse_with(
     Ok(boundary)
 }
 
+/// Why `boundary` is no valid geometry (a ring that crosses itself, for example), or `Ok`.
+///
+/// The check is generic code that is built in the crate that calls it; the dev profile builds
+/// this crate with optimisations, so that the tests that check every boundary of the program
+/// do not take minutes.
+pub fn invalid_reason(boundary: &MultiPolygon<f64>) -> Result<(), String> {
+    boundary.check_validation().map_err(|e| e.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_ring_that_crosses_itself_is_no_valid_boundary() {
+        let bow_tie = |text: &str| {
+            let path = Path::new("sample/boundary.geojson");
+            parse_with(text, BoundaryCrs::Utm33, path, 100)
+        };
+        let crossing = r#"{"type":"Feature","properties":{},"geometry":{"type":"Polygon","coordinates":
+            [[[400000,5800000],[401000,5801000],[401000,5800000],[400000,5801000],[400000,5800000]]]}}"#;
+        let refused = bow_tie(crossing).unwrap_err();
+        assert_eq!(refused.code, "boundary.invalid");
+        let square = r#"{"type":"Feature","properties":{},"geometry":{"type":"Polygon","coordinates":
+            [[[400000,5800000],[401000,5800000],[401000,5801000],[400000,5801000],[400000,5800000]]]}}"#;
+        let valid = bow_tie(square).unwrap();
+        assert_eq!(invalid_reason(&valid), Ok(()));
+        let reason = invalid_reason(&bow_tie_shape()).unwrap_err();
+        assert!(!reason.is_empty());
+    }
+
+    /// The crossing ring as a shape, which `parse_with` would refuse.
+    fn bow_tie_shape() -> MultiPolygon<f64> {
+        MultiPolygon(vec![geo_types::Polygon::new(
+            geo_types::LineString::from(vec![
+                (400000.0, 5800000.0),
+                (401000.0, 5801000.0),
+                (401000.0, 5800000.0),
+                (400000.0, 5801000.0),
+                (400000.0, 5800000.0),
+            ]),
+            vec![],
+        )])
+    }
 
     #[test]
     fn a_boundary_has_at_most_as_many_vertices_as_allowed() {
