@@ -157,7 +157,7 @@ außerhalb dieser Liste nimmt in keiner Tabelle einen.
 | `layer` | Text | Die Ebene des Orthofotos: 1 bis 100 Buchstaben, Ziffern und `_.:-`. |
 | `max_px` | Ganzzahl | Die längste Seite einer Anfrage in Pixeln, 256 bis 10000. |
 
-Sechs Backends nennen weitere Adressen in `endpoints`, einer Tabelle aus Namen und Adressen (`[orthophoto.endpoints]`
+Neun Backends nennen weitere Adressen in `endpoints`, einer Tabelle aus Namen und Adressen (`[orthophoto.endpoints]`
 oder eine Inline-Tabelle), jede eine https-Adresse auf einem Host aus `[net] hosts`, ohne Query (Issue #273). Ein Name,
 den das Backend nicht abfragt, ist `manifest.unknown-key`; was fehlt, nimmt das Backend aus dem eingebauten Manifest. Ein Manifest, das `endpoints` oder die Schlüssel `url`, `layer` und `max_px` eines Backends nutzt, braucht freemapper 0.29.0 oder neuer (`min_freemapper`).
 Der Code behält, was er mit den Dateien tut: die Kachellisten, die Coverages und Ausdehnungen der Dienste sowie die
@@ -172,6 +172,9 @@ Namen der Ebenen und Jahre.
 | `geobremen` | `wms`, `files` | dem WMS der Orthofotos (die Ebenen kommen aus seinen Capabilities) und dem Dateiserver |
 | `lgb` (Brandenburg, Berlin) | `data`, `currency` | dem Ordner der Kachelarchive (Orthofoto, DGM, bDOM) und der nDOM-Punktwolken und dem Ordner der Aktualitätslisten (CSV) |
 | `lantmateriet` (Schweden, in `[terrain]`) | `stac-hojd`, `stac-vektor` | den STAC-APIs der Höhenprodukte und der Vektorprodukte |
+| `lgl-bw` (Baden-Württemberg) | `flights`, `files` | dem WFS der Befliegungskacheln des Orthofotos und dem Dateiserver (Archive von DGM1 und nDOM1) |
+| `lvgl` (Saarland) | `share` | der Freigabe mit den Archiven von DGM1 und DOM1 |
+| `lvermgeo-rp` (Rheinland-Pfalz) | `tile-list`, `data` | dem WFS mit der Kachelliste der Laserbefliegung und dem Dateiserver (DGM1, DOM1 und ihre Metalinks) |
 
 Der Cache-Ordner der Hamburger Archive folgt dem Dateinamen der Adresse: Ein Archiv unter neuer Adresse bekommt einen
 eigenen Ordner; die Download-Schätzung schaut weiter in den der eingebauten Adresse.

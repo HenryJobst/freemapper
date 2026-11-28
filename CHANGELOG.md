@@ -11,6 +11,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 - Schulhofkarten zeigen jetzt Wege und Straßen wie Sprintkarten (Ticket #334, ADR 0207): OSM-Wege mit bekannter Oberfläche kommen in die Grundkarte, Wege ohne Oberfläche als Kandidaten, und die Verkehrsflächen des Katasters werden befestigte Flächen (501.5), soweit sie nicht Sperrfläche (520) sind. Die Breitengrenzen der Wege- und Treppensymbole sind auf den Schulsatz (1:1000, 125 %) umgerechnet.
 - Ebenen-Seiten, README, Handbuch und Website zeigen jetzt auch die Grundkarte selbst (ohne Kandidaten), zugeschnitten auf den Kartenrahmen wie die Kandidaten-Layer; 30 von 34 Beispielen zeigen zusätzlich ihre Raster-Vorlagen (Orthofoto, Schummerung, Hangneigung, Relief, nDOM), auch die Waldkarten. `scripts/layer-previews.sh` schreibt `layers/map.webp` und beschneidet es am Rahmen.
 
+### Geändert
+
+- Die Adressen der Höhenmodelle von Baden-Württemberg, dem Saarland und Rheinland-Pfalz stehen jetzt im Manifest (Issue #273): `[orthophoto.endpoints]` nennt bei Baden-Württemberg den WFS der Befliegungskacheln (`flights`) und den Dateiserver der Archive (`files`), beim Saarland die Freigabe der DGM1- und DOM1-Archive (`share`) und bei Rheinland-Pfalz den WFS mit der Kachelliste (`tile-list`) und den Dateiserver samt Metalinks (`data`). Ein Ordner, der ein eingebautes Bundesland ersetzt, nennt nur, was umgezogen ist; `sources list`, `sources set` und `adapters probe` kennen die neuen Adressen. Für Karten und Cache-Ordner ändert sich nichts. Hessen, Schleswig-Holstein, Sachsen, Bayern und Sachsen-Anhalt folgen.
+
 ## [0.29.0] - 2026-11-28
 
 ### Hinzugefügt
