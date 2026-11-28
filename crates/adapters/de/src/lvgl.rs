@@ -745,6 +745,63 @@ mod tests {
         }
     }
 
+    /// A fetcher that cancels at one address and answers the others from `inner`.
+    struct CancelAt<'a> {
+        inner: &'a MapFetcher,
+        url: String,
+    }
+
+    impl Fetcher for CancelAt<'_> {
+        fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
+            if url == self.url {
+                return Err(FetchError::Cancelled);
+            }
+            self.inner.get(url)
+        }
+
+        fn last_modified(&self, url: &str) -> Result<Option<chrono::NaiveDate>, FetchError> {
+            if url == self.url {
+                return Err(FetchError::Cancelled);
+            }
+            self.inner.last_modified(url)
+        }
+
+        fn get_range(&self, url: &str, range: ByteRange) -> Result<Vec<u8>, FetchError> {
+            if url == self.url {
+                return Err(FetchError::Cancelled);
+            }
+            self.inner.get_range(url, range)
+        }
+    }
+
+    /// Only an error of the archive lets the others go on: a cancel stops the fetch, and the
+    /// tiles another archive holds do not turn it into a success.
+    #[test]
+    fn a_cancel_stops_the_fetch_instead_of_passing_the_archive_over() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().join("cache"));
+        let inner = MapFetcher::default();
+        serve(&inner, &[("NK", 353, 5455, 6.0)]);
+        let fetcher = CancelAt {
+            inner: &inner,
+            url: Model::Dgm1.archive_url(SHARE, DISTRICTS[0]),
+        };
+        let out = dir.path().join("dgm1.tif");
+        let result = fetch_model(
+            &fetcher,
+            SHARE,
+            &cache,
+            FetchMode::Online,
+            Model::Dgm1,
+            &saarbruecken(),
+            dir.path(),
+            &out,
+            &mut |_| {},
+        );
+        assert!(matches!(result, Err(FetchError::Cancelled)), "{result:?}");
+        assert!(!out.exists());
+    }
+
     /// An archive that cannot be read (renamed, or its server is down) does not stop the tiles
     /// another archive holds: MZG is looked through first for every tile and is gone here.
     #[test]

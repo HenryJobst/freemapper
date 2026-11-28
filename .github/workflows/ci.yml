@@ -251,6 +251,8 @@ jobs:
   # (ADR 0174).
   mutants:
     if: github.event_name == 'pull_request'
+    # Only after the tests passed: a pull request that does not build takes no twelve runners.
+    needs: check
     runs-on: ubuntu-latest
     timeout-minutes: 40
     continue-on-error: true
@@ -268,22 +270,38 @@ jobs:
         with:
           # The diff needs the base branch.
           fetch-depth: 0
-      - run: rustup toolchain install
-      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      # No Rust file in the diff: nothing to mutate, so the shard ends here without a build.
+      - name: Look for changed Rust files
+        id: rust
+        run: |
+          if [ -n "$(git diff --name-only "$MUTANTS_BASE"...HEAD -- '*.rs')" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No Rust change against $MUTANTS_BASE, nothing to mutate"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.rust.outputs.changed == 'true'
+        run: rustup toolchain install
+      - if: steps.rust.outputs.changed == 'true'
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - name: Install cargo-mutants
+        if: steps.rust.outputs.changed == 'true'
         run: |
           cargo mutants --version 2>/dev/null | grep -q "$CARGO_MUTANTS_VERSION" ||
             cargo install cargo-mutants --locked --version "$CARGO_MUTANTS_VERSION" --force
       # The tests run with nextest, as in the job `check`: 2.6 times as fast as `cargo test`.
       - name: Install cargo-nextest
+        if: steps.rust.outputs.changed == 'true'
         run: |
           cargo nextest --version 2>/dev/null | grep -q "$CARGO_NEXTEST_VERSION" ||
             cargo install cargo-nextest --locked --version "$CARGO_NEXTEST_VERSION" --force
       # The copies of the tree that `cargo mutants` builds in start from this build (`--copy-target`),
       # so the baseline compiles little more than the changed crates (ADR 0173).
       - name: Build the tests once
+        if: steps.rust.outputs.changed == 'true'
         run: cargo nextest run --workspace --no-run --locked
-      - run: scripts/check.sh mutants
+      - if: steps.rust.outputs.changed == 'true'
+        run: scripts/check.sh mutants
       - name: The mutants that survived
         if: failure()
         run: cat mutants.out/missed.txt || true
