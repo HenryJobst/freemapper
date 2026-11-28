@@ -83,6 +83,14 @@ pub fn targets(texts: &[&str]) -> (Vec<Target>, Vec<String>) {
             .to_string();
         let mut urls = Vec::new();
         collect_urls("", &toml::Value::Table(manifest.clone()), &mut urls);
+        // A point-cloud folder is asked with its closing slash: a server may answer the bare
+        // name with a redirect to `http://` (geodaten.bayern.de, 2026-11-27), which is no outage.
+        for (_, url) in urls
+            .iter_mut()
+            .filter(|(place, _)| place == "point_cloud.url")
+        {
+            url.push('/');
+        }
         if let Some(extracts) = manifest
             .get("osm")
             .and_then(|o| o.get("extract"))
@@ -409,6 +417,14 @@ endpoints = ["https://b.example.org/t", "https://a.example.org/items"]
     }
 
     #[test]
+    fn a_point_cloud_folder_is_asked_with_its_closing_slash() {
+        let text = "[adapter]\nid = \"demo\"\n[point_cloud]\nkind = \"laz-tiles\"\nurl = \"https://c.example.org/laser\"\n";
+        let (targets, _) = targets(&[text]);
+        let urls: Vec<_> = targets.iter().map(|t| t.url.as_str()).collect();
+        assert_eq!(urls, ["https://c.example.org/laser/"]);
+    }
+
+    #[test]
     fn an_adapter_is_named_once_per_shared_service() {
         let other = MANIFEST.replace("demo\"\n[net]", "other\"\n[net]");
         let (targets, _) = targets(&[MANIFEST, &other]);
@@ -592,7 +608,7 @@ url = "https://a.example.org/las"
         let (targets, hosts) = targets(&[manifest]);
         let folder = targets
             .iter()
-            .find(|t| t.url == "https://a.example.org/las")
+            .find(|t| t.url == "https://a.example.org/las/")
             .unwrap();
         assert_eq!(folder.places, ["point_cloud.url"]);
         let missing = BTreeMap::from([(
@@ -602,7 +618,7 @@ url = "https://a.example.org/las"
         let outcomes = probe(&Scripted(RefCell::new(missing)), &targets, &hosts);
         let answer = outcomes
             .iter()
-            .find(|o| o.url == "https://a.example.org/las")
+            .find(|o| o.url == "https://a.example.org/las/")
             .unwrap();
         assert_eq!(answer.status, Status::Ok);
         assert!(answer.detail.as_deref().unwrap().contains("folder"));
@@ -617,7 +633,7 @@ url = "https://a.example.org/las"
         let outcomes = probe(&Scripted(RefCell::new(down)), &targets, &hosts);
         let answer = outcomes
             .iter()
-            .find(|o| o.url == "https://a.example.org/las")
+            .find(|o| o.url == "https://a.example.org/las/")
             .unwrap();
         assert_eq!(answer.status, Status::Error);
     }
