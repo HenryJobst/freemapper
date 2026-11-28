@@ -21,3 +21,4 @@
 # The map preview that every run writes; the hand-made `preview.webp` of an example stays.
 /examples/*/*-preview.webp
 mutants.out*/
+__pycache__/
