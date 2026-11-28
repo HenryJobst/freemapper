@@ -100,6 +100,7 @@ warning-osm-extract-missing-kept = v predpomnilniku ni izvlečka OSM; ohranjeni 
 progress-osm-extract-read = berem izvleček OSM { $region } z dne { $date }
 progress-osm-candidates = kandidatnih objektov OSM: { $count }
 
+progress-osm-buildings = Stavb iz OpenStreetMap: { $count }
 ## Permit notes
 
 progress-permits-fetch = prenašam podatke { $source } za napotke za dovoljenja

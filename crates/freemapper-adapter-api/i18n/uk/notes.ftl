@@ -112,6 +112,7 @@ warning-osm-extract-missing-kept = кешованого витягу OSM нем�
 progress-osm-extract-read = читання витягу OSM { $region } від { $date }
 progress-osm-candidates = об'єктів-кандидатів OSM: { $count }
 
+progress-osm-buildings = Будівель з OpenStreetMap: { $count }
 ## Permit notes
 
 progress-permits-fetch = завантаження даних { $source } для приміток щодо дозволів

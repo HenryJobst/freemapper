@@ -106,6 +106,7 @@ warning-osm-extract-missing-kept = OSM-otetta ei ole välimuistissa; säilytetä
 progress-osm-extract-read = luetaan OSM-ote { $region } päivältä { $date }
 progress-osm-candidates = { $count } OSM-ehdokaskohdetta
 
+progress-osm-buildings = Rakennuksia OpenStreetMapista: { $count }
 ## Permit notes
 
 progress-permits-fetch = haetaan lähteen { $source } tiedot lupahuomautuksia varten

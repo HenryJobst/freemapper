@@ -99,6 +99,7 @@ warning-osm-extract-missing-kept = kešatmiņā nav OSM izvilkuma; tiek atstāti
 progress-osm-extract-read = nolasa OSM izvilkumu { $region } no { $date }
 progress-osm-candidates = OSM kandidātu objekti: { $count }
 
+progress-osm-buildings = Ēkas no OpenStreetMap: { $count }
 ## Permit notes
 
 progress-permits-fetch = lejupielādē { $source } datus atļauju piezīmēm

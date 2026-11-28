@@ -60,6 +60,7 @@ use crate::sources::osm::{
     OsmFeature, cached_extract_date, extracts_for, features_from_geojson, features_to_geojson,
     fetch_extract, read_extract,
 };
+use crate::sources::osm_buildings::{self, is_building as is_osm_building};
 use crate::sources::region::{
     no_buildings_warnings, overlaps_in, raster_provider, raster_region_in, region_of_object_id,
     terrain_source,
@@ -1146,6 +1147,40 @@ pub(crate) fn no_cadastre(region_bbox: &BoundingBox) -> bool {
         .is_some_and(|adapter| adapter.info().coverage != Coverage::Full)
 }
 
+/// Whether the buildings of the region of a map of `region_bbox` come from OpenStreetMap
+/// ([`RegionAdapter::buildings_from_osm`]).
+pub(crate) fn buildings_from_osm(region_bbox: &BoundingBox) -> bool {
+    raster_region_in(registry(), region_bbox).is_some_and(|adapter| adapter.buildings_from_osm())
+}
+
+/// Stores the OSM buildings `features` as the buildings of the project in [`BUILDINGS_RELPATH`]
+/// and returns their record. They have no register: the record names no region.
+fn store_osm_buildings(
+    dir: &Path,
+    area: &FetchArea,
+    features: &[OsmFeature],
+    progress: &mut dyn FnMut(Note),
+) -> Result<AlkisRecord, ProjectError> {
+    let text = osm_buildings::buildings_geojson(features, area.crs);
+    let parsed = parse_buildings(&text).map_err(FetchError::from)?;
+    write_inside(dir, &dir.join(BUILDINGS_RELPATH), text.as_bytes())?;
+    let count = parsed.buildings.len();
+    progress(note!("progress-osm-buildings", count = count));
+    let bbox = &area.bbox;
+    Ok(AlkisRecord {
+        bbox: [
+            bbox.min_e.floor(),
+            bbox.min_n.floor(),
+            bbox.max_e.ceil(),
+            bbox.max_n.ceil(),
+        ],
+        fetched: crate::clock::today(),
+        latest_update: None,
+        count,
+        regions: Vec::new(),
+    })
+}
+
 /// Whether the region of a map of `region_bbox` lies outside Germany: what only German sources
 /// can give (the permit notes) is not available there.
 pub(crate) fn outside_germany(region_bbox: &BoundingBox) -> bool {
@@ -1540,9 +1575,23 @@ fn fetch_project_parts(
         return Ok(project);
     }
     let skip_update = skips(Part::OsmUpdate);
-    let osm = fetch_osm_into(dir, fetcher, cache, mode, skip_update, &project, progress)?;
+    let osm_buildings = buildings_from_osm(&area.region_bbox);
+    let (osm, building_features) = fetch_osm_into(
+        dir,
+        fetcher,
+        cache,
+        mode,
+        skip_update,
+        &project,
+        osm_buildings,
+        progress,
+    )?;
     stop_if(cancelled)?;
     project.osm = Some(osm);
+    // The buildings of a region without a register are the ones of the extract just read.
+    if let Some(features) = building_features {
+        project.buildings = Some(store_osm_buildings(dir, &area, &features, progress)?);
+    }
     project.save(dir)?;
     Ok(project)
 }
@@ -1863,8 +1912,9 @@ fn fetch_osm_into(
     mode: FetchMode,
     skip_update: bool,
     project: &ProjectFile,
+    buildings: bool,
     progress: &mut dyn FnMut(Note),
-) -> Result<OsmRecord, ProjectError> {
+) -> Result<(OsmRecord, Option<Vec<OsmFeature>>), ProjectError> {
     let area = project.area()?.geo_box(project.buffer_m);
     let mut extracts = Vec::new();
     for source in extracts_for(&project.region_bbox()?, progress) {
@@ -1885,7 +1935,7 @@ fn fetch_osm_into(
                     "warning-osm-extract-missing-kept",
                     date = record.extract.to_string()
                 ));
-                return Ok(record);
+                return Ok((record, None));
             }
             Err(e) => return Err(e.into()),
         }
@@ -1898,11 +1948,26 @@ fn fetch_osm_into(
             region = source.label(),
             date = extract.data_date.to_string()
         ));
+        // A region whose buildings come from OSM keeps them as well (ADR 0206).
         parts.push(read_extract(&extract.path, &area, &|tags| {
-            rules.wants(tags, project.map_kind)
+            rules.wants(tags, project.map_kind) || (buildings && is_osm_building(tags))
         })?);
     }
     let features = merge_features(parts);
+    let building_features: Vec<OsmFeature> = if buildings {
+        features
+            .iter()
+            .filter(|f| is_osm_building(&f.tags))
+            .cloned()
+            .collect()
+    } else {
+        Vec::new()
+    };
+    // A building no rule asks for is no candidate.
+    let features: Vec<OsmFeature> = features
+        .into_iter()
+        .filter(|f| !buildings || rules.wants(&f.tags, project.map_kind))
+        .collect();
     let path = dir.join(OSM_CANDIDATES_RELPATH);
     write_inside(dir, &path, features_to_geojson(&features).as_bytes())?;
     progress(note!("progress-osm-candidates", count = features.len()));
@@ -1911,11 +1976,12 @@ fn fetch_osm_into(
         .map(|(_, e)| e.data_date)
         .min()
         .expect("every map area touches a region");
-    Ok(OsmRecord {
+    let record = OsmRecord {
         extract: extract_date,
         area: stored_geo_box(&area),
         count: features.len(),
-    })
+    };
+    Ok((record, buildings.then_some(building_features)))
 }
 
 /// The features of several extracts, each OSM object once, nodes first, each kind by id.
@@ -1968,8 +2034,9 @@ fn fetch_buildings_into(
     let cadastre = cadastre_name(&area.region_bbox);
     let path = dir.join(BUILDINGS_RELPATH);
     // A region without a cadastre: an empty collection stands for no buildings, online and
-    // offline alike, and no ALKIS line is shown.
-    if no_cadastre(&area.region_bbox) {
+    // offline alike, and no ALKIS line is shown. So does a region whose buildings come from
+    // OSM; the fetch of the extract stores them (ADR 0206).
+    if no_cadastre(&area.region_bbox) || buildings_from_osm(&area.region_bbox) {
         if !path.exists() {
             write_inside(dir, &path, br#"{"features":[],"type":"FeatureCollection"}"#)?;
         }

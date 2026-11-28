@@ -105,6 +105,7 @@ warning-osm-extract-missing-kept = vo vyrovnávacej pamäti nie je výrez OSM; p
 progress-osm-extract-read = číta sa výrez OSM { $region } z { $date }
 progress-osm-candidates = { $count } kandidátskych objektov OSM
 
+progress-osm-buildings = budov z OpenStreetMap: { $count }
 ## Permit notes
 
 progress-permits-fetch = sťahujú sa dáta { $source } pre poznámky k povoleniam

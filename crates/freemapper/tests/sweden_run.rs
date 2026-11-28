@@ -23,7 +23,9 @@ use freemapper_sources::testing::tiled_float_tiff_with;
 const USER: &str = "tester@example.org";
 const PASSWORD: &str = "s3cret-Pw-4711";
 
-const EMPTY_PBF: &[u8] = include_bytes!("../../../tests/golden/adapters/empty.osm.pbf");
+/// An extract with a house (way 100, at 385 070 to 385 090 by 6 177 600 to 6 177 615) and a path
+/// (way 200) in the map area; the file is written by `write_the_swedish_fixture`.
+const OSM_PBF: &[u8] = include_bytes!("../../../tests/golden/adapters/sweden-building.osm.pbf");
 const GPKG: &[u8] = include_bytes!("../../adapters/se/tests/fixtures/marktacke.gpkg");
 
 const TILE_URL: &str = "https://dl1.lantmateriet.se/hojd/data/grid/mhm/61_3/m617_38.tif";
@@ -87,7 +89,7 @@ impl Sweden {
         if url.ends_with("/state.txt") {
             Ok(b"timestamp=2026-11-26T21:21:00Z\nsequenceNumber=1\n".to_vec())
         } else if url.ends_with(".osm.pbf") {
-            Ok(EMPTY_PBF.to_vec())
+            Ok(OSM_PBF.to_vec())
         } else if url.contains(dtm) {
             Ok(body(item("617_38", TILE_URL)))
         } else if url.contains(cloud) {
@@ -175,6 +177,25 @@ fn a_swedish_map_is_made_from_synthetic_lantmateriet_data() {
     assert!(project.join("data/dgm1.tif").exists(), "{lines:?}");
     assert!(loaded.terrain.is_some());
     assert!(loaded.orthophoto.is_none());
+    // The buildings are those of OpenStreetMap: the house is stored as a building, the path stays
+    // a candidate, and the house is no candidate.
+    let stored = |relpath: &str| std::fs::read_to_string(project.join(relpath)).unwrap();
+    let buildings = stored("data/alkis-buildings.geojson");
+    assert!(
+        buildings.contains("way/100") && buildings.contains("Gebäude"),
+        "{buildings}"
+    );
+    assert!(!buildings.contains("way/200"), "{buildings}");
+    assert_eq!(loaded.buildings.as_ref().map(|b| b.count), Some(1));
+    let candidates = stored("data/osm-candidates.geojson");
+    assert!(candidates.contains("way/200"), "{candidates}");
+    assert!(!candidates.contains("way/100"), "{candidates}");
+    assert!(
+        !lines
+            .iter()
+            .any(|l| l.contains("no Lantmäteriet buildings")),
+        "{lines:?}"
+    );
     derive_project(&project, &cache, &mut |note| {
         lines.push(note.text(&freemapper::note::Lang::english(), &|e, _| e.to_string()));
     })
@@ -195,6 +216,19 @@ fn a_swedish_map_is_made_from_synthetic_lantmateriet_data() {
         .find(|p| p.extension().is_some_and(|e| e == "omap"))
         .expect("a map was written");
     let text = std::fs::read_to_string(omap).unwrap();
+    // The house of OpenStreetMap is drawn: one object of the symbol 521 (building).
+    let building = text
+        .split("code=\"521\"")
+        .next()
+        .and_then(|before| before.rsplit("id=\"").next())
+        .and_then(|rest| rest.split('"').next())
+        .expect("the symbol set has the building symbol");
+    let marker = format!("<object type=\"1\" symbol=\"{building}\"");
+    assert_eq!(
+        text.matches(&marker).count(),
+        1,
+        "one building object in the map"
+    );
     assert!(
         !text.contains("orthophoto.jpg"),
         "the map names no orthophoto"

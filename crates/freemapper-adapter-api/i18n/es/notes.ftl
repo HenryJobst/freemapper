@@ -102,6 +102,7 @@ warning-osm-extract-missing-kept = no hay ningún extracto de OSM en caché; se 
 progress-osm-extract-read = leyendo el extracto de OSM { $region } del { $date }
 progress-osm-candidates = { $count } elementos candidatos de OSM
 
+progress-osm-buildings = Edificios de OpenStreetMap: { $count }
 ## Permit notes
 
 progress-permits-fetch = obteniendo datos de { $source } para las notas de permisos
