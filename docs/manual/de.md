@@ -378,8 +378,8 @@ um das, was Sie brauchen, etwas Luft, denn die gedruckte Karte ist etwas kleiner
 
 Die Seite zeichnet den Rahmen auf ihrer Webkarte, deshalb kann der Rahmen in OOM um ein oder zwei Grad gedreht
 dagegen wirken. Der in OOM ist der genaue. Die PDFs, der Prüfausdruck und die Trainingskarte zeigen die Rahmen
-nicht. Die OCAD-Ausgabe hat sie noch nicht; mit `--ocad` sagt das eine Warnung. freemapper-print wird die Rahmen
-aus dieser Datei lesen und für jeden ein Blatt anbieten; ab welcher Version, steht in seinem Handbuch.
+nicht. Die OCAD-Ausgabe hat sie noch nicht; mit `--ocad` sagt das eine Warnung. freemapper-print liest die Rahmen
+aus dieser Datei und bietet für jeden ein Blatt an, seit Version 0.14.0: `init` und der Befehl `frames` legen die Layouts an.
 
 ### Karte im Browser erzeugen
 
