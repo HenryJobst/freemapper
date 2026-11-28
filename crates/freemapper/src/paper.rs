@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Paper formats (ISO 216) and the ground size a sheet covers at a map scale.
 
 use freemapper_contract::tags::{ORIENTATION_LANDSCAPE, ORIENTATION_PORTRAIT};

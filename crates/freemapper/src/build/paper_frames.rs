@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The paper frame layer (`templates/paper-frame.omap`): one closed line per paper frame of the
 //! project, the full sheet at the map's scale, centred on the frame's centre.
 
