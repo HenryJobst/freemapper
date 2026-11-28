@@ -1898,10 +1898,10 @@ Hamburger Ecke bei Harburg ab, und die Höhenmodelle des LVermGeo RP reichen bei
 Schweden ist eine Vorschau für Waldkarten und für Karten, die kein Luftbild brauchen: Geländemodell (Höhenlinien,
 Schummerung, Neigung, Relief), Laserpunktwolken für die Vegetation und die Bodenbedeckung kommen von der Lantmäteriet
 (Geländemodell und Bodenbedeckung unter CC BY 4.0; der Katalog gibt den Laserdaten die Lizenz „other“, deren Bedingungen bei
-Geotorget stehen; Quellenangabe "© Lantmäteriet"); die Wege kommen aus OpenStreetMap. Es gibt **kein Luftbild** (die
-Karte hat keine Luftbild-Vorlage, und `derive` sagt es), **keine Gebäude** (das Register Byggnad gehört nicht zu dieser
-Stufe, und Gebäude aus OpenStreetMap werden nicht gezeichnet) und keine Genehmigungshinweise. Darum eignet sich diese
-Stufe für Waldkarten.
+Geotorget stehen; Quellenangabe "© Lantmäteriet"); die Wege und die Gebäude kommen aus OpenStreetMap (ADR 0206; das Register Byggnad
+gehört nicht zu dieser Stufe). Es gibt **kein Luftbild** (die Karte hat keine Luftbild-Vorlage, und `derive` sagt es)
+und keine Genehmigungshinweise. Die Gebäude sind so vollständig wie OpenStreetMap: gut in Städten, dünner auf dem Land.
+Die Bodenbedeckung liefert auch Sumpf aus der Feuchtgebiets-Ebene von Marktäcke.
 
 Die Downloads der Lantmäteriet brauchen ein privates Konto bei Geotorget (`geotorget.lantmateriet.se`), das drei
 kostenlose Produkte bestellt hat: **Markhöjdmodell Nedladdning**, **Laserdata Skog** und **Marktäcke**. freemapper liest

@@ -10,6 +10,12 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 - Schulhofkarten zeigen jetzt Wege und Straßen wie Sprintkarten (Ticket #334, ADR 0207): OSM-Wege mit bekannter Oberfläche kommen in die Grundkarte, Wege ohne Oberfläche als Kandidaten, und die Verkehrsflächen des Katasters werden befestigte Flächen (501.5), soweit sie nicht Sperrfläche (520) sind. Die Breitengrenzen der Wege- und Treppensymbole sind auf den Schulsatz (1:1000, 125 %) umgerechnet.
 - Ebenen-Seiten, README, Handbuch und Website zeigen jetzt auch die Grundkarte selbst (ohne Kandidaten), zugeschnitten auf den Kartenrahmen wie die Kandidaten-Layer; 30 von 34 Beispielen zeigen zusätzlich ihre Raster-Vorlagen (Orthofoto, Schummerung, Hangneigung, Relief, nDOM), auch die Waldkarten. `scripts/layer-previews.sh` schreibt `layers/map.webp` und beschneidet es am Rahmen. Der Ausschnitt sitzt bei jeder Ebene auf dem Rahmen, auch wenn ein Objekt weit aus dem Kartengebiet ragt (Vegetationslayer Bayern/Schmausenbuck).
+- Gebäude aus OpenStreetMap, wo eine Region kein Gebäuderegister hat (ADR 0206): Schweden zeichnet die `building`-Wege und -Relationen des Auszugs als Gebäude (Grundriss, Mindestgrößen, Vegetationsmaske wie bei Registergebäuden) und fragt dafür kein Kataster. `RegionAdapter::buildings_from_osm()` ist der Schalter; die deutschen Bundesländer, Polen und Tschechien bleiben, wie sie sind.
+- Schweden: Das Feuchtgebiet von Marktäcke (`Sankmark, fast` und `våt`) wird zu Sumpf, die Klassen `Sluten bebyggelse`, `Anlagt vatten` und `Fruktodling` bekommen Landnutzungsklassen, `Ej karterat område` bleibt ohne Warnung weg. Ein erster Lauf mit echten Daten hat die Namen gezeigt.
+
+### Behoben
+
+- Schweden: Eine Laserkachel wird mit 125 MB geschätzt (122 und 125 MB an zwei Kacheln gemessen), nicht mit 82 MB.
 
 ### Geändert
 

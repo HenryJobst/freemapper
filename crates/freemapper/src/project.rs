@@ -1575,17 +1575,8 @@ fn fetch_project_parts(
         return Ok(project);
     }
     let skip_update = skips(Part::OsmUpdate);
-    let osm_buildings = buildings_from_osm(&area.region_bbox);
-    let (osm, building_features) = fetch_osm_into(
-        dir,
-        fetcher,
-        cache,
-        mode,
-        skip_update,
-        &project,
-        osm_buildings,
-        progress,
-    )?;
+    let (osm, building_features) =
+        fetch_osm_into(dir, fetcher, cache, mode, skip_update, &project, progress)?;
     stop_if(cancelled)?;
     project.osm = Some(osm);
     // The buildings of a region without a register are the ones of the extract just read.
@@ -1912,10 +1903,11 @@ fn fetch_osm_into(
     mode: FetchMode,
     skip_update: bool,
     project: &ProjectFile,
-    buildings: bool,
     progress: &mut dyn FnMut(Note),
 ) -> Result<(OsmRecord, Option<Vec<OsmFeature>>), ProjectError> {
     let area = project.area()?.geo_box(project.buffer_m);
+    // A region without a register of buildings keeps the ones of the extract (ADR 0206).
+    let buildings = buildings_from_osm(&project.region_bbox()?);
     let mut extracts = Vec::new();
     for source in extracts_for(&project.region_bbox()?, progress) {
         let mode = if skip_update && cached_extract_date(cache, &source).is_some() {
@@ -1948,25 +1940,20 @@ fn fetch_osm_into(
             region = source.label(),
             date = extract.data_date.to_string()
         ));
-        // A region whose buildings come from OSM keeps them as well (ADR 0206).
         parts.push(read_extract(&extract.path, &area, &|tags| {
-            rules.wants(tags, project.map_kind) || (buildings && is_osm_building(tags))
+            keeps_osm_element(&rules, tags, project.map_kind, buildings)
         })?);
     }
     let features = merge_features(parts);
-    let building_features: Vec<OsmFeature> = if buildings {
-        features
-            .iter()
-            .filter(|f| is_osm_building(&f.tags))
-            .cloned()
-            .collect()
-    } else {
-        Vec::new()
-    };
+    let building_features: Vec<OsmFeature> = features
+        .iter()
+        .filter(|f| buildings && is_osm_building(&f.tags))
+        .cloned()
+        .collect();
     // A building no rule asks for is no candidate.
     let features: Vec<OsmFeature> = features
         .into_iter()
-        .filter(|f| !buildings || rules.wants(&f.tags, project.map_kind))
+        .filter(|f| rules.wants(&f.tags, project.map_kind))
         .collect();
     let path = dir.join(OSM_CANDIDATES_RELPATH);
     write_inside(dir, &path, features_to_geojson(&features).as_bytes())?;
@@ -1982,6 +1969,17 @@ fn fetch_osm_into(
         count: features.len(),
     };
     Ok((record, buildings.then_some(building_features)))
+}
+
+/// Whether the read of an OSM extract keeps an element with `tags`: the candidates of the rules
+/// and, for a region whose buildings come from OSM, the buildings (ADR 0206).
+fn keeps_osm_element(
+    rules: &Rules,
+    tags: &[(String, String)],
+    kind: MapKind,
+    buildings: bool,
+) -> bool {
+    rules.wants(tags, kind) || (buildings && is_osm_building(tags))
 }
 
 /// The features of several extracts, each OSM object once, nodes first, each kind by id.
@@ -3336,6 +3334,94 @@ mod tests {
 
     use super::*;
     use freemapper_adapters_de::berlin;
+
+    fn tags(pairs: &[(&str, &str)]) -> Vec<(String, String)> {
+        pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect()
+    }
+
+    #[test]
+    fn osm_buildings_are_stored_with_a_record_of_the_area_and_the_count() {
+        use crate::crs::LatLon;
+        use crate::sources::osm::OsmGeometry;
+        let dir = tempfile::tempdir().unwrap();
+        let region = BoundingBox {
+            min_e: 380_000.0,
+            min_n: 6_170_000.0,
+            max_e: 390_000.0,
+            max_n: 6_180_000.0,
+        };
+        let area = FetchArea {
+            region_bbox: region,
+            crs: Crs::Utm33,
+            bbox: BoundingBox {
+                min_e: 385_000.4,
+                min_n: 6_177_500.6,
+                max_e: 385_200.2,
+                max_n: 6_177_700.7,
+            },
+        };
+        let at = |lat: f64, lon: f64| LatLon { lat, lon };
+        let house = OsmFeature {
+            id: "way/1".into(),
+            tags: tags(&[("building", "house")]),
+            geometry: OsmGeometry::Line(vec![
+                at(59.0, 18.0),
+                at(59.0, 18.001),
+                at(59.001, 18.001),
+                at(59.001, 18.0),
+                at(59.0, 18.0),
+            ]),
+        };
+        let mut lines = Vec::new();
+        let record = store_osm_buildings(dir.path(), &area, &[house], &mut |note| {
+            lines.push(note.id().to_string());
+        })
+        .unwrap();
+        assert_eq!(record.count, 1);
+        assert_eq!(
+            record.bbox,
+            [385_000.0, 6_177_500.0, 385_201.0, 6_177_701.0]
+        );
+        assert!(record.regions.is_empty() && record.latest_update.is_none());
+        assert_eq!(lines, ["progress-osm-buildings"]);
+        let text = std::fs::read_to_string(dir.path().join(BUILDINGS_RELPATH)).unwrap();
+        assert!(text.contains("way/1") && text.contains("Gebäude"), "{text}");
+    }
+
+    #[test]
+    fn the_read_of_an_extract_keeps_buildings_only_for_a_region_whose_buildings_come_from_osm() {
+        let rules = Rules::embedded();
+        let kind = MapKind::Forest;
+        let path = tags(&[("highway", "path")]);
+        let house = tags(&[("building", "house")]);
+        let none = tags(&[("building", "no")]);
+        let other = tags(&[("foo", "bar")]);
+        for buildings in [false, true] {
+            assert!(
+                keeps_osm_element(&rules, &path, kind, buildings),
+                "a path is a candidate"
+            );
+            assert!(
+                !keeps_osm_element(&rules, &other, kind, buildings),
+                "no rule, no building"
+            );
+            assert!(
+                !keeps_osm_element(&rules, &none, kind, buildings),
+                "building=no"
+            );
+        }
+        assert!(
+            !keeps_osm_element(&rules, &house, kind, false),
+            "the register has the buildings"
+        );
+        assert!(
+            keeps_osm_element(&rules, &house, kind, true),
+            "OSM has the buildings"
+        );
+    }
 
     #[test]
     fn a_region_without_an_orthophoto_writes_none_and_warns() {

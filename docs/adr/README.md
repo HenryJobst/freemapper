@@ -238,6 +238,7 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0190](0190-poland-archaeological-register-in-the-permit-notes.md) | The register of archaeological monuments of the NID in the Polish permit notes | Accepted, extends ADR 0184 | 2026-11-23 |
 | [0191](0191-poland-monuments-of-history-in-the-permit-notes.md) | The Pomniki historii in the Polish permit notes | Accepted, extends ADR 0190 | 2026-11-23 |
 | [0207](0207-ways-and-streets-on-schoolyard-maps.md) | Ways and streets on schoolyard maps | Accepted, amends ADR 0073, ADR 0098 and ADR 0101 | 2026-11-28 |
+| [0206](0206-buildings-from-openstreetmap-where-there-is-no-register.md) | Buildings from OpenStreetMap where there is no register | Accepted, narrows ADR 0204 | 2026-11-28 |
 | [0205](0205-geopackage-reader-without-sqlite.md) | A GeoPackage reader without SQLite | Accepted | 2026-11-27 |
 | [0204](0204-sweden-adapter-with-a-login.md) | Sweden: one national adapter with the terrain model, laser data and land cover of Lantmäteriet | Accepted | 2026-11-27 |
 | [0203](0203-map-without-orthophoto.md) | A map without an orthophoto | Accepted | 2026-11-27 |

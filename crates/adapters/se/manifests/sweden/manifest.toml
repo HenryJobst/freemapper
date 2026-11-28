@@ -1,5 +1,5 @@
 # Sweden: the terrain model, the laser data and the land cover of Lantmäteriet through its STAC
-# catalogues (ADR 0204). No orthophoto (ADR 0203), no buildings in this stage.
+# catalogues (ADR 0204). No orthophoto (ADR 0203), buildings from OpenStreetMap (ADR 0206).
 format = 1
 
 [adapter]

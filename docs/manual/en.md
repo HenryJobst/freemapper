@@ -1815,9 +1815,10 @@ corner at Harburg, and the LVermGeo RP height models reach across the Rhine at M
 Sweden is a preview for forest maps and for maps that need no orthophoto: terrain model (contours, hillshade, slope,
 relief), laser point clouds for the vegetation and the land cover come from Lantmäteriet (terrain model and land
 cover under CC BY 4.0; the catalogue gives the laser data the licence "other", whose terms are in Geotorget; credit
-"© Lantmäteriet"); the paths come from OpenStreetMap. There is **no orthophoto** (the map has no orthophoto template
-and `derive` says so), **no buildings** (the register Byggnad is not part of this stage, and OpenStreetMap buildings are
-not drawn), and no permit notes. That is why this stage suits forest maps.
+"© Lantmäteriet"); the paths and the buildings come from OpenStreetMap (ADR 0206; the register Byggnad is not part of
+this stage). There is **no orthophoto** (the map has no orthophoto template and `derive` says so) and no permit notes.
+The buildings are as complete as OpenStreetMap is: good in towns, thinner in the countryside. The land cover also
+gives marsh from the wetland layer of Marktäcke.
 
 The downloads of Lantmäteriet need a private account at Geotorget (`geotorget.lantmateriet.se`) that has ordered three
 free products: **Markhöjdmodell Nedladdning**, **Laserdata Skog** and **Marktäcke**. freemapper reads the account

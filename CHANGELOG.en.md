@@ -10,6 +10,12 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 - Schoolyard maps now show ways and streets like sprint maps (issue #334, ADR 0207): OSM ways with a known surface go on the base map, ways without one are candidates, and the cadastre traffic areas become paved areas (501.5) unless they are out of bounds (520). The width limits of the way and stair symbols are scaled to the school set (1:1000, 125 %).
 - The layer pages, README, manual and website now also show the base map itself (without candidates), cut to the map frame like the candidate layers; 30 of 34 examples also show their raster templates (orthophoto, hillshade, slope, relief, nDSM), the forest maps too. `scripts/layer-previews.sh` writes `layers/map.webp` and cuts it at the frame. The cut sits on the frame in every layer, also when an object reaches far out of the map area (vegetation layer of Bayern/Schmausenbuck).
+- Buildings from OpenStreetMap where a region has no register of them (ADR 0206): Sweden draws the `building` ways and relations of the extract as buildings (footprint, minimum sizes, vegetation mask as for register buildings) and asks no cadastre for them. `RegionAdapter::buildings_from_osm()` is the switch; the German states, Poland and Czechia do not change.
+- Sweden: the wetland of Marktäcke (`Sankmark, fast` and `våt`) becomes marsh, and the classes `Sluten bebyggelse`, `Anlagt vatten` and `Fruktodling` get land use classes; `Ej karterat område` is left out without a warning. A first run with real data showed the names.
+
+### Fixed
+
+- Sweden: a laser tile is estimated at 125 MB (122 and 125 MB measured on two tiles), not 82 MB.
 
 ### Changed
 

@@ -26,9 +26,9 @@ numbers as EPSG:25833, so nothing is transformed.
   first request and names both variables and the three products. **Only the adapters built into the program may
   declare `[auth]`**: an adapter from a folder that did could send the password to a host it names.
 - The land cover becomes the land use of the map through a table of classes (`rules/marktacke.toml`); "open land" and
-  unknown classes are left out and named in a progress line. The first stage draws no buildings (OpenStreetMap buildings need
-  a rule in the engine that no region has asked for yet); Byggnad and the
-  orthophoto wait for the owner's application (no orthophoto: ADR 0203).
+  unknown classes are left out and named in a progress line. The first stage had no buildings at first (OpenStreetMap
+  buildings came with ADR 0206); Byggnad and the orthophoto wait for the owner's application (no orthophoto:
+  ADR 0203).
 - The point-cloud grid is 2.5 km. `PointCloudInfo::grid_km` is read by no engine code, so the backend names its tiles
   from the catalogue and sets the field to 3; no API and no German adapter changes.
 - The boundary is Natural Earth 1:10m (public domain), accurate to a few hundred metres; the Lantmäteriet boundary
