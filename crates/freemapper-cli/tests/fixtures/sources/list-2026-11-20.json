@@ -1,0 +1,19 @@
+{
+  "format": 1,
+  "issued": "2026-11-20",
+  "corrections": [
+    {
+      "adapter": "hamburg",
+      "path": "alkis.fallback.url",
+      "from": "https://geodienste.hamburg.de/WFS_HH_ALKIS_vereinfacht",
+      "to": "https://geodienste.hamburg.de/WFS_HH_ALKIS_vereinfacht_v2",
+      "note": "test fixture: the service moved to a new path on the same host"
+    },
+    {
+      "adapter": "nowhere",
+      "path": "alkis.url",
+      "from": "https://example.org/a",
+      "to": "https://example.org/b"
+    }
+  ]
+}

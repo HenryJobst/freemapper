@@ -244,6 +244,11 @@ mod tests {
             ("status", v(404)),
             ("detail", v("d")),
             ("reason", v("r")),
+            // The signed list of corrections of addresses (`corrections.rs`).
+            ("issued", v("2026-11-27")),
+            ("applied", v("2")),
+            ("offered", v("2026-11-20")),
+            ("stored", v("2026-11-27")),
             ("hosts", v("geo.example.org")),
             ("folder", v("/adapters/x")),
             ("finding", v("f")),
@@ -413,6 +418,7 @@ mod tests {
             include_str!("update/command.rs"),
             include_str!("update/source.rs"),
             include_str!("sources.rs"),
+            include_str!("corrections.rs"),
         ] {
             for id in freemapper_text::ids_in_source(source, &PREFIXES) {
                 assert!(english.contains(&id), "{id} is used but not in the catalog");
@@ -442,6 +448,7 @@ mod tests {
             include_str!("update/command.rs"),
             include_str!("update/source.rs"),
             include_str!("sources.rs"),
+            include_str!("corrections.rs"),
         ]
         .iter()
         .flat_map(|source| freemapper_text::ids_in_source(source, &PREFIXES))
