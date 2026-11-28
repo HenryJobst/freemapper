@@ -550,7 +550,7 @@ fn decode_record(record: &[u8]) -> Result<Vec<Value>, String> {
         let signed = |raw: &[u8]| {
             let mut v = if raw[0] & 0x80 != 0 { -1i64 } else { 0 };
             for &b in raw {
-                v = (v << 8) | i64::from(b);
+                v = (v << 8) + i64::from(b);
             }
             v
         };
@@ -729,7 +729,14 @@ mod tests {
                 .all(|(i, (id, _))| *id == i as i64 + 1)
         );
         assert_eq!(rows[0].1[2], Value::Text("yta 1".to_string()));
-        assert_eq!(rows[349].1[2], Value::Text("x".repeat(5000)));
+        assert_eq!(
+            rows[349].1[2],
+            Value::Text(
+                (0..5000)
+                    .map(|k| char::from(b'a' + (k % 26) as u8))
+                    .collect()
+            )
+        );
         assert_eq!(rows[699].1[2], Value::Text("yta 700".to_string()));
     }
 
@@ -997,6 +1004,65 @@ mod tests {
         assert!(geometry(&multi(4, &[line])).is_err());
     }
 
+    /// A record of `kinds` (serial types) followed by `body`.
+    fn record(kinds: &[u8], body: &[u8]) -> Vec<u8> {
+        // The header length counts its own varint: one byte up to 126 types, else two.
+        let header = if kinds.len() < 127 {
+            1 + kinds.len()
+        } else {
+            2 + kinds.len()
+        };
+        let mut out = if header < 128 {
+            vec![header as u8]
+        } else {
+            vec![0x80 | (header >> 7) as u8, (header & 0x7f) as u8]
+        };
+        out.extend(kinds);
+        out.extend(body);
+        out
+    }
+
+    #[test]
+    fn a_record_holds_integers_of_every_size_with_their_sign() {
+        let cases: [(u8, &[u8], i64); 14] = [
+            (1, &[0x7f], 127),
+            (1, &[0xff], -1),
+            (1, &[0x80], -128),
+            (2, &[0x01, 0x00], 256),
+            (2, &[0xff, 0x00], -256),
+            (3, &[0x01, 0x00, 0x00], 65_536),
+            (3, &[0xff, 0x00, 0x00], -65_536),
+            (4, &[0x01, 0x00, 0x00, 0x00], 16_777_216),
+            (4, &[0xff, 0x00, 0x00, 0x00], -16_777_216),
+            (5, &[0x01, 0x00, 0x00, 0x00, 0x00, 0x00], 1 << 40),
+            (5, &[0xff, 0xff, 0x00, 0x00, 0x00, 0x00], -(1 << 32)),
+            (
+                6,
+                &[0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00],
+                1 << 40,
+            ),
+            (6, &[0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfe, 0x00], -512),
+            (
+                6,
+                &[0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff],
+                i64::MAX,
+            ),
+        ];
+        for (kind, bytes, expected) in cases {
+            let values = decode_record(&record(&[kind], bytes)).unwrap();
+            assert_eq!(values, [Value::Int(expected)], "type {kind} {bytes:?}");
+        }
+        let values = decode_record(&record(&[8, 9, 0], &[])).unwrap();
+        assert_eq!(values, [Value::Int(0), Value::Int(1), Value::Null]);
+    }
+
+    #[test]
+    fn a_record_may_have_2048_columns_and_no_more() {
+        let many = |n: usize| decode_record(&record(&vec![0; n], &[]));
+        assert_eq!(many(2048).unwrap().len(), 2048);
+        assert_eq!(many(2049).unwrap_err(), "a row with too many columns");
+    }
+
     #[test]
     fn a_varint_of_nine_bytes_keeps_all_bits_of_the_last_byte() {
         let mut bytes = vec![0xff; 8];
@@ -1007,18 +1073,19 @@ mod tests {
         assert_eq!(varint(&[0x7f]), Some((127, 1)));
     }
 
-    /// Points every child of the interior page `page` (512-byte pages) at page `target`.
-    fn point_children_at(bytes: &mut [u8], page: usize, target: u32) {
+    /// Points the cells of the interior page `page` (512-byte pages) at page `cells` and its
+    /// rightmost child at page `right`.
+    fn point_children_at(bytes: &mut [u8], page: usize, cells: u32, right: u32) {
         let at = (page - 1) * 512;
-        let cells = usize::from(u16::from_be_bytes([bytes[at + 3], bytes[at + 4]]));
-        bytes[at + 8..at + 12].copy_from_slice(&target.to_be_bytes());
-        for i in 0..cells {
+        let count = usize::from(u16::from_be_bytes([bytes[at + 3], bytes[at + 4]]));
+        bytes[at + 8..at + 12].copy_from_slice(&right.to_be_bytes());
+        for i in 0..count {
             let pointer = at
                 + usize::from(u16::from_be_bytes([
                     bytes[at + 12 + 2 * i],
                     bytes[at + 13 + 2 * i],
                 ]));
-            bytes[pointer..pointer + 4].copy_from_slice(&target.to_be_bytes());
+            bytes[pointer..pointer + 4].copy_from_slice(&cells.to_be_bytes());
         }
     }
 
@@ -1027,11 +1094,30 @@ mod tests {
         // The root (page 72) and its child (page 73) point everywhere at one page, so the walk
         // visits thousands of pages in a file of 191: no cycle, but more visits than pages.
         let mut bytes = fixture("deep.gpkg");
-        point_children_at(&mut bytes, 72, 73);
-        point_children_at(&mut bytes, 73, 4);
+        point_children_at(&mut bytes, 72, 73, 73);
+        point_children_at(&mut bytes, 73, 4, 4);
         let gpkg = GeoPackage::open(&bytes).unwrap();
         let error = gpkg.rows("ytor", &mut |_, _| Ok(())).unwrap_err();
         assert!(error.contains("cycle"), "{error}");
+    }
+
+    #[test]
+    fn the_depth_counts_through_the_cells_and_through_the_rightmost_child_alike() {
+        // The root of `ytor` is page 3. Interior page 72 under it holds leaf 4 in all its places,
+        // so the leaves lie at depth 2: reached by the cells of the root with its rightmost child
+        // a leaf, or the other way round.
+        for (cells, right) in [(72, 4), (4, 72)] {
+            let mut bytes = fixture("deep.gpkg");
+            point_children_at(&mut bytes, 3, cells, right);
+            point_children_at(&mut bytes, 72, 4, 4);
+            let mut gpkg = GeoPackage::open(&bytes).unwrap();
+            gpkg.max_depth = 2;
+            let ok = gpkg.rows("ytor", &mut |_, _| Ok(()));
+            assert!(ok.is_ok(), "{cells} {right}: {ok:?}");
+            gpkg.max_depth = 1;
+            let error = gpkg.rows("ytor", &mut |_, _| Ok(())).unwrap_err();
+            assert!(error.contains("cycle"), "{cells} {right}: {error}");
+        }
     }
 
     #[test]
@@ -1066,6 +1152,45 @@ mod tests {
         assert!(error.contains("nested"), "{error}");
     }
 
+    /// `small.gpkg`-like bytes whose page 5 points at itself, and the `payload` of a row of
+    /// `total` bytes whose local part is followed by that page.
+    fn payload_over_a_looping_chain(total: usize, pages: usize) -> Result<usize, String> {
+        let mut bytes = fixture("deep.gpkg");
+        bytes[4 * 512..4 * 512 + 4].copy_from_slice(&5u32.to_be_bytes());
+        let mut gpkg = GeoPackage::open(&bytes).unwrap();
+        gpkg.pages = pages;
+        // The part of the row kept on its own page: 39 bytes and what the chain would not fill.
+        let k = 39 + (total - 39) % 508;
+        let local = if k <= 477 { k } else { 39 };
+        let mut body = vec![7u8; local];
+        body.extend(5u32.to_be_bytes());
+        gpkg.payload(&body, total).map(|payload| payload.len())
+    }
+
+    #[test]
+    fn a_chain_of_as_many_pages_as_the_file_has_is_read_and_one_more_is_not() {
+        // The local part of a row of 39 + k * 508 bytes is 39; each hop brings 508 bytes.
+        assert_eq!(
+            payload_over_a_looping_chain(39 + 508 * 6, 6),
+            Ok(39 + 508 * 6)
+        );
+        assert!(payload_over_a_looping_chain(39 + 508 * 7, 6).is_err());
+    }
+
+    #[test]
+    fn the_last_page_of_a_chain_gives_only_what_the_row_still_needs() {
+        // 450 of the last 508 bytes: the remainder is more than a page may keep, so the row keeps
+        // only 39 bytes and the chain ends with a short page.
+        assert_eq!(
+            payload_over_a_looping_chain(39 + 508 + 450, 6),
+            Ok(39 + 508 + 450)
+        );
+        assert_eq!(
+            payload_over_a_looping_chain(39 + 508 * 2 + 439, 6),
+            Ok(39 + 508 * 2 + 439)
+        );
+    }
+
     #[test]
     fn an_overflow_chain_that_does_not_end_is_refused() {
         // Page 5 points at itself: a row of 4 611 bytes wants nine pages of chain.
@@ -1077,6 +1202,19 @@ mod tests {
         body.extend(5u32.to_be_bytes());
         let error = gpkg.payload(&body, 39 + 508 * 9).unwrap_err();
         assert!(error.contains("does not end"), "{error}");
+    }
+
+    #[test]
+    fn a_line_that_claims_more_points_than_its_bytes_hold_is_refused_by_its_count() {
+        // Three points of 16 bytes want 48; 32 are there, which would hold 30 or 12 bytes' worth.
+        let mut wkb = vec![1];
+        wkb.extend(2u32.to_le_bytes());
+        wkb.extend(3u32.to_le_bytes());
+        wkb.extend([0u8; 32]);
+        assert_eq!(
+            geometry(&blob(&wkb)),
+            Err("a damaged geometry: a count the data cannot hold".to_string())
+        );
     }
 
     #[test]

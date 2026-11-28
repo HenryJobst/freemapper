@@ -6,7 +6,7 @@
 `small.gpkg`: the tables `mark` (polygons, big-endian header and WKB like Lantmäteriet's Marktäcke),
 `markkantlinje` (lines) and `points` (little endian, with an envelope), page size 512.
 `deep.gpkg`: a table of 700 rows (an interior level in the table b-tree) and one row with a text of
-5000 bytes (an overflow chain), page size 512.
+5000 bytes that runs through the alphabet (an overflow chain), page size 512.
 No data of any real source is in them.
 """
 import os
@@ -115,7 +115,7 @@ def deep():
     db.execute("CREATE TABLE ytor (fid INTEGER PRIMARY KEY, geom BLOB, namn TEXT)")
     square = [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)]
     for i in range(1, 701):
-        text = "x" * 5000 if i == 350 else f"yta {i}"
+        text = "".join(chr(97 + k % 26) for k in range(5000)) if i == 350 else f"yta {i}"
         db.execute("INSERT INTO ytor VALUES (?,?,?)", (i, header(3006) + wkb_polygon([[(x + i, y) for x, y in square]]), text))
     db.execute("INSERT INTO gpkg_geometry_columns VALUES ('ytor','geom','POLYGON',3006,0,0)")
     db.commit()
