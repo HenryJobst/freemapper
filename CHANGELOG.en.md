@@ -8,7 +8,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Added
 
-- The layer pages, README, manual and website now also show the base map itself (without candidates), cut to the map frame like the candidate layers; 30 of 34 examples also show their raster templates (orthophoto, hillshade, slope, relief, nDSM), the forest maps too. `scripts/layer-previews.sh` writes `layers/map.webp` and cuts it at the frame.
+- The layer pages, README, manual and website now also show the base map itself (without candidates), cut to the map frame like the candidate layers; 30 of 34 examples also show their raster templates (orthophoto, hillshade, slope, relief, nDSM), the forest maps too. `scripts/layer-previews.sh` writes `layers/map.webp` and cuts it at the frame. The cut sits on the frame in every layer, also when an object reaches far out of the map area (vegetation layer of Bayern/Schmausenbuck).
 
 ## [0.29.0] - 2026-11-28
 

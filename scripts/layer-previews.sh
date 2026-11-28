@@ -11,7 +11,7 @@
 #   of connected lines a layer draws (the map frame), so that the layers of a project match when you flip through them
 # - the raster templates templates/{orthophoto,hillshade,slope,relief,ndsm,k5} that the project has
 # The pages come from scripts/layer-pages.py. Needs freemapper-print, pdftoppm (poppler) and ImageMagick
-# (`magick`). `FREEMAPPER_PRINT` names the program.
+# (`magick`), python3 with numpy and Pillow (scripts/layer-frame.py). `FREEMAPPER_PRINT` names the program.
 set -euo pipefail
 
 (($# >= 1)) || { echo "usage: scripts/layer-previews.sh <project folder>..." >&2; exit 2; }
@@ -34,6 +34,22 @@ finish() {
   printf '%s  %s\n' "$(du -h "$out/$2.webp" | cut -f1)" "$out/$2.webp"
 }
 
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# page <omap> <name>: the image $work/<name>.png of the page of an omap, 150 dpi at the scale of the map. Two
+# anchor points (scripts/layer-frame.py) centre the content on the origin of the map, where the frame lies, so that
+# the frame is in the middle of the page of every layer.
+page() {
+  python3 "$here/layer-frame.py" anchor "$1" "$work/$2.omap"
+  "$print" render --lang en --paper a3 --out "$work/$2.pdf" "$work/$2.omap" >/dev/null 2>&1
+  pdftoppm -r 150 -png -singlefile "$work/$2.pdf" "$work/$2"
+}
+
+# centre_crop <name>: cuts the box of the frame (and the border of the mask) out of the middle of the page.
+centre_crop() {
+  magick "$work/$1.png" -gravity center -crop "${size}+${ox}+${oy}" +repage -background white -extent "$size" "$work/$1-crop.png"
+}
+
 for project in "$@"; do
   out="$project/layers"
   rm -rf "${work:?}"/*
@@ -41,15 +57,14 @@ for project in "$@"; do
   for omap in "$project"/templates/candidates-*.omap; do
     [[ -e "$omap" ]] || continue
     layer="$(basename "$omap" .omap)"
-    "$print" render --lang en --paper a3 --out "$work/$layer.pdf" "$omap" >/dev/null
-    pdftoppm -r 150 -png -singlefile "$work/$layer.pdf" "$work/$layer"
+    page "$omap" "$layer"
     layers+=("$layer")
   done
   mkdir -p "$out"
   if ((${#layers[@]})); then
-    # one box for all layers: the smallest figure of connected lines any layer draws. Every layer draws the map
-    # frame; roads and areas that run through the frame join it in some layers only, so the smallest figure is the
-    # frame. The credits at the foot of the page are small separate figures and stay out.
+    # the frame: the smallest figure of connected lines any layer draws. Every layer draws the map frame; roads and
+    # areas that run through the frame join it in some layers only, so the smallest figure is the frame. The
+    # credits at the foot of the page are small separate figures and stay out.
     box=""
     best=0
     framelayer=""
@@ -60,35 +75,31 @@ for project in "$@"; do
       area="${info%% *}" geom="${info#* }"
       if [[ -z "$box" ]] || ((area < best)); then best=$area; box="$geom"; framelayer="$layer"; fi
     done
-    # what lies inside the frame: the second largest area of white in the thresholded layer (the largest is the
-    # page outside), flooded from its centre of mass; then the page is flooded from its corner, which leaves the objects inside
-    # the frame black as well. Objects of the map reach over the frame; the mask whitens
-    # what lies outside. Black where inside, white where outside.
+    # the box lies in the middle of the page (its offset is a pixel or two), with a border of 12 pixels around it
+    read -r size ox oy < <(magick identify -format '%w %h' "$work/$framelayer.png" |
+      awk -v box="$box" '{ split(box, a, /[x+]/); printf "%dx%d %d %d\n", a[1] + 24, a[2] + 24, a[3] + a[1] / 2 - $1 / 2 + 0.5, a[4] + a[2] / 2 - $2 / 2 + 0.5 }')
+    # what lies inside the frame: the second largest area of white in the thresholded page (the largest is the page
+    # outside), flooded from its centre of mass; then the page is flooded from its corner, which leaves the objects
+    # inside the frame black as well. Black where inside, white where outside, cut to the frame and a border.
     magick "$work/$framelayer.png" -colorspace gray -threshold 99.5% -morphology Erode Disk:2 "$work/lines.png"
     seed="$(magick "$work/lines.png" -define connected-components:verbose=true -connected-components 4 null: |
       awk '/gray\(255\)/ { split($3, c, ","); print $4, c[1], c[2] }' | sort -rn | awk 'NR == 2 { printf "%d,%d", $2, $3 }')"
     magick "$work/lines.png" -fill red -draw "color $seed floodfill" -fill white +opaque red -fill black -opaque red \
-      -fill red -draw 'color 0,0 floodfill' -fill black +opaque red -fill white -opaque red \
-      -crop "$box" +repage -bordercolor white -border 12 "$work/outside.png"
-    [[ -z "${KEEP_WORK:-}" ]] || cp "$work/outside.png" "$KEEP_WORK/"
-    # the base map gets the page orientation of the layers (read before they are cut), or the box would not fit
-    orient=portrait
-    if (($(magick identify -format '%w' "$work/${layers[0]}.png") > $(magick identify -format '%h' "$work/${layers[0]}.png"))); then
-      orient=landscape
-    fi
+      -fill red -draw 'color 0,0 floodfill' -fill black +opaque red -fill white -opaque red "$work/outside-page.png"
+    centre_crop outside-page
+    mv "$work/outside-page-crop.png" "$work/outside.png"
     for layer in "${layers[@]}"; do
-      magick "$work/$layer.png" -crop "$box" +repage -bordercolor white -border 12 "$work/$layer.png"
-      finish "$work/$layer.png" "$layer" bold
+      centre_crop "$layer"
+      finish "$work/$layer-crop.png" "$layer" bold
     done
-    # the base map itself (<name>.omap, the objects without candidates), cut to the same box; its areas fill the
-    # thumbnail, so no thicker lines
+    # the base map itself (<name>.omap, the objects without candidates), cut to the same box; what lies outside the
+    # frame is whitened. Its areas fill the thumbnail, so no thicker lines
     mapomap="$project/$(basename "$project").omap"
     if [[ -f "$mapomap" ]]; then
-      "$print" render --lang en --paper a3 --orientation "$orient" --out "$work/map.pdf" "$mapomap" >/dev/null
-      pdftoppm -r 150 -png -singlefile "$work/map.pdf" "$work/map"
-      magick "$work/map.png" -crop "$box" +repage -bordercolor white -border 12 "$work/map.png"
-      magick "$work/map.png" "$work/outside.png" -compose Screen -composite "$work/map.png"
-      finish "$work/map.png" map
+      page "$mapomap" map
+      centre_crop map
+      magick "$work/map-crop.png" "$work/outside.png" -compose Screen -composite "$work/map-crop.png"
+      finish "$work/map-crop.png" map
     fi
   fi
   for name in orthophoto hillshade slope relief ndsm k5; do

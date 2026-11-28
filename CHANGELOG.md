@@ -8,7 +8,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Hinzugefügt
 
-- Ebenen-Seiten, README, Handbuch und Website zeigen jetzt auch die Grundkarte selbst (ohne Kandidaten), zugeschnitten auf den Kartenrahmen wie die Kandidaten-Layer; 30 von 34 Beispielen zeigen zusätzlich ihre Raster-Vorlagen (Orthofoto, Schummerung, Hangneigung, Relief, nDOM), auch die Waldkarten. `scripts/layer-previews.sh` schreibt `layers/map.webp` und beschneidet es am Rahmen.
+- Ebenen-Seiten, README, Handbuch und Website zeigen jetzt auch die Grundkarte selbst (ohne Kandidaten), zugeschnitten auf den Kartenrahmen wie die Kandidaten-Layer; 30 von 34 Beispielen zeigen zusätzlich ihre Raster-Vorlagen (Orthofoto, Schummerung, Hangneigung, Relief, nDOM), auch die Waldkarten. `scripts/layer-previews.sh` schreibt `layers/map.webp` und beschneidet es am Rahmen. Der Ausschnitt sitzt bei jeder Ebene auf dem Rahmen, auch wenn ein Objekt weit aus dem Kartengebiet ragt (Vegetationslayer Bayern/Schmausenbuck).
 
 ## [0.29.0] - 2026-11-28
 
