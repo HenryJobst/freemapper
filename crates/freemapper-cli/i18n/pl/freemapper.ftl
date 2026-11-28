@@ -512,6 +512,7 @@ error-project-tiles-outdated = obszar mapy wymaga arkuszy { $tiles }, które nie
 error-project-buildings-not-fetched = brak zapisanych budynków ALKIS dla tego obszaru mapy; najpierw uruchom `freemapper fetch` online
 error-project-orthophoto-not-fetched = brak zapisanej ortofotomapy dla tego obszaru mapy; najpierw uruchom `freemapper fetch` online
 error-project-terrain-not-fetched = brak zapisanego numerycznego modelu terenu dla tego obszaru mapy; najpierw uruchom `freemapper fetch` online
+error-project-credentials-missing = dane dla { $name } wymagają logowania: ustaw zmienne środowiskowe { $user_env } (nazwa użytkownika) i { $password_env } (hasło); konto musi mieć zamówione: { $products }
 error-project-candidates-outdated = zapisani kandydaci z OSM nie obejmują obszaru mapy; uruchom `freemapper fetch`
 error-project-stored = { $path }: { $message }; uruchom `freemapper fetch` ponownie
 error-project-area-too-large = obszar mapy wraz z buforem ma { $width } × { $height } m, więcej niż { $limit } m na bok; zmniejsz obszar mapy lub buffer_m w freemapper.toml

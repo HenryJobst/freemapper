@@ -7,6 +7,8 @@
 # knows.
 
 [default.extend-words]
+# `stac-vektor`, the STAC catalogue of the vector products of Lantmäteriet.
+vektor = "vektor"
 # The International Orienteering Federation, written as IOF in running text and
 # as `iof` in file and element names.
 IOF = "IOF"

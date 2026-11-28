@@ -33,6 +33,8 @@ pub fn builtin_with_hosts(extra: &ExtraHosts) -> Registry {
         .expect("Poland has an id of its own");
     freemapper_adapters_cz::register_with_hosts(&mut registry, extra)
         .expect("Czechia has an id of its own");
+    freemapper_adapters_se::register_with_hosts(&mut registry, extra)
+        .expect("Sweden has an id and a backend of its own");
     // What an adapter from a folder may replace (ADR 0188).
     registry.mark_builtin();
     registry
@@ -723,7 +725,7 @@ mod tests {
             "the map area lies outside the supported states (Brandenburg, Berlin, Saxony, \
              Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, \
              North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate, Saarland, \
-             Baden-Württemberg, Bremen, Bavaria, Poland, Czechia); freemapper has data sources for those only so far"
+             Baden-Württemberg, Bremen, Bavaria, Poland, Czechia, Sweden); freemapper has data sources for those only so far"
         );
         assert_eq!(region_names("de")[2], "Sachsen");
     }
@@ -750,6 +752,7 @@ mod tests {
             let country = match info.id.as_str() {
                 "polska" => Country::Pl,
                 "cesko" => Country::Cz,
+                "sweden" => Country::Se,
                 _ => Country::De,
             };
             let coverage = Coverage::Full;
@@ -759,16 +762,18 @@ mod tests {
         assert_eq!(Country::De.code(), "de");
         assert_eq!(Country::Pl.code(), "pl");
         assert_eq!(Country::Cz.code(), "cz");
+        assert_eq!(Country::Se.code(), "se");
     }
 
     #[test]
-    fn registry_lists_the_fifteen_states_poland_and_czechia() {
+    fn registry_lists_the_fifteen_states_poland_czechia_and_sweden() {
         let built_in = builtin();
         let ids: Vec<&str> = built_in.adapters().map(|a| a.info().id.as_str()).collect();
         let mut all: Vec<String> = regions::ALL.iter().map(ToString::to_string).collect();
         assert_eq!(all.len(), 15);
         all.push("polska".to_string());
         all.push("cesko".to_string());
+        all.push("sweden".to_string());
         assert_eq!(ids, all);
         // The eleven that were code first, in the order the region functions always went
         // through them; a state added since comes after them.
@@ -782,11 +787,12 @@ mod tests {
                 "bremen",
                 "bayern",
                 "polska",
-                "cesko"
+                "cesko",
+                "sweden"
             ]
         );
         // The registry of the process is the built-in one unless another was installed.
-        assert_eq!(registry().len(), 17);
+        assert_eq!(registry().len(), 18);
     }
 
     /// G1 records what the enums of v0.12.0 answered; the adapters must say the same.

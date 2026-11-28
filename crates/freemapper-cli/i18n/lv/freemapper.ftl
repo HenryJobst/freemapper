@@ -506,6 +506,7 @@ error-project-tiles-outdated = kartes apgabalam vajadzīgas flīzes { $tiles }, 
 error-project-buildings-not-fetched = šim kartes apgabalam nav saglabātu ALKIS ēku; vispirms palaidiet `freemapper fetch` tiešsaistē
 error-project-orthophoto-not-fetched = šim kartes apgabalam nav saglabāta ortofoto; vispirms palaidiet `freemapper fetch` tiešsaistē
 error-project-terrain-not-fetched = šim kartes apgabalam nav saglabāta reljefa modeļa; vispirms palaidiet `freemapper fetch` tiešsaistē
+error-project-credentials-missing = { $name } datiem nepieciešama pieteikšanās: iestatiet vides mainīgos { $user_env } (lietotājvārds) un { $password_env } (parole); kontam jābūt pasūtītam: { $products }
 error-project-candidates-outdated = saglabātie OSM kandidāti neaptver kartes apgabalu; palaidiet `freemapper fetch`
 error-project-stored = { $path }: { $message }; vēlreiz palaidiet `freemapper fetch`
 error-project-area-too-large = kartes apgabals plus buferis ir { $width } × { $height } m, vairāk nekā { $limit } m katrā malā; samaziniet kartes apgabalu vai buffer_m failā freemapper.toml

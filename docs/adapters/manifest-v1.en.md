@@ -115,6 +115,10 @@ but an adapter has `[alkis]`, `[orthophoto]` or both.
 | `land_use` | URL | – | yes | The items endpoint of the land use collection. |
 | `normalise` | text | – | no | `lgb` (default): the service writes the class names as the LGB does. `hamburg-ascii`: it writes them in ASCII (`Wohnbauflaeche`). |
 
+`stac-gpkg` (land cover only, no buildings): `kind`, `stac` (the STAC API, https on a host of `[net] hosts`, no
+query, no trailing slash) and `collection` (the collection with one GeoPackage per municipality: 1 to 64 letters,
+digits, `_` and `-`), and no other key. The code of the adapter crate reads the files.
+
 `[alkis.fallback]`, with `ogc-api-features` only: a WFS that is asked when the API fails, in the CRS of the API.
 Keys: `url`, `buildings_type`, `land_use_type` (required), `name`, `square_bez`, and `kind`, which can only be
 `wfs`.
@@ -124,8 +128,11 @@ The reader takes the attribute names of the schema in lower case (`oid`, `gebnut
 
 ## `[orthophoto]`, `[terrain]`, `[surface]`
 
-The rasters. Either none of the three, or `[orthophoto]` and `[terrain]`, with or without `[surface]`. The
-tables are all services, or they all name the same backend.
+The rasters. Either none of the three, or `[orthophoto]` and `[terrain]`, with or without `[surface]`, or
+`[terrain]` alone (a region with a terrain model and no orthophoto: the map then has no orthophoto template and
+`derive` warns). The tables are all services, or they all name the same backend. A `[terrain]` without
+`[orthophoto]` that names a backend states the backend's `endpoints` itself, as `[orthophoto]` does; beside an
+`[orthophoto]` it takes none.
 
 A table that names a backend has one key:
 
@@ -158,6 +165,7 @@ with the files: the tile lists, the coverages and extents of the services, and t
 | `laiv-mv` | `overview`, `dop-wcs`, `dgm-wcs`, `dom-wcs` | the tile index of the Downloadportal and the three WCS |
 | `geobremen` | `wms`, `files` | the WMS of the orthophotos (its layers come from its capabilities) and the file server |
 | `lgb` (Brandenburg, Berlin) | `data`, `currency` | the folder of the tile archives (orthophoto, DGM, bDOM) and of the nDOM point clouds, and the folder of the currency lists (CSV) |
+| `lantmateriet` (Sweden, in `[terrain]`) | `stac-hojd`, `stac-vektor` | the STAC APIs of the height products and of the vector products |
 
 The cache folder of Hamburg's archives follows the file name of the address, so an archive at a new address gets its
 own folder; the download estimate still looks in the one of the built-in address.
@@ -349,9 +357,22 @@ folder adapter that replaces a built-in state keeps no vegetation from point clo
 
 | Key | Type | Required | Meaning and limits |
 |---|---|---|---|
-| `kind` | text | yes | `laz-tiles` (tiles named by grid position in one folder), `index-json` (the folder lists its tiles in a JSON index), `meta4` (a Metalink lists the tiles), `currency-csv` (a CSV lists the survey dates) or `zip-archives` (archives that each hold many tiles). |
+| `kind` | text | yes | `laz-tiles` (tiles named by grid position in one folder), `index-json` (the folder lists its tiles in a JSON index), `meta4` (a Metalink lists the tiles), `currency-csv` (a CSV lists the survey dates) `zip-archives` (archives that each hold many tiles) or `stac-copc` (COPC files that a STAC API lists; `url` is the API, no index). |
 | `url` | URL | yes | The folder of the tiles or archives, without a trailing slash. https, a host of `[net] hosts`, no query. |
 | `index_url` | URL | for `index-json`, `meta4`, `currency-csv` | The index file; the other kinds refuse it. |
+
+## `[auth]`
+
+HTTP Basic credentials for one host, read from two environment variables. Optional; **only the adapters built into
+freemapper may declare it**: an adapter from a folder with this table is left out (`manifest.auth-builtin-only`),
+because the table would send a password to a host the folder names.
+
+| Key | Type | Required | Meaning and limits |
+|---|---|---|---|
+| `host` | text | yes | The one host that gets the `Authorization` header, one of `[net] hosts` (`manifest.auth-host` otherwise). The header goes to no other host, also not along a redirect. |
+| `user_env` | text | yes | The variable with the user name: `FREEMAPPER_` and 1 to 40 capitals, digits or `_`. |
+| `password_env` | text | yes | The variable with the password, as `user_env`. |
+| `products` | list of texts | yes | 1 to 6 names of what a person orders to get an account that works, at most 80 characters each; the message names them when a variable is missing. |
 
 ## `[preview]`
 
@@ -390,6 +411,8 @@ warning does not.
 | `manifest.crs` | A CRS the key does not allow. |
 | `manifest.names` | An empty or overlong name. |
 | `manifest.value` | A value outside its range or pattern. |
+| `manifest.auth-host` | The host of `[auth]` is not in `[net] hosts`. |
+| `manifest.auth-builtin-only` | An adapter from a folder declares `[auth]`. |
 | `manifest.file-name` | A file name that is no plain name in the folder. |
 | `manifest.geofabrik` | Not a path of an extract on the Geofabrik server. |
 | `manifest.osm` | The extracts do not fit together. |

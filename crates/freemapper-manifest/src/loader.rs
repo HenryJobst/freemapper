@@ -387,6 +387,18 @@ fn check_fit(
             running,
         )]);
     }
+    // `[auth]` sends a password to a host the manifest names, and a folder is not trusted with
+    // that: only the adapters built into the program declare it.
+    if manifest.auth.is_some() {
+        return Err(vec![ManifestError {
+            key: "auth".to_string(),
+            ..finding(
+                "manifest.auth-builtin-only",
+                path,
+                "`[auth]` is for the adapters built into freemapper; an adapter from a folder cannot send credentials",
+            )
+        }]);
+    }
     // The adapter folder of the person may take the place of a built-in adapter (ADR 0188),
     // once. The folder of a project may not: it can come from someone else, and the person
     // passed only the flag for more adapters, not for other sources of a state. Any other id

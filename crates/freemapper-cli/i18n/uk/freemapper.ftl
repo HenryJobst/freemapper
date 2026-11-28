@@ -511,6 +511,7 @@ error-project-tiles-outdated = території карти потрібні п
 error-project-buildings-not-fetched = для цієї території карти не збережено будівель ALKIS; спершу запустіть `freemapper fetch` з мережею
 error-project-orthophoto-not-fetched = для цієї території карти не збережено ортофото; спершу запустіть `freemapper fetch` з мережею
 error-project-terrain-not-fetched = для цієї території карти не збережено моделі рельєфу; спершу запустіть `freemapper fetch` з мережею
+error-project-credentials-missing = дані для { $name } потребують входу: задайте змінні середовища { $user_env } (ім'я користувача) і { $password_env } (пароль); в обліковому записі мають бути замовлені: { $products }
 error-project-candidates-outdated = збережені кандидати OSM не покривають територію карти; запустіть `freemapper fetch`
 error-project-stored = { $path }: { $message }; знову запустіть `freemapper fetch`
 error-project-area-too-large = територія карти з буфером становить { $width } × { $height } м, що більше за { $limit } м на сторону; зменште територію карти або buffer_m у freemapper.toml

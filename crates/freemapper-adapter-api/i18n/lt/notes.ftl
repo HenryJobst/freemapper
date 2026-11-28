@@ -6,6 +6,8 @@ note-warning = įspėjimas: { $text }
 
 warning-other-zone = žemėlapio plotas yra UTM zonoje { $zone } (EPSG:{ $epsg }); freemapper iš naujo atsisiunčia viską šioje zonoje
 warning-other-state = žemėlapio plotas dabar yra kitos federalinės žemės duomenų ribose; freemapper iš naujo atsisiunčia viską
+warning-no-orthophoto = šiam regionui ortofotografijos nėra; žemėlapis neturi ortofotografijos šablono
+warning-terrain-area-uncovered = { $model } neturi plytelės { $percent } % žemėlapio ploto; ten trūksta reljefo, todėl nėra horizontalių, šešėliavimo ar nuolydžio
 warning-beyond-coverage = dalis žemėlapio ploto yra už palaikomų federalinių žemių ribų: užsienyje, jūroje arba federalinėje žemėje, kurios freemapper dar nepalaiko, pavyzdžiui, Tiuringijoje. Ten federalinės žemės duomenų neturi, todėl ortofoto gali būti baltas, o ALKIS nepateikia nei pastatų, nei žemės naudojimo
 # A warning whose text is an error.
 warning-error = { $error }

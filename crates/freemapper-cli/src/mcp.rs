@@ -717,7 +717,7 @@ impl FreemapperServer {
                     &job_dir,
                     &options,
                     &cache,
-                    &HttpFetcher::new(),
+                    &freemapper::fetch::project_fetcher(),
                     control,
                     progress,
                 )

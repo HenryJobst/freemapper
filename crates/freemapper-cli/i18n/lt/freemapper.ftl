@@ -505,6 +505,7 @@ error-project-tiles-outdated = žemėlapio plotui reikia plytelių { $tiles }, k
 error-project-buildings-not-fetched = šiam žemėlapio plotui ALKIS pastatų neišsaugota; pirmiausia paleiskite `freemapper fetch` su tinklo ryšiu
 error-project-orthophoto-not-fetched = šiam žemėlapio plotui ortofoto neišsaugota; pirmiausia paleiskite `freemapper fetch` su tinklo ryšiu
 error-project-terrain-not-fetched = šiam žemėlapio plotui reljefo modelio neišsaugota; pirmiausia paleiskite `freemapper fetch` su tinklo ryšiu
+error-project-credentials-missing = { $name } duomenims reikia prisijungimo: nustatykite aplinkos kintamuosius { $user_env } (naudotojo vardas) ir { $password_env } (slaptažodis); paskyra turi būti užsisakiusi: { $products }
 error-project-candidates-outdated = išsaugoti OSM kandidatai neapima žemėlapio ploto; paleiskite `freemapper fetch`
 error-project-stored = { $path }: { $message }; dar kartą paleiskite `freemapper fetch`
 error-project-area-too-large = žemėlapio plotas su buferiu yra { $width } × { $height } m, daugiau nei { $limit } m vienoje pusėje; sumažinkite žemėlapio plotą arba buffer_m faile freemapper.toml

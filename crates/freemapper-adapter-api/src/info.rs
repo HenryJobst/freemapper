@@ -115,6 +115,7 @@ pub enum Country {
     De,
     Pl,
     Cz,
+    Se,
 }
 
 impl Country {
@@ -124,6 +125,7 @@ impl Country {
             Self::De => "de",
             Self::Pl => "pl",
             Self::Cz => "cz",
+            Self::Se => "se",
         }
     }
 }
@@ -232,5 +234,6 @@ mod tests {
         assert_eq!(Country::De.code(), "de");
         assert_eq!(Country::Pl.code(), "pl");
         assert_eq!(Country::Cz.code(), "cz");
+        assert_eq!(Country::Se.code(), "se");
     }
 }

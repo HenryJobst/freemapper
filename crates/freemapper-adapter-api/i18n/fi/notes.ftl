@@ -6,6 +6,8 @@ note-warning = varoitus: { $text }
 
 warning-other-zone = kartta-alue on UTM-vyöhykkeellä { $zone } (EPSG:{ $epsg }); freemapper hakee kaiken uudelleen tässä vyöhykkeessä
 warning-other-state = kartta-alue on nyt toisen osavaltion tiedoissa; freemapper hakee kaiken uudelleen
+warning-no-orthophoto = tälle alueelle ei ole ortokuvaa; kartalla ei ole ortokuvapohjaa
+warning-terrain-area-uncovered = { $model } ei sisällä ruutua { $percent } %:lle karttaalueesta; siellä maasto puuttuu, joten korkeuskäyriä, rinnevarjostusta tai kaltevuutta ei ole
 warning-beyond-coverage = osa kartta-alueesta on tuettujen osavaltioiden ulkopuolella. Se on ulkomailla, merellä tai osavaltiossa, jota freemapper ei vielä tue, kuten Thüringenissä. Osavaltioilla ei ole siellä tietoja, joten ortokuva voi olla valkoinen eikä ALKIS anna rakennuksia tai maankäyttöä
 # A warning whose text is an error.
 warning-error = { $error }

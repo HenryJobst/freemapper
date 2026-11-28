@@ -510,6 +510,7 @@ error-project-tiles-outdated = území mapy potřebuje dlaždice { $tiles }, kte
 error-project-buildings-not-fetched = pro toto území mapy nejsou uloženy žádné budovy ALKIS; nejdřív spusťte online `freemapper fetch`
 error-project-orthophoto-not-fetched = pro toto území mapy není uloženo žádné ortofoto; nejdřív spusťte online `freemapper fetch`
 error-project-terrain-not-fetched = pro toto území mapy není uložen žádný model terénu; nejdřív spusťte online `freemapper fetch`
+error-project-credentials-missing = data pro { $name } vyžadují přihlášení: nastavte proměnné prostředí { $user_env } (uživatelské jméno) a { $password_env } (heslo); účet musí mít objednáno: { $products }
 error-project-candidates-outdated = uložení kandidáti OSM nepokrývají území mapy; spusťte `freemapper fetch`
 error-project-stored = { $path }: { $message }; spusťte `freemapper fetch` znovu
 error-project-area-too-large = území mapy s okrajem je { $width } × { $height } m, tedy více než { $limit } m na stranu; zmenšte území mapy nebo buffer_m ve freemapper.toml

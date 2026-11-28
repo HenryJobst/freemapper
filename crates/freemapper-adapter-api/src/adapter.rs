@@ -6,6 +6,7 @@ use freemapper_georef::crs::{BoundingBox, Crs, LatLon};
 use geo_types::MultiPolygon;
 
 use crate::alkis::AlkisSource;
+use crate::auth::AuthSpec;
 use crate::credit::{CreditLine, UsedSources};
 use crate::estimate::{EstimateArea, EstimateEnv};
 use crate::extras::{ExtraSet, NasService, RasterTemplate, TreeDataset};
@@ -33,6 +34,12 @@ pub trait RegionAdapter: Send + Sync {
     /// asks the hosts its manifest declares and no other, whether it is built into the program
     /// or came from a folder. `None`: the adapter has no manifest and asks as its code asks.
     fn policy(&self) -> Option<&UrlPolicy> {
+        None
+    }
+
+    /// The login the region's downloads need: the host, the variables that hold it and what to
+    /// order. `None`, as for most: the region's services are open.
+    fn auth(&self) -> Option<&AuthSpec> {
         None
     }
 

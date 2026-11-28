@@ -499,6 +499,7 @@ error-project-tiles-outdated = the map area needs tiles { $tiles } that were not
 error-project-buildings-not-fetched = no ALKIS buildings stored for this map area; run `freemapper fetch` online first
 error-project-orthophoto-not-fetched = no orthophoto stored for this map area; run `freemapper fetch` online first
 error-project-terrain-not-fetched = no terrain model stored for this map area; run `freemapper fetch` online first
+error-project-credentials-missing = the data of { $name } need a login: set the environment variables { $user_env } (the user name) and { $password_env } (the password); the account must have ordered: { $products }
 error-project-candidates-outdated = the stored OSM candidates do not cover the map area; run `freemapper fetch`
 error-project-stored = { $path }: { $message }; run `freemapper fetch` again
 error-project-area-too-large = map area plus buffer is { $width } × { $height } m, more than { $limit } m per side; reduce the map area or buffer_m in freemapper.toml

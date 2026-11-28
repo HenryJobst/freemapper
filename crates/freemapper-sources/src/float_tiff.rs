@@ -203,11 +203,12 @@ fn lenient_lzw_values<R: std::io::Read + std::io::Seek>(
     Ok(values)
 }
 
-/// One block of a tiled LZW Float32 TIFF (`width` × `height` px, as stored, padding included):
-/// `compressed` decoded, `predictor` undone, NoData as `NaN`. For reading single blocks by range
-/// (`tiff_range`).
-pub fn decode_lzw_block(
+/// One block of a tiled Float32 TIFF (`width` × `height` px, as stored, padding included):
+/// `compressed` decoded (`compression` 5 LZW, 8 or 32946 Deflate), `predictor` undone, NoData as
+/// `NaN`. For reading single blocks by range (`tiff_range`).
+pub fn decode_block(
     compressed: &[u8],
+    compression: u16,
     width: u32,
     height: u32,
     predictor: u16,
@@ -216,8 +217,13 @@ pub fn decode_lzw_block(
     let row_bytes = (width as usize)
         .checked_mul(4)
         .filter(|_| u64::from(width) * u64::from(height) <= MAX_PIXELS)
-        .ok_or_else(|| format!("LZW: a block of {width} x {height} px is too large"))?;
-    let mut bytes = lzw_decode(compressed, row_bytes * height as usize)?;
+        .ok_or_else(|| format!("a block of {width} x {height} px is too large"))?;
+    let expected = row_bytes * height as usize;
+    let mut bytes = match compression {
+        5 => lzw_decode(compressed, expected)?,
+        8 | 32946 => deflate_decode(compressed, expected)?,
+        other => return Err(format!("compression {other}")),
+    };
     let mut values = Vec::with_capacity(width as usize * height as usize);
     for row in bytes.chunks_exact_mut(row_bytes) {
         values.extend(
@@ -227,6 +233,19 @@ pub fn decode_lzw_block(
         );
     }
     Ok(values)
+}
+
+/// The zlib stream `input` (TIFF compression 8, Adobe Deflate) as exactly `expected` bytes.
+fn deflate_decode(input: &[u8], expected: usize) -> Result<Vec<u8>, String> {
+    let out = miniz_oxide::inflate::decompress_to_vec_zlib_with_limit(input, expected)
+        .map_err(|e| format!("Deflate: {:?}", e.status))?;
+    if out.len() != expected {
+        return Err(format!(
+            "Deflate data for {} of {expected} bytes",
+            out.len()
+        ));
+    }
+    Ok(out)
 }
 
 /// The TIFF LZW data `input` (MSB first, 8 bit, early size switch) as exactly `expected` bytes,
@@ -475,7 +494,55 @@ mod tests {
             assert_eq!(offsets.len(), 3 * 2);
             for (i, (&offset, &count)) in offsets.iter().zip(&counts).enumerate() {
                 let chunk = &bytes[offset as usize..(offset + count) as usize];
-                let block = decode_lzw_block(chunk, 16, 16, predictor, true).unwrap();
+                let block = decode_block(chunk, 5, 16, 16, predictor, true).unwrap();
+                assert_eq!(block.len(), 16 * 16);
+                let (bx, by) = (i as u32 % 3, i as u32 / 3);
+                for y in 0..16 {
+                    for x in 0..16 {
+                        let (px, py) = (bx * 16 + x, by * 16 + y);
+                        if px >= grid.width || py >= grid.height {
+                            continue;
+                        }
+                        let (a, b) = (block[(y * 16 + x) as usize], whole.get(px, py));
+                        assert!(
+                            a == b || (a.is_nan() && b.is_nan()),
+                            "predictor {predictor}, block {i}, px ({px}, {py}): {a} != {b}"
+                        );
+                    }
+                }
+            }
+            assert!(whole.get(5, 0).is_nan(), "NoData");
+        }
+    }
+
+    #[test]
+    fn a_block_with_too_many_pixels_is_refused_before_it_is_read() {
+        // 100 000 by 100 000 pixels: the sum is small, the product is not.
+        for compression in [5, 8] {
+            let error = decode_block(&[], compression, 100_000, 100_000, 1, true).unwrap_err();
+            assert!(error.contains("too large"), "{error}");
+        }
+        // The largest block that is allowed gets as far as its data.
+        let error = decode_block(&[], 8, 8192, 8192, 1, true).unwrap_err();
+        assert!(!error.contains("too large"), "{error}");
+    }
+
+    #[test]
+    fn a_deflate_block_decodes_like_the_whole_image() {
+        use tiff::tags::Tag;
+        for predictor in [1, 3] {
+            let grid = grid_of(40, 24);
+            let values = varied(&grid);
+            let bytes =
+                crate::testing::tiled_float_tiff_with(&grid, &values, 16, predictor, None, 8);
+            let whole = decode_float_tiff(&bytes).unwrap();
+            let mut decoder = tiff::decoder::Decoder::new(std::io::Cursor::new(&bytes)).unwrap();
+            let offsets = decoder.get_tag_u64_vec(Tag::TileOffsets).unwrap();
+            let counts = decoder.get_tag_u64_vec(Tag::TileByteCounts).unwrap();
+            assert_eq!(offsets.len(), 3 * 2);
+            for (i, (&offset, &count)) in offsets.iter().zip(&counts).enumerate() {
+                let chunk = &bytes[offset as usize..(offset + count) as usize];
+                let block = decode_block(chunk, 8, 16, 16, predictor, true).unwrap();
                 assert_eq!(block.len(), 16 * 16);
                 let (bx, by) = (i as u32 % 3, i as u32 / 3);
                 for y in 0..16 {

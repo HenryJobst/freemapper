@@ -231,6 +231,7 @@ fn the_backends_that_take_endpoints_and_the_names_they_ask() {
             ("laiv-mv", vec!["overview", "dop-wcs", "dgm-wcs", "dom-wcs"]),
             ("geobremen", vec!["wms", "files"]),
             ("lgb", vec!["data", "currency"]),
+            ("lantmateriet", vec!["stac-hojd", "stac-vektor"]),
         ]
     );
 }

@@ -14,6 +14,8 @@ use crate::space::{DiskSpace, SystemDiskSpace};
 
 // The fetcher, its errors and the tile types live in `freemapper-adapter-api` (ADR 0082); the
 // old paths stay.
+use freemapper_adapter_api::auth::{AuthSpec, credentials};
+use freemapper_adapter_api::error::AdapterError;
 /// What a fetch error names beside the address: the product of a missing tile, and the
 /// currency table that could not be read.
 pub use freemapper_adapter_api::error::CurrencyCsvError;
@@ -208,6 +210,14 @@ fn stream(
         megabytes = megabytes(done).to_string()
     ));
     Ok(())
+}
+
+/// `request` with the `Authorization` header `auth`, if there is one.
+fn authorized<B>(request: ureq::RequestBuilder<B>, auth: Option<&str>) -> ureq::RequestBuilder<B> {
+    match auth {
+        Some(value) => request.header("Authorization", value),
+        None => request,
+    }
 }
 
 /// A redirect answer as an error. Only the agents of a pinned host return one: they follow
@@ -486,6 +496,8 @@ pub struct HttpFetcher {
     max_get_bytes: u64,
     /// What the fetcher was built with, for the one [`Fetcher::bound_to`] builds.
     built: Built,
+    /// The `Authorization` header values by host, for the hosts that want them. Never printed.
+    credentials: Vec<(String, String)>,
     /// The fetchers bound to a policy so far. Each is kept for the next request under the same
     /// policy, so its open connections are used again.
     bound: Mutex<Vec<(UrlPolicy, Arc<HttpFetcher>)>>,
@@ -507,6 +519,38 @@ struct Built {
 /// An answer of the HTTP client.
 type Response = ureq::http::Response<ureq::Body>;
 
+/// The value of the environment variable `name` of this process. The one place that reads it.
+pub fn process_env(name: &str) -> Option<String> {
+    std::env::var(name).ok()
+}
+
+/// A fetcher for the downloads of a project: the credentials of the built-in adapters whose
+/// variables are set go to their hosts.
+pub fn project_fetcher() -> HttpFetcher {
+    HttpFetcher::new().with_credentials_of(
+        crate::adapters::registry()
+            .adapters()
+            .filter_map(|adapter| adapter.auth()),
+        &process_env,
+    )
+}
+
+/// An error that names the variables when one of `specs` has no credentials in `env`: the map
+/// area lies in a region whose data need a login, and nothing is requested without one.
+pub fn ensure_credentials<'a>(
+    specs: impl Iterator<Item = &'a AuthSpec>,
+    env: &dyn Fn(&str) -> Option<String>,
+) -> Result<(), AdapterError> {
+    for spec in specs {
+        credentials(spec, env)?;
+    }
+    Ok(())
+}
+
+/// How [`HttpFetcher::open`] makes a request: with the agent, the address and the
+/// `Authorization` header value for its host, if it has one.
+type Send<'a> = dyn Fn(&ureq::Agent, &str, Option<&str>) -> Result<Response, ureq::Error> + 'a;
+
 impl HttpFetcher {
     pub fn new() -> Self {
         Self::build(CONNECT_TIMEOUT, RESPONSE_TIMEOUT, BODY_TIMEOUT, true, None)
@@ -515,6 +559,48 @@ impl HttpFetcher {
     /// The same timeout for connecting, the response headers and the body.
     pub fn with_timeout(timeout: Duration) -> Self {
         Self::build(timeout, timeout, timeout, true, None)
+    }
+
+    /// This fetcher sending HTTP Basic authentication to `host` (exactly that host, over HTTPS).
+    ///
+    /// The header goes with a request to that host and with none to another, so a redirect never
+    /// takes it along. The password is not part of any message.
+    pub fn with_basic_auth(mut self, host: &str, user: &str, password: &str) -> Self {
+        use base64::Engine as _;
+        let token = base64::engine::general_purpose::STANDARD.encode(format!("{user}:{password}"));
+        self.credentials
+            .push((host.to_ascii_lowercase(), format!("Basic {token}")));
+        self
+    }
+
+    /// This fetcher with the credentials of every spec whose variables `env` has: each goes to
+    /// the host its spec names. A spec without them adds none; [`ensure_credentials`] says so
+    /// when a map needs them.
+    pub fn with_credentials_of<'a>(
+        mut self,
+        specs: impl Iterator<Item = &'a AuthSpec>,
+        env: &dyn Fn(&str) -> Option<String>,
+    ) -> Self {
+        for spec in specs {
+            if let Ok(found) = credentials(spec, env) {
+                self = self.with_basic_auth(&spec.host, &found.user, found.password.expose());
+            }
+        }
+        self
+    }
+
+    /// The `Authorization` header value for a request to `url`: the credentials of its host,
+    /// only over HTTPS.
+    fn authorization(&self, url: &str) -> Option<&str> {
+        let uri = url.parse::<ureq::http::Uri>().ok()?;
+        if !uri.scheme_str()?.eq_ignore_ascii_case("https") {
+            return None;
+        }
+        let host = uri.host()?.trim_end_matches('.');
+        self.credentials
+            .iter()
+            .find(|(known, _)| known.eq_ignore_ascii_case(host))
+            .map(|(_, header)| header.as_str())
     }
 
     /// A fetcher whose requests stay on the hosts of `policy`, redirects included.
@@ -607,6 +693,7 @@ impl HttpFetcher {
                 body,
                 guard,
             },
+            credentials: Vec::new(),
             bound: Mutex::new(Vec::new()),
             #[cfg(test)]
             stub: None,
@@ -634,13 +721,13 @@ impl HttpFetcher {
         url: &str,
         large: bool,
         plain: bool,
-        send: &dyn Fn(&ureq::Agent, &str) -> Result<Response, ureq::Error>,
+        send: &Send<'_>,
     ) -> Result<Response, FetchError> {
         let ask = |current: &str| -> Result<Response, FetchError> {
             let agents = self.agents(current);
             let agent = if large { &agents.large } else { &agents.normal };
-            let response =
-                send(agent, &self.target(current)).map_err(|e| call_error(current, e, plain))?;
+            let response = send(agent, &self.target(current), self.authorization(current))
+                .map_err(|e| call_error(current, e, plain))?;
             if agents.pinned.is_some() || self.policy.is_none() {
                 refuse_redirect(current, &response, agents.pinned)?;
             }
@@ -751,6 +838,7 @@ impl Fetcher for HttpFetcher {
         } = self.built;
         let mut bound = Self::build(connect, response, body, guard, Some(policy.clone()));
         bound.max_get_bytes = self.max_get_bytes;
+        bound.credentials = self.credentials.clone();
         #[cfg(test)]
         {
             bound.stub = self.stub.clone();
@@ -768,12 +856,15 @@ impl Fetcher for HttpFetcher {
             ByteRange::From { start, len } => (format!("bytes={start}-{}", start + len - 1), len),
             ByteRange::Last(n) => (format!("bytes=-{n}"), n),
         };
-        let mut response = self.open(url, false, false, &|agent, target| {
-            agent
-                .get(target)
-                .header("User-Agent", USER_AGENT)
-                .header("Range", &header)
-                .call()
+        let mut response = self.open(url, false, false, &|agent, target, auth| {
+            authorized(
+                agent
+                    .get(target)
+                    .header("User-Agent", USER_AGENT)
+                    .header("Range", &header),
+                auth,
+            )
+            .call()
         })?;
         if response.status() != 206 {
             return Err(FetchError::RangeIgnored {
@@ -813,8 +904,8 @@ impl Fetcher for HttpFetcher {
     }
 
     fn last_modified(&self, url: &str) -> Result<Option<NaiveDate>, FetchError> {
-        let response = self.open(url, false, false, &|agent, target| {
-            agent.head(target).header("User-Agent", USER_AGENT).call()
+        let response = self.open(url, false, false, &|agent, target, auth| {
+            authorized(agent.head(target).header("User-Agent", USER_AGENT), auth).call()
         })?;
         Ok(response
             .headers()
@@ -825,10 +916,8 @@ impl Fetcher for HttpFetcher {
     }
 
     fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
-        let mut response = self.open(url, false, false, &|agent, target| {
-            agent
-                .get(target)
-                .header("User-Agent", USER_AGENT)
+        let mut response = self.open(url, false, false, &|agent, target, auth| {
+            authorized(agent.get(target).header("User-Agent", USER_AGENT), auth)
                 // An error answer is read for its exception report.
                 .config()
                 .http_status_as_error(false)
@@ -881,8 +970,8 @@ impl HttpFetcher {
         progress: &mut dyn FnMut(Note),
         identity: bool,
     ) -> Result<(), FetchError> {
-        let mut response = self.open(url, true, true, &|agent, target| {
-            let request = agent.get(target).header("User-Agent", USER_AGENT);
+        let mut response = self.open(url, true, true, &|agent, target, auth| {
+            let request = authorized(agent.get(target).header("User-Agent", USER_AGENT), auth);
             if identity {
                 request.header("Accept-Encoding", "identity").call()
             } else {
@@ -3590,22 +3679,47 @@ mod tests {
     fn stub_server(
         routes: Vec<(&'static str, Stubbed)>,
     ) -> (String, std::sync::Arc<std::sync::Mutex<Vec<String>>>) {
+        let (base, asked, _) = stub_server_seeing(routes);
+        (base, asked)
+    }
+
+    /// The `Authorization` header (if any) of every request the stub server of
+    /// [`stub_server_seeing`] got, in the order of the paths asked.
+    type Authorizations = std::sync::Arc<std::sync::Mutex<Vec<Option<String>>>>;
+
+    /// [`stub_server`] that also notes the `Authorization` header of every request.
+    fn stub_server_seeing(
+        routes: Vec<(&'static str, Stubbed)>,
+    ) -> (
+        String,
+        std::sync::Arc<std::sync::Mutex<Vec<String>>>,
+        Authorizations,
+    ) {
         use std::io::{BufRead as _, BufReader, Write as _};
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let base = format!("http://{}", listener.local_addr().unwrap());
         let asked = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
         let log = asked.clone();
+        let authorizations = Authorizations::default();
+        let auth_log = authorizations.clone();
         std::thread::spawn(move || {
             for stream in listener.incoming().flatten() {
                 let mut reader = BufReader::new(stream);
                 let mut request = String::new();
                 let _ = reader.read_line(&mut request);
                 let mut line = String::new();
+                let mut authorization = None;
                 while reader.read_line(&mut line).is_ok_and(|n| n > 2) {
+                    if let Some((name, value)) = line.split_once(':')
+                        && name.eq_ignore_ascii_case("authorization")
+                    {
+                        authorization = Some(value.trim().to_string());
+                    }
                     line.clear();
                 }
                 let path = request.split(' ').nth(1).unwrap_or("").to_string();
                 log.lock().unwrap().push(path.clone());
+                auth_log.lock().unwrap().push(authorization);
                 let answer = routes.iter().find(|(route, _)| *route == path);
                 let mut stream = reader.into_inner();
                 let _ = match answer {
@@ -3628,7 +3742,7 @@ mod tests {
                 };
             }
         });
-        (base, asked)
+        (base, asked, authorizations)
     }
 
     fn declared() -> UrlPolicy {
@@ -4082,6 +4196,113 @@ mod tests {
                 .to_string(),
             "2026-11-11"
         );
+    }
+
+    /// The credentials of the adapters that declare a login come from the environment, one host
+    /// each; an adapter whose variables are not set adds none, and a message never holds them.
+    #[test]
+    fn credentials_of_the_specs_reach_their_hosts_and_are_not_printed() {
+        use freemapper_adapter_api::auth::AuthSpec;
+        let spec = |host: &str, user: &str, password: &str| AuthSpec {
+            name: "Sweden".to_string(),
+            host: host.to_string(),
+            user_env: user.to_string(),
+            password_env: password.to_string(),
+            products: vec!["Product A".to_string()],
+        };
+        let specs = [
+            spec(
+                "dl.example.org",
+                "FREEMAPPER_A_USER",
+                "FREEMAPPER_A_PASSWORD",
+            ),
+            spec(
+                "other.example.org",
+                "FREEMAPPER_B_USER",
+                "FREEMAPPER_B_PASSWORD",
+            ),
+        ];
+        let env = |name: &str| match name {
+            "FREEMAPPER_A_USER" => Some("user".to_string()),
+            "FREEMAPPER_A_PASSWORD" => Some("secret".to_string()),
+            _ => None,
+        };
+        let fetcher = HttpFetcher::new().with_credentials_of(specs.iter(), &env);
+        // base64("user:secret")
+        assert_eq!(
+            fetcher.authorization("https://dl.example.org/x"),
+            Some("Basic dXNlcjpzZWNyZXQ=")
+        );
+        assert_eq!(fetcher.authorization("https://other.example.org/x"), None);
+        assert_eq!(
+            fetcher.authorization("https://elsewhere.example.org/x"),
+            None
+        );
+        let missing = ensure_credentials(specs[1..].iter(), &env).unwrap_err();
+        assert!(missing.to_string().contains("FREEMAPPER_B_PASSWORD"));
+        assert!(!missing.to_string().contains("secret"));
+        assert!(ensure_credentials(specs[..1].iter(), &env).is_ok());
+    }
+
+    /// Lantmäteriet's download host wants Basic authentication (private accounts): every way to
+    /// ask sends it to that host and to no other, and a fetcher without credentials sends none.
+    #[test]
+    fn basic_credentials_go_to_their_host_only() {
+        // base64("user:secret")
+        const HEADER: &str = "Basic dXNlcjpzZWNyZXQ=";
+        let routes = || {
+            vec![
+                ("/own", Stubbed::Body(b"own")),
+                ("/away", Stubbed::Redirect("https://cdn.example.org/files")),
+                ("/files", Stubbed::Body(b"cdn")),
+            ]
+        };
+        let (base, _, seen) = stub_server_seeing(routes());
+        let fetcher = HttpFetcher::stubbed(declared(), &base).with_basic_auth(
+            "geo.example.org",
+            "user",
+            "secret",
+        );
+        let dir = tempfile::tempdir().unwrap();
+        fetcher.get("https://geo.example.org/own").unwrap();
+        fetcher
+            .get_range("https://geo.example.org/own", ByteRange::Last(2))
+            .unwrap_err(); // the stub ignores ranges; the header is what counts
+        fetcher
+            .last_modified("https://geo.example.org/own")
+            .unwrap();
+        fetcher
+            .download_to(
+                "https://geo.example.org/own",
+                &dir.path().join("f"),
+                1000,
+                &mut |_| {},
+            )
+            .unwrap();
+        assert_eq!(*seen.lock().unwrap(), vec![Some(HEADER.to_string()); 4]);
+        // A redirect to another host does not take the credentials along.
+        seen.lock().unwrap().clear();
+        assert_eq!(fetcher.get("https://geo.example.org/away").unwrap(), b"cdn");
+        assert_eq!(*seen.lock().unwrap(), [Some(HEADER.to_string()), None]);
+        // A host without credentials gets none.
+        seen.lock().unwrap().clear();
+        fetcher.get("https://cdn.example.org/files").unwrap();
+        assert_eq!(*seen.lock().unwrap(), [None]);
+        // A fetcher without credentials sends none, and one bound to a policy keeps them.
+        let (base, _, seen) = stub_server_seeing(routes());
+        HttpFetcher::stubbed(declared(), &base)
+            .get("https://geo.example.org/own")
+            .unwrap();
+        assert_eq!(*seen.lock().unwrap(), [None]);
+        let (base, _, seen) = stub_server_seeing(routes());
+        let mut plain = HttpFetcher::local().with_basic_auth("geo.example.org", "user", "secret");
+        plain.stub = Some(base.trim_end_matches('/').to_string());
+        plain
+            .bound_to(&declared())
+            .unwrap()
+            .get("https://geo.example.org/own")
+            .unwrap();
+        assert_eq!(*seen.lock().unwrap(), [Some(HEADER.to_string())]);
     }
 
     #[test]

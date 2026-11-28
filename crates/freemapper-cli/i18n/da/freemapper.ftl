@@ -499,6 +499,7 @@ error-project-tiles-outdated = kortområdet har brug for fliserne { $tiles }, so
 error-project-buildings-not-fetched = ingen ALKIS-bygninger gemt for dette kortområde; kør først `freemapper fetch` online
 error-project-orthophoto-not-fetched = intet ortofoto gemt for dette kortområde; kør først `freemapper fetch` online
 error-project-terrain-not-fetched = ingen terrænmodel gemt for dette kortområde; kør først `freemapper fetch` online
+error-project-credentials-missing = data for { $name } kræver et login: sæt miljøvariablerne { $user_env } (brugernavnet) og { $password_env } (adgangskoden); kontoen skal have bestilt: { $products }
 error-project-candidates-outdated = de gemte OSM-kandidater dækker ikke kortområdet; kør `freemapper fetch`
 error-project-stored = { $path }: { $message }; kør `freemapper fetch` igen
 error-project-area-too-large = kortområde plus buffer er { $width } × { $height } m, mere end { $limit } m pr. side; gør kortområdet eller buffer_m i freemapper.toml mindre

@@ -505,6 +505,7 @@ error-project-tiles-outdated = l'area della carta richiede i riquadri { $tiles }
 error-project-buildings-not-fetched = nessun edificio ALKIS salvato per questa area della carta; esegui prima `freemapper fetch` online
 error-project-orthophoto-not-fetched = nessuna ortofoto salvata per questa area della carta; esegui prima `freemapper fetch` online
 error-project-terrain-not-fetched = nessun modello del terreno salvato per questa area della carta; esegui prima `freemapper fetch` online
+error-project-credentials-missing = i dati di { $name } richiedono un accesso: imposta le variabili d'ambiente { $user_env } (il nome utente) e { $password_env } (la password); l'account deve aver ordinato: { $products }
 error-project-candidates-outdated = i candidati OSM salvati non coprono l'area della carta; esegui `freemapper fetch`
 error-project-stored = { $path }: { $message }; esegui di nuovo `freemapper fetch`
 error-project-area-too-large = l'area della carta più il margine è { $width } × { $height } m, più di { $limit } m per lato; riduci l'area della carta o buffer_m in freemapper.toml
