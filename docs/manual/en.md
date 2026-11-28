@@ -1865,7 +1865,19 @@ against the built-in manifest, `sources check hessen` is `adapters check` on you
 alkis.url` prints one address for a script, and `sources schema` lists the keys of a manifest that hold an address
 (`--json`: as a JSON Schema). The command writes only into your own adapter folder, never into a project folder.
 Credit and licence stay as the manifest states them; keep them right if the service changed hands. Restart the
-MCP server or the area page afterwards. The steps below are the same by hand.
+MCP server or the area page afterwards.
+
+When a service moves, the correction can also arrive without you doing anything and without a new release: as a
+signed list of corrections. `freemapper sources update` gets it from GitHub (the pre-release `sources`), checks the
+signature with the same key as `freemapper update` and stores it in your settings folder (`sources/`). At every
+start freemapper checks the stored list again and changes the built-in manifests with it; a correction applies only
+where the manifest still holds the old address, and the whole manifest must pass its check with the host rules
+afterwards. An invalid or changed list is not used, with a warning; the addresses of the program then count. Your own
+adapter folder has priority and stays untouched. Nothing asks GitHub unless you do: `sources update --mode on`
+turns on a daily check (only for commands that use the network anyway, never with `--offline`), `--mode off` turns
+it off again, `sources update --remove` deletes the stored list, and `sources corrections` shows what each
+correction does to this program (`--json` for scripts). A program built from source does not fetch the list. The
+steps below are the same by hand.
 
 1. Export the state. The id is the one `freemapper adapters list` shows:
    `freemapper adapters export hessen ~/my-adapters`. This writes the folder `~/my-adapters/hessen` with the

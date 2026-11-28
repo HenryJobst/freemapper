@@ -1952,7 +1952,19 @@ der Befehl sagt es. `sources diff hessen` zeigt, was Ihr Ordner gegenüber dem e
 ein Skript aus, und `sources schema` listet die Schlüssel eines Manifests, die eine Adresse enthalten (`--json`:
 als JSON-Schema). Der Befehl schreibt nur in Ihren eigenen Adapterordner, nie in einen Projektordner. Quellenangabe
 und Lizenz bleiben, wie das Manifest sie nennt; halten Sie sie richtig, wenn der Dienst den Betreiber gewechselt
-hat. Starten Sie danach den MCP-Server oder die Gebietsseite neu. Die folgenden Schritte sind dasselbe von Hand.
+hat. Starten Sie danach den MCP-Server oder die Gebietsseite neu.
+
+Zieht ein Dienst um, kann die Korrektur auch ohne Ihr Zutun und ohne neues Release ankommen: als signierte Liste der
+Korrekturen. `freemapper sources update` holt sie von GitHub (das Pre-Release `sources`), prüft die Signatur mit
+demselben Schlüssel wie `freemapper update` und speichert sie in Ihrem Einstellungsordner (`sources/`). Bei jedem
+Start prüft freemapper die gespeicherte Liste erneut und ändert die eingebauten Manifeste damit; eine Korrektur gilt
+nur, wo das Manifest noch die alte Adresse hat, und das ganze Manifest muss danach seine Prüfung samt Host-Regeln
+bestehen. Eine ungültige oder veränderte Liste wird nicht verwendet, mit einer Warnung; dann gelten die Adressen
+des Programms. Ihr eigener Adapterordner hat Vorrang und bleibt unberührt. Ohne Ihr Zutun fragt nichts GitHub:
+`sources update --mode on` schaltet eine tägliche Prüfung ein (nur bei Befehlen, die ohnehin das Netz brauchen,
+nie mit `--offline`), `--mode off` schaltet sie wieder aus, `sources update --remove` löscht die gespeicherte Liste,
+und `sources corrections` zeigt, was jede Korrektur an diesem Programm tut (`--json` für Skripte). Ein Programm, das
+aus dem Quelltext gebaut ist, holt die Liste nicht. Die folgenden Schritte sind dasselbe von Hand.
 
 1. Exportieren Sie das Bundesland. Die Kennung zeigt `freemapper adapters list`:
    `freemapper adapters export hessen ~/meine-adapter`. Das schreibt den Ordner `~/meine-adapter/hessen` mit dem

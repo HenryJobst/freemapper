@@ -10473,6 +10473,7 @@
         "registry+https://github.com/rust-lang/crates.io-index#geo-types@0.7.20",
         "registry+https://github.com/rust-lang/crates.io-index#geojson@1.0.0",
         "registry+https://github.com/rust-lang/crates.io-index#serde@1.0.229",
+        "registry+https://github.com/rust-lang/crates.io-index#serde_json@1.0.154",
         "registry+https://github.com/rust-lang/crates.io-index#toml@1.2.1+spec-1.1.0"
       ],
       "ref": "path+file://./crates/freemapper-manifest#0.28.0"
