@@ -154,7 +154,7 @@ is optional; one left out is the one of the built-in manifest of the state, so a
 
 Six backends state more addresses in `endpoints`, a table of names and addresses (`[orthophoto.endpoints]` or an
 inline table), each a https address on a host of `[net] hosts`, without a query (issue #273). A name the backend does
-not ask is `manifest.unknown-key`; a name left out is the one of the built-in manifest. The code keeps what it does
+not ask is `manifest.unknown-key`; a name left out is the one of the built-in manifest. A manifest that uses `endpoints`, or the keys `url`, `layer` and `max_px` of a backend, needs freemapper 0.29.0 or later (`min_freemapper`). The code keeps what it does
 with the files: the tile lists, the coverages and extents of the services, and the names of the layers and years.
 
 | Backend | Names | Address of |
@@ -353,7 +353,7 @@ in the order of the manifest.
 
 Where the LAZ tiles of the vegetation candidates come from. Optional; only the built-in adapters use it. The backend of
 the state keeps the names of the tiles and how it reads the answers, the manifest holds where (ADR 0189, addendum). A
-folder adapter that replaces a built-in state keeps no vegetation from point clouds, because its backend is code.
+folder adapter that replaces a built-in state keeps no vegetation from point clouds, because its backend is code. A manifest with `[point_cloud]` needs freemapper 0.29.0 or later (`min_freemapper`).
 
 | Key | Type | Required | Meaning and limits |
 |---|---|---|---|
