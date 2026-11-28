@@ -43,7 +43,7 @@ use crate::build::line_cuts::{
 use crate::build::open_land::{
     OpenLandObjects, drop_open_land_under_alkis, open_land_objects, osm_forest_polygons,
 };
-use crate::build::out_of_bounds::out_of_bounds_objects;
+use crate::build::out_of_bounds::{is_out_of_bounds_part, out_of_bounds_objects};
 use crate::build::passages::hide_unreachable as hide_unreachable_passages;
 use crate::build::paved::{
     PavedObjects, StoredLayer, StreetSurvey, paved_area_objects, unpaved_streets,
@@ -401,9 +401,15 @@ fn cadastre_candidates(
     Ok(cadastre)
 }
 
-/// 501.5 paved areas from the land use; sprint maps only (spec §4.5). In Berlin the
-/// Straßenbefahrung cuts its green strips out and adds its paving as candidates.
-fn paved(stored: &Stored, frame: &Frame) -> Result<PavedObjects, GeorefError> {
+/// 501.5 paved areas from the land use; sprint and schoolyard maps (spec §4.5, ADR 0207). On a
+/// schoolyard map the parts that are out of bounds (520) stay out: the streets off the school's
+/// land are no part of the map. In Berlin the Straßenbefahrung cuts its green strips out and adds
+/// its paving as candidates.
+fn paved(
+    stored: &Stored,
+    map_area: &Polygon<f64>,
+    frame: &Frame,
+) -> Result<PavedObjects, GeorefError> {
     let Frame {
         map_kind,
         georef,
@@ -411,9 +417,32 @@ fn paved(stored: &Stored, frame: &Frame) -> Result<PavedObjects, GeorefError> {
         clip,
         ..
     } = frame;
-    if *map_kind != MapKind::Sprint {
+    if *map_kind == MapKind::Forest {
         return Ok(PavedObjects::default());
     }
+    let own_land: Vec<LandUse>;
+    let land_use = if *map_kind == MapKind::Schoolyard {
+        own_land = stored
+            .land_use
+            .iter()
+            .filter_map(|land| {
+                let parts: Vec<_> = land
+                    .footprint
+                    .0
+                    .iter()
+                    .filter(|part| !is_out_of_bounds_part(land, part, map_area, *map_kind))
+                    .cloned()
+                    .collect();
+                (!parts.is_empty()).then(|| LandUse {
+                    footprint: MultiPolygon(parts),
+                    ..land.clone()
+                })
+            })
+            .collect();
+        &own_land
+    } else {
+        &stored.land_use
+    };
     let streets = stored
         .osm
         .as_ref()
@@ -433,7 +462,7 @@ fn paved(stored: &Stored, frame: &Frame) -> Result<PavedObjects, GeorefError> {
         ));
     }
     paved_area_objects(
-        &stored.land_use,
+        land_use,
         streets.as_deref().unwrap_or_default(),
         &survey,
         clip,
@@ -487,7 +516,7 @@ pub fn build(frame: Frame, stored: Stored, saved: &ContentSettings) -> Result<Bu
         None => Vec::new(),
     };
     let structures = structures(&stored, &footprints, &map_area, &frame)?;
-    let paved = paved(&stored, &frame)?;
+    let paved = paved(&stored, &map_area, &frame)?;
     let water = water_objects(
         &stored.land_use,
         &frame.clip,
@@ -1920,6 +1949,38 @@ mod tests {
         );
         assert!(symbols_of(&placed.map, "DEBBAL0100000030").is_empty());
         assert_eq!(symbols_of(&placed.candidates, "DEBBAL0100000030"), [paved]);
+    }
+
+    #[test]
+    fn a_schoolyard_map_draws_the_streets_on_its_own_land_only() {
+        // ADR 0207: the street parcel inside the map area is a paved area, the one far off the
+        // school's land stays out of the map (it is a 520 candidate).
+        let f = fixture(MapKind::Schoolyard);
+        let paved = f.id("501.5");
+        let placed = placed_safe(
+            &f,
+            Stored {
+                land_use: vec![
+                    parcel(
+                        &f,
+                        "DEBBAL0100000030",
+                        "Straßenverkehr",
+                        (-40.0, -10.0),
+                        30.0,
+                    ),
+                    parcel(
+                        &f,
+                        "DEBBAL0100000031",
+                        "Straßenverkehr",
+                        (400.0, 400.0),
+                        30.0,
+                    ),
+                ],
+                ..Stored::default()
+            },
+        );
+        assert_eq!(symbols_of(&placed.map, "DEBBAL0100000030"), [paved]);
+        assert!(symbols_of(&placed.map, "DEBBAL0100000031").is_empty());
     }
 
     #[test]

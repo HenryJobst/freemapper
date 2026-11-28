@@ -35,7 +35,7 @@ Gebäude und Flächennutzung aus dem Liegenschaftskataster (ALKIS). Dazu kommen 
 OpenStreetMap (OSM).
 
 - **Fertig gezeichnet** wird nur, was verlässlich ist: Gebäude, Gewässer aus dem Kataster, auf
-  Sprintkarten auch befestigte Flächen (Straßen, Plätze) und unbefestigte Wege mit bekannter Oberfläche.
+  Sprint- und Schulhofkarten auch befestigte Flächen (Straßen, Plätze) und Wege mit bekannter Oberfläche.
 - **Als Vorlage** kommt alles, was Sie selbst beurteilen müssen: Luftbild, Höhenschummerung, Hangneigung,
   lokales Relief, Höhe über Grund (nDOM), Höhenlinien, Kuppen und Böschungen aus dem Gelände, Zäune, Hecken, Bänke, Spielgeräte, Sperrgebiete, Teiche, Bäche,
   Brunnen und Brücken.

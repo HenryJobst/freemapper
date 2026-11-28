@@ -8,6 +8,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Hinzugefügt
 
+- Schulhofkarten zeigen jetzt Wege und Straßen wie Sprintkarten (Ticket #334, ADR 0207): OSM-Wege mit bekannter Oberfläche kommen in die Grundkarte, Wege ohne Oberfläche als Kandidaten, und die Verkehrsflächen des Katasters werden befestigte Flächen (501.5), soweit sie nicht Sperrfläche (520) sind. Die Breitengrenzen der Wege- und Treppensymbole sind auf den Schulsatz (1:1000, 125 %) umgerechnet.
 - Ebenen-Seiten, README, Handbuch und Website zeigen jetzt auch die Grundkarte selbst (ohne Kandidaten), zugeschnitten auf den Kartenrahmen wie die Kandidaten-Layer; 30 von 34 Beispielen zeigen zusätzlich ihre Raster-Vorlagen (Orthofoto, Schummerung, Hangneigung, Relief, nDOM), auch die Waldkarten. `scripts/layer-previews.sh` schreibt `layers/map.webp` und beschneidet es am Rahmen.
 
 ## [0.29.0] - 2026-11-28
