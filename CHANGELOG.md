@@ -13,6 +13,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- Die Mutationstests eines Pull Requests starten erst, wenn der Job `check` grün ist, und enden sofort, wenn der Diff keine Rust-Datei enthält (ADR 0174, Nachtrag). Das spart Runner und Wartezeit; sie blockieren weiterhin keinen Merge. Dazu ein Test, dass ein Abbruch den Abruf der Saarland-Höhenmodelle beendet, statt das Archiv zu überspringen.
 - Die Adressen der Höhenmodelle von Baden-Württemberg, dem Saarland und Rheinland-Pfalz stehen jetzt im Manifest (Issue #273): `[orthophoto.endpoints]` nennt bei Baden-Württemberg den WFS der Befliegungskacheln (`flights`) und den Dateiserver der Archive (`files`), beim Saarland die Freigabe der DGM1- und DOM1-Archive (`share`) und bei Rheinland-Pfalz den WFS mit der Kachelliste (`tile-list`) und den Dateiserver samt Metalinks (`data`). Ein Ordner, der ein eingebautes Bundesland ersetzt, nennt nur, was umgezogen ist; `sources list`, `sources set` und `adapters probe` kennen die neuen Adressen. Für Karten und Cache-Ordner ändert sich nichts. Hessen, Schleswig-Holstein, Sachsen, Bayern und Sachsen-Anhalt folgen.
 
 ## [0.29.0] - 2026-11-28

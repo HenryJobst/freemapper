@@ -29,3 +29,14 @@ tests, not a bug in the program.
   on hold while such an issue is open for the code it ships (the person who releases decides).
 - The nightly run costs runner minutes on days main changed Rust code only: with no change it ends
   at once (`no Rust change`).
+
+## Addendum 2026-11-28: later start, no job without Rust
+
+The twelve shards of a pull request queued behind the other checks and held the runners while the
+person waited for them. Two changes make them cheaper, and they stay non-blocking:
+
+- The job `mutants` has `needs: check`. A pull request whose tests do not pass starts no shard; the
+  fix pushes a new run anyway (ADR 0161 stays: twelve shards, ten minutes after the baseline).
+- Each shard first looks for `*.rs` files in the diff against the base. With none (documentation,
+  changelog, manifests, goldens) it ends after the checkout, without the toolchain, the cache, the
+  tools and the build of the tests. `scripts/check.sh mutants` keeps its own check for the same case.

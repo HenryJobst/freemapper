@@ -13,6 +13,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Changed
 
+- The mutation tests of a pull request start only when the job `check` is green and end at once when the diff holds no Rust file (ADR 0174, addendum). That saves runners and waiting time; they still block no merge. A new test also checks that a cancel ends the fetch of the Saarland height models instead of passing the archive over.
 - The addresses of the height models of Baden-Württemberg, Saarland and Rhineland-Palatinate are in the manifest now (issue #273): `[orthophoto.endpoints]` names for Baden-Württemberg the WFS of the flight tiles (`flights`) and the file server of the archives (`files`), for Saarland the share of the DGM1 and DOM1 archives (`share`) and for Rhineland-Palatinate the WFS with the tile list (`tile-list`) and the file server with the Metalinks (`data`). A folder that replaces a built-in state names only what moved; `sources list`, `sources set` and `adapters probe` know the new addresses. Maps and cache folders do not change. Hesse, Schleswig-Holstein, Saxony, Bavaria and Saxony-Anhalt follow.
 
 ## [0.29.0] - 2026-11-28
