@@ -94,7 +94,7 @@ fn item_of(feature: &Value) -> Option<StacItem> {
 
 /// The items of `collection` under `bbox_wgs84` (west, south, east, north in degrees), asked
 /// of the STAC API `base` (no trailing slash), `limit` to a page. The pages are followed by
-/// their `next` links, at most [`MAX_PAGES`].
+/// their `next` links, at most `MAX_PAGES`.
 pub fn search(
     fetcher: &dyn Fetcher,
     base: &str,
