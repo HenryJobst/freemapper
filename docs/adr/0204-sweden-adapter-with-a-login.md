@@ -1,4 +1,4 @@
-# 0203. Sweden: one national adapter with the terrain model, laser data and land cover of Lantmäteriet
+# 0204. Sweden: one national adapter with the terrain model, laser data and land cover of Lantmäteriet
 
 Date: 2026-11-27
 Status: Accepted
@@ -28,7 +28,7 @@ numbers as EPSG:25833, so nothing is transformed.
 - The land cover becomes the land use of the map through a table of classes (`rules/marktacke.toml`); "open land" and
   unknown classes are left out and named in a progress line. The first stage draws no buildings (OpenStreetMap buildings need
   a rule in the engine that no region has asked for yet); Byggnad and the
-  orthophoto wait for the owner's application (no orthophoto: ADR 0202).
+  orthophoto wait for the owner's application (no orthophoto: ADR 0203).
 - The point-cloud grid is 2.5 km. `PointCloudInfo::grid_km` is read by no engine code, so the backend names its tiles
   from the catalogue and sets the field to 3; no API and no German adapter changes.
 - The boundary is Natural Earth 1:10m (public domain), accurate to a few hundred metres; the Lantmäteriet boundary

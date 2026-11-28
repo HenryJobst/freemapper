@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! A map in Sweden from synthetic Lantmäteriet data (ADR 0203): the STAC catalogues, a Deflate
+//! A map in Sweden from synthetic Lantmäteriet data (ADR 0204): the STAC catalogues, a Deflate
 //! terrain tile and a land cover zip are answered from memory, the OSM extract is the empty one.
 //! Nothing here is data of Lantmäteriet. The login comes from the two environment variables, which
 //! a program cannot set in its own process without unsafe code, so the test runs itself again
