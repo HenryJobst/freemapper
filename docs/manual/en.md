@@ -1830,7 +1830,7 @@ freemapper run <dir>
 ```
 
 Without them a fetch in Sweden stops before it asks the network and names both variables and the three products. The
-terrain model is read by range from the 10 km tiles, so a map costs a few MB; a laser point cloud tile is about 80 MB
+terrain model is read by range from the 10 km tiles, so a map costs a few MB; a laser point cloud tile is 80 to 125 MB
 (2.5 km square) and is kept in the cache. Lantmäteriet does not publish its download limits. A download it refuses
 with HTTP 429 ends the run with a message about the limit of the account; start it again later, what is downloaded stays
 in the cache. An account without an order gets an error that names the product. If the catalogue has no terrain tile

@@ -1915,7 +1915,7 @@ freemapper run <dir>
 
 Ohne sie bricht ein Abruf in Schweden ab, bevor er das Netz fragt, und nennt beide Variablen und die drei Produkte. Das
 Geländemodell wird per Bereichsabruf aus den 10-km-Kacheln gelesen, eine Karte kostet also wenige MB; eine Kachel der
-Laserpunktwolke hat rund 80 MB (2,5 km Kantenlänge) und bleibt im Zwischenspeicher. Die Lantmäteriet veröffentlicht ihre
+Laserpunktwolke hat 80 bis 125 MB (2,5 km Kantenlänge) und bleibt im Zwischenspeicher. Die Lantmäteriet veröffentlicht ihre
 Download-Grenzen nicht. Lehnt sie einen Download mit HTTP 429 ab, endet der Lauf mit einem Hinweis auf die Grenze des
 Kontos; starte ihn später neu, Heruntergeladenes bleibt im Zwischenspeicher. Ein Konto ohne Bestellung bekommt einen
 Fehler, der das Produkt nennt. Fehlt dem Katalog eine Geländekachel für einen Teil des Gebiets, nennt eine Warnung den
