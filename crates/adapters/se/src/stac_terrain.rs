@@ -542,6 +542,15 @@ mod tests {
         scratch: &Path,
         mode: FetchMode,
     ) -> (Result<(), AdapterError>, Vec<String>, TestProject) {
+        run_for(fetcher, scratch, mode, &area())
+    }
+
+    fn run_for(
+        fetcher: &dyn Fetcher,
+        scratch: &Path,
+        mode: FetchMode,
+        area: &BoundingBox,
+    ) -> (Result<(), AdapterError>, Vec<String>, TestProject) {
         let cache = CacheDir::new(scratch.join("cache"));
         let regions = Registry::new();
         let dir = scratch.join("project");
@@ -568,7 +577,7 @@ mod tests {
                 skip_surface: false,
                 progress: &mut progress,
             };
-            backend().fetch(&mut env, &mut project, &area())
+            backend().fetch(&mut env, &mut project, area)
         };
         (result, lines, project)
     }
@@ -786,6 +795,48 @@ mod tests {
         let (result, _, project) = run(&fetcher, scratch.path(), FetchMode::Online);
         result.unwrap();
         assert_eq!(project.terrain.unwrap().date.as_deref(), Some("2025-09-29"));
+    }
+
+    #[test]
+    fn an_area_in_the_middle_of_a_tile_is_copied_cell_by_cell() {
+        // Block row 2 and column 1 of the tile: the rows above and the columns left of the area
+        // are read with the blocks and left out.
+        let area = bounds(389_300.0, 6_175_300.0, 389_400.0, 6_175_400.0);
+        let fetcher = served(&both());
+        let scratch = tempfile::tempdir().unwrap();
+        let (result, _, project) = run_for(&fetcher, scratch.path(), FetchMode::Online, &area);
+        result.unwrap();
+        let terrain = stored(&project.dir.join("data/dgm1.tif"));
+        assert_eq!((terrain.grid.width, terrain.grid.height), (100, 100));
+        for (x, y) in [(0_u32, 0_u32), (99, 0), (0, 99), (99, 99), (40, 60)] {
+            let (e, n) = (389_300.5 + f64::from(x), 6_175_400.0 - f64::from(y) - 0.5);
+            let got = terrain.get(x, y);
+            assert!(
+                (got - height(e, n)).abs() < 1e-3,
+                "({x},{y}) {got} {}",
+                height(e, n)
+            );
+        }
+    }
+
+    #[test]
+    fn a_tile_with_cells_of_another_size_is_refused() {
+        let inner = served(&both());
+        let grid = GridSpec {
+            west: 389_000.0,
+            north: 6_176_000.0,
+            pixel_size: 2.0,
+            width: 500,
+            height: 500,
+        };
+        inner.insert(
+            "https://dl.example.org/617_38.tif",
+            tiled_float_tiff_with(&grid, &vec![1.0; 250_000], 256, 3, None, 8),
+        );
+        let scratch = tempfile::tempdir().unwrap();
+        let (result, _, _) = run(&inner, scratch.path(), FetchMode::Online);
+        let message = result.unwrap_err().to_string();
+        assert!(message.contains("cells of 2 m"), "{message}");
     }
 
     #[test]
