@@ -252,11 +252,8 @@ fn settings_file() -> Option<PathBuf> {
     settings_dir().map(|dir| dir.join("settings.toml"))
 }
 
-/// Whether the person turned the daily check on (`[sources] corrections = "on"`); the default is off.
-pub fn daily_on() -> bool {
-    settings_file().is_some_and(|file| daily_on_in(&file))
-}
-
+/// Whether the person turned the daily check on (`[sources] corrections = "on"`) in `file`; the
+/// default is off.
 fn daily_on_in(file: &Path) -> bool {
     std::fs::read_to_string(file)
         .ok()
@@ -373,7 +370,7 @@ pub fn refresh_daily_for_command(offline: bool) {
         source: Arc::new(update_source()),
         offline,
         ci: std::env::var_os("CI").is_some(),
-        on: daily_on(),
+        on: settings_file().is_some_and(|file| daily_on_in(&file)),
         release: release_build(),
         now: chrono::Utc::now().timestamp(),
     });
@@ -540,6 +537,17 @@ mod tests {
             settings_file(),
             settings_dir().map(|dir| dir.join("settings.toml"))
         );
+    }
+
+    #[test]
+    fn a_settings_file_whose_sources_is_no_table_is_made_right() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("settings.toml");
+        std::fs::write(&file, "sources = \"text\"\nother = 1\n").unwrap();
+        set_daily(&file, true).unwrap();
+        assert!(daily_on_in(&file));
+        let table: toml::Table = std::fs::read_to_string(&file).unwrap().parse().unwrap();
+        assert_eq!(table["other"].as_integer(), Some(1));
     }
 
     #[test]

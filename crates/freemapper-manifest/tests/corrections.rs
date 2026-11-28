@@ -263,3 +263,29 @@ fn the_size_limit_is_exact() {
     over.resize(MAX_BYTES + 1, b' ');
     assert_eq!(parse_list(&over), Err(ListError::TooLarge));
 }
+
+/// The reasons a list is not read say what is wrong.
+#[test]
+fn the_reasons_say_what_is_wrong() {
+    assert_eq!(
+        ListError::TooLarge.to_string(),
+        format!("larger than {MAX_BYTES} bytes")
+    );
+    assert_eq!(
+        ListError::Format(2).to_string(),
+        "format 2, this program reads 1"
+    );
+    assert_eq!(
+        ListError::Issued.to_string(),
+        "`issued` is no date (YYYY-MM-DD)"
+    );
+    assert_eq!(
+        ListError::TooMany.to_string(),
+        format!("more than {MAX_CORRECTIONS} corrections")
+    );
+    assert_eq!(
+        ListError::Field(2, "path").to_string(),
+        "correction 3: `path`"
+    );
+    assert_eq!(ListError::Syntax("oops".into()).to_string(), "oops");
+}

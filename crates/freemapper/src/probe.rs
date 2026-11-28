@@ -212,7 +212,7 @@ fn service_of_place(places: &[String]) -> Option<&'static str> {
             .find(|kind| {
                 place
                     .split(['.', '-', '_'])
-                    .any(|part| part == *kind || part.ends_with(kind))
+                    .any(|part| part.ends_with(kind))
             })
             .map(|kind| match kind {
                 "wms" => "WMS",
