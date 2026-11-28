@@ -14472,7 +14472,10 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let map =
             std::fs::read_to_string(export_starter_project(dir.path(), false).unwrap()).unwrap();
         // ADR 0207: the street parcel on the school's land is a paved area, the other one is not.
-        let paved = MapKind::Schoolyard.symbol_set(1000).id_for_code("501.5").unwrap();
+        let paved = MapKind::Schoolyard
+            .symbol_set(1000)
+            .id_for_code("501.5")
+            .unwrap();
         assert_eq!(symbols_of(&map, "DEBBAL0100000030"), [paved]);
         assert!(!map.contains("DEBBAL0100000031"));
         // On the schoolyard map the way parcel is out of bounds (520), not a paved candidate.

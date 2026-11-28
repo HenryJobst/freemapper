@@ -1984,6 +1984,41 @@ mod tests {
     }
 
     #[test]
+    fn a_schoolyard_street_parcel_loses_only_its_part_off_the_school_land() {
+        // One parcel of two parts: 40 to 10 m west of the reference point (the school's land)
+        // and 115 to 145 m east of it, in the buffer outside the map area (about 100 m east).
+        // Only the first part is drawn; its outline is that of the part (ADR 0207).
+        let f = fixture(MapKind::Schoolyard);
+        let mut street = parcel(
+            &f,
+            "DEBBAL0100000030",
+            "Straßenverkehr",
+            (-40.0, -10.0),
+            30.0,
+        );
+        street.footprint.0.push(ring(&f, (115.0, -10.0), 30.0));
+        let placed = placed_safe(
+            &f,
+            Stored {
+                land_use: vec![street],
+                ..Stored::default()
+            },
+        );
+        let drawn = of_source(&placed.map, "DEBBAL0100000030");
+        assert_eq!(drawn.len(), 1);
+        let (west, _) = projected(&f, (-40.0, 0.0));
+        let (east, _) = projected(&f, (-10.0, 0.0));
+        let georef = &f.georef;
+        for c in &drawn[0].coords {
+            let p = georef.map_to_projected(*c);
+            assert!(
+                p.easting > west - 1.0 && p.easting < east + 1.0,
+                "{p:?} lies outside the part on the school's land"
+            );
+        }
+    }
+
+    #[test]
     fn fountain_jets_in_a_basin_are_left_out_of_the_candidates() {
         let f = fixture(MapKind::Sprint);
         // A lake of the land use 40 to 10 m west of the reference point, and an OSM pond 20 to
