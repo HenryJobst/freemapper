@@ -17,6 +17,7 @@ geo.workspace = true
 geo-types.workspace = true
 geojson.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 toml.workspace = true
 
 [lints]
@@ -26,4 +27,3 @@ workspace = true
 freemapper-adapter-api = { workspace = true, features = ["testing"] }
 freemapper-sources = { workspace = true, features = ["testing"] }
 tempfile.workspace = true
-serde_json.workspace = true

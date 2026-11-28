@@ -159,7 +159,7 @@ außerhalb dieser Liste nimmt in keiner Tabelle einen.
 
 Sechs Backends nennen weitere Adressen in `endpoints`, einer Tabelle aus Namen und Adressen (`[orthophoto.endpoints]`
 oder eine Inline-Tabelle), jede eine https-Adresse auf einem Host aus `[net] hosts`, ohne Query (Issue #273). Ein Name,
-den das Backend nicht abfragt, ist `manifest.unknown-key`; was fehlt, nimmt das Backend aus dem eingebauten Manifest.
+den das Backend nicht abfragt, ist `manifest.unknown-key`; was fehlt, nimmt das Backend aus dem eingebauten Manifest. Ein Manifest, das `endpoints` oder die Schlüssel `url`, `layer` und `max_px` eines Backends nutzt, braucht freemapper 0.29.0 oder neuer (`min_freemapper`).
 Der Code behält, was er mit den Dateien tut: die Kachellisten, die Coverages und Ausdehnungen der Dienste sowie die
 Namen der Ebenen und Jahre.
 
@@ -364,7 +364,7 @@ Die Hinweise nennen die Anteile Schätzungen (ADR 0139). Die Tabellen aller fün
 Woher die LAZ-Kacheln der Vegetationskandidaten kommen. Optional; nur die eingebauten Adapter nutzen sie. Das Backend des
 Bundeslandes behält die Namen der Kacheln und die Art, die Antworten zu lesen; das Manifest nennt, wo (ADR 0189,
 Nachtrag). Ein Ordner-Adapter, der ein eingebautes Bundesland ersetzt, behält keine Vegetation aus Punktwolken, weil
-dafür Code nötig ist.
+dafür Code nötig ist. Ein Manifest mit `[point_cloud]` braucht freemapper 0.29.0 oder neuer (`min_freemapper`).
 
 | Schlüssel | Typ | Pflicht | Bedeutung und Grenzen |
 |---|---|---|---|

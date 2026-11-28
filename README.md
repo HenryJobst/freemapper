@@ -12,7 +12,7 @@
 <!-- badges:end -->
 
 <!-- claude-cost:start -->
-[![KI-Aufwand (Claude API): 4.071 $](https://img.shields.io/badge/KI--Aufwand%20%28Claude%20API%29-4.071%20%24-8A2BE2)](docs/ai-cost/history.csv)
+[![KI-Aufwand (Claude API): 4.315 $](https://img.shields.io/badge/KI--Aufwand%20%28Claude%20API%29-4.315%20%24-8A2BE2)](docs/ai-cost/history.csv)
 <!-- claude-cost:end -->
 
 <p align="center"><a href="examples/berlin-viktoriapark/preview.webp"><img src="examples/berlin-viktoriapark/preview-medium.webp" alt="Trainingskarte Viktoriapark, Berlin-Kreuzberg, von freemapper erzeugt" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (Sprint 1:4000), von freemapper aus offenen Daten erzeugt. Das Bild ist die Trainingskarte, die man so drucken und laufen kann; ein Klick zeigt sie in voller Größe, als <a href="examples/berlin-viktoriapark/berlin-viktoriapark-training.pdf">PDF</a> zum Drucken. Der <a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf">Prüfausdruck</a> zeigt alle Kandidaten lagetreu; mehr unter <a href="examples/README.md">Beispiele</a>.</sub></p>
@@ -93,8 +93,8 @@ nach in einer festen Version ein, statt den Code zu kopieren.
 
 ## Status
 
-Aktuelle Version ist [v0.28.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.28.0) vom
-25. November 2026 (was sich geändert hat, steht in den [Änderungen](CHANGELOG.md)).
+Aktuelle Version ist [v0.29.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.29.0) vom
+28. November 2026 (was sich geändert hat, steht in den [Änderungen](CHANGELOG.md)).
 
 freemapper erzeugt
 Schulhof- und Sprintkarten für fünfzehn Bundesländer: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg,

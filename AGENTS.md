@@ -23,7 +23,7 @@ freemapper is one executable without an installer and without dependencies. Do n
 the user asks; the release archives are ready to run.
 
 1. Find the newest version: `https://api.github.com/repos/HenryJobst/freemapper/releases/latest` returns JSON with
-   `tag_name`, for example `v0.28.0`. The release page is
+   `tag_name`, for example `v0.29.0`. The release page is
    <https://github.com/HenryJobst/freemapper/releases/latest>.
 2. Pick the archive for the system. The name is `freemapper-<tag>-<platform>` plus the extension:
 
@@ -41,7 +41,7 @@ the user asks; the release archives are ready to run.
 3. Download, check and unpack. macOS and Linux, for example in `~/Applications` or `~/opt`:
 
    ```sh
-   tag=v0.28.0; platform=macos-arm64
+   tag=v0.29.0; platform=macos-arm64
    base="https://github.com/HenryJobst/freemapper/releases/download/$tag"
    curl -fLO "$base/freemapper-$tag-$platform.tar.gz"
    curl -fLO "$base/freemapper-$tag-$platform.tar.gz.sha256"
@@ -52,7 +52,7 @@ the user asks; the release archives are ready to run.
    Windows (PowerShell):
 
    ```powershell
-   $tag = "v0.28.0"; $name = "freemapper-$tag-windows-x86_64.zip"
+   $tag = "v0.29.0"; $name = "freemapper-$tag-windows-x86_64.zip"
    $base = "https://github.com/HenryJobst/freemapper/releases/download/$tag"
    Invoke-WebRequest "$base/$name" -OutFile $name
    Invoke-WebRequest "$base/$name.sha256" -OutFile "$name.sha256"
@@ -123,6 +123,8 @@ freemapper run <dir> --pdf
 | `sources diff <adapter>` | Shows the addresses the person's folder changes against the built-in manifest. |
 | `sources check <adapter> [--live --bbox …] [--json]` | `adapters check` on the person's folder of that adapter; same exit codes. |
 | `sources schema [--json]` | The keys of a manifest that hold an address; with `--json` a JSON Schema. |
+| `sources update [--mode on\|off] [--remove]` | Gets the signed list of corrections of addresses from GitHub (pre-release `sources`), checks its signature with the key of `update` and stores it; from the next start it corrects built-in manifests where a service moved. Only on request: `--mode on` turns on a daily check (default off), `--remove` deletes the stored list. A program built from source does not fetch it. Ask the person first. |
+| `sources corrections [--json]` | Shows the stored list and what each correction does to this program: `applied`, `already-current`, `stale`, `unknown-adapter`, `unknown-path` or `refused` with the reason. Reads only. |
 | `adapters check <dir>` | Checks the folder of one adapter without asking a server: whether it would load, with every finding. Exit code 0: passes, 1: findings, 2: could not run. `--live --bbox` also asks its services; only when the person asks for it. Details below the table. |
 
 Output switches for `run` and `export`: `--ocad`, `--pdf`, `--pdf-candidates` (the check print), `--training`,
@@ -191,7 +193,7 @@ exists, also one that must be installed by hand, and with 0 when this one is cur
 
 At most once a day, `find`, `init`, `select`, `fetch`, `run` and `permits` also check for a newer release. When they find one, a
 last line follows the command's output on stderr, also after an `error:` line:
-`freemapper 0.28.0 is available (you have 0.27.0). Update with: freemapper update`. It does not change the exit
+`freemapper 0.29.0 is available (you have 0.28.0). Update with: freemapper update`. It does not change the exit
 code. Pass it on and ask the person before you run `freemapper update --yes`. With `--offline`, with `CI` set or
 after `freemapper update --mode off` there is no check. If the person chose mode `install`, freemapper installs
 the update itself after a successful command and says so on stdout.
@@ -295,7 +297,7 @@ Rules:
   the person deletes `<name>-training.omap` (with `ocad` also `ocad/<name>-training.ocd`) and you start the pipeline
   again without `force`.
 - The server checks for a newer release once a day. When it knows one, the next tool result carries one extra
-  text block at its end, the note `Note for the person: freemapper 0.28.0 is available (this is 0.27.0). Ask them
+  text block at its end, the note `Note for the person: freemapper 0.29.0 is available (this is 0.28.0). Ask them
   before calling install_update.` It comes once per server process. Calling `check_update` or `install_update`
   takes its place: after a successful call of either the note does not come; after a failed one it still can.
   Pass the note on to the person.
