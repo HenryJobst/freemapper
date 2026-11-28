@@ -516,6 +516,18 @@ mod tests {
     }
 
     #[test]
+    fn a_block_with_too_many_pixels_is_refused_before_it_is_read() {
+        // 100 000 by 100 000 pixels: the sum is small, the product is not.
+        for compression in [5, 8] {
+            let error = decode_block(&[], compression, 100_000, 100_000, 1, true).unwrap_err();
+            assert!(error.contains("too large"), "{error}");
+        }
+        // The largest block that is allowed gets as far as its data.
+        let error = decode_block(&[], 8, 8192, 8192, 1, true).unwrap_err();
+        assert!(!error.contains("too large"), "{error}");
+    }
+
+    #[test]
     fn a_deflate_block_decodes_like_the_whole_image() {
         use tiff::tags::Tag;
         for predictor in [1, 3] {
