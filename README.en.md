@@ -17,7 +17,13 @@
 
 <p align="center"><a href="examples/berlin-viktoriapark/preview.webp"><img src="examples/berlin-viktoriapark/preview-medium.webp" alt="Training map of Viktoriapark, Berlin-Kreuzberg, made by freemapper" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (sprint 1:4000), made by freemapper from open data. The image is the training map, ready to print and run on; click for the full size, or take the <a href="examples/berlin-viktoriapark/berlin-viktoriapark-training.pdf">PDF</a> to print. The <a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf">check print</a> shows every candidate true to position; more under <a href="examples/README.en.md">examples</a>.</sub></p>
 
-<p align="center"><b>The layers of the same map</b>: the seven candidate layers and the templates behind the map. A click shows a layer at full size, like the map above.</p>
+<p align="center"><b>The layers of the same map</b>: the base map itself, the seven candidate layers and the templates behind the map. A click shows a layer at full size, like the map above.</p>
+
+<p align="center"><b>Base map</b></p>
+
+<table align="center">
+<tr><td width="170" align="center" valign="top"><a href="examples/berlin-viktoriapark/layers/map.webp"><img src="examples/berlin-viktoriapark/layers/map-thumb.webp" width="151" height="151" alt="Base map (without candidates)" loading="lazy"></a><br><sub>Base map</sub></td></tr>
+</table>
 
 <p align="center"><b>Candidate layers</b></p>
 

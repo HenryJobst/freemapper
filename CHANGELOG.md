@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+
+- Ebenen-Seiten, README, Handbuch und Website zeigen jetzt auch die Grundkarte selbst (ohne Kandidaten), zugeschnitten auf den Kartenrahmen wie die Kandidaten-Layer; 30 von 34 Beispielen zeigen zusätzlich ihre Raster-Vorlagen (Orthofoto, Schummerung, Hangneigung, Relief, nDOM), auch die Waldkarten. `scripts/layer-previews.sh` schreibt `layers/map.webp` und beschneidet es am Rahmen.
+
 ## [0.29.0] - 2026-11-28
 
 ### Hinzugefügt

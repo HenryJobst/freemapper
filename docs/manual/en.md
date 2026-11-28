@@ -478,8 +478,9 @@ Open the `.omap` file in OOM. The templates are already linked; show and hide th
 menu. The **candidates** lie on top in seven template maps, one per kind of object, so that you can look
 at one kind at a time:
 
-| Layer | File | Holds | Bild |
+| Layer | File | Holds | Image |
 |---|---|---|---|
+| base map | `<name>.omap` | the finished map objects, without candidates | [![map](images/layer-map-thumb.webp)](images/layer-map.webp) |
 | terrain | `templates/candidates-terrain.omap` | banks, cliffs, knolls and depressions, contours | [![terrain](images/layer-terrain-thumb.webp)](images/layer-terrain.webp) |
 | water | `templates/candidates-water.omap` | brooks, ditches, springs, fountains, ponds | [![water](images/layer-water-thumb.webp)](images/layer-water.webp) |
 | vegetation | `templates/candidates-vegetation.omap` | open land (the green strips of the street survey too), vegetation areas, trees, hedges | [![vegetation](images/layer-vegetation-thumb.webp)](images/layer-vegetation.webp) |

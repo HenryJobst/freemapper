@@ -24,10 +24,12 @@ TEXT = {
         "back": "Beispielübersicht",
         "readme": "README.md",
         "intro": (
-            "freemapper schreibt zur Karte sieben Kandidaten-Layer und die Vorlagen, nach denen man sie prüft. "
+            "freemapper schreibt zur Karte (der Grundkarte unten) sieben Kandidaten-Layer und die Vorlagen, nach denen man sie prüft. "
             "Die Layer liegen als `templates/candidates-<Layer>.omap` im Projekt und starten in OOM ausgeblendet. "
             "Ein Klick auf ein Bild zeigt die Ebene in voller Größe."
         ),
+        "base": "Grundkarte",
+        "base_label": "Grundkarte (ohne Kandidaten)",
         "candidates": "Kandidaten-Layer",
         "templates": "Vorlagen hinter der Karte",
         "empty": "leer",
@@ -58,10 +60,12 @@ TEXT = {
         "back": "Examples overview",
         "readme": "README.en.md",
         "intro": (
-            "Next to the map, freemapper writes seven candidate layers and the templates you check them against. "
+            "Next to the map (the base map below), freemapper writes seven candidate layers and the templates you check them against. "
             "The layers are `templates/candidates-<layer>.omap` in the project and start hidden in OOM. "
             "A click on an image shows the layer at full size."
         ),
+        "base": "Base map",
+        "base_label": "Base map (without candidates)",
         "candidates": "Candidate layers",
         "templates": "Templates behind the map",
         "empty": "empty",
@@ -146,6 +150,7 @@ def page(project: Path, lang: str, title: str) -> str:
         "",
         t["intro"],
         "",
+        *([f"## {t['base']}", "", table([cell("layers", "map", t["base_label"])]), ""] if have("map") else []),
         f"## {t['candidates']}",
         "",
         table(candidates),
