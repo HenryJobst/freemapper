@@ -29,6 +29,9 @@ const GEOFABRIK: &str = "download.geofabrik.de";
 pub struct Target {
     pub url: String,
     pub adapters: Vec<String>,
+    /// Where the manifests state the address (`point_cloud.url`, `orthophoto.endpoints.dgm-wcs`),
+    /// without the array indices: the place says what the address is when the address does not.
+    pub places: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -66,7 +69,7 @@ pub struct Outcome {
 /// every host the manifests declare plus the Geofabrik host. A text that does not parse is
 /// skipped: the loader reports it.
 pub fn targets(texts: &[&str]) -> (Vec<Target>, Vec<String>) {
-    let mut by_url: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    let mut by_url: BTreeMap<String, (Vec<String>, Vec<String>)> = BTreeMap::new();
     let mut hosts = vec![GEOFABRIK.to_string()];
     for text in texts {
         let Ok(manifest) = text.parse::<toml::Table>() else {
@@ -79,7 +82,7 @@ pub fn targets(texts: &[&str]) -> (Vec<Target>, Vec<String>) {
             .unwrap_or("?")
             .to_string();
         let mut urls = Vec::new();
-        collect_urls(&toml::Value::Table(manifest.clone()), &mut urls);
+        collect_urls("", &toml::Value::Table(manifest.clone()), &mut urls);
         if let Some(extracts) = manifest
             .get("osm")
             .and_then(|o| o.get("extract"))
@@ -91,13 +94,19 @@ pub fn targets(texts: &[&str]) -> (Vec<Target>, Vec<String>) {
             {
                 // The extract sits in a folder of its own name, as the fetch of a run asks for it.
                 let name = path.rsplit('/').next().unwrap_or(path);
-                urls.push(format!("https://{GEOFABRIK}/{path}/{name}-latest.osm.pbf"));
+                urls.push((
+                    "osm.extract.geofabrik".to_string(),
+                    format!("https://{GEOFABRIK}/{path}/{name}-latest.osm.pbf"),
+                ));
             }
         }
-        for url in urls {
-            let adapters = by_url.entry(url).or_default();
+        for (place, url) in urls {
+            let (adapters, places) = by_url.entry(url).or_default();
             if !adapters.contains(&id) {
                 adapters.push(id.clone());
+            }
+            if !places.contains(&place) {
+                places.push(place);
             }
         }
         if let Some(listed) = manifest
@@ -112,7 +121,11 @@ pub fn targets(texts: &[&str]) -> (Vec<Target>, Vec<String>) {
     hosts.dedup();
     let targets = by_url
         .into_iter()
-        .map(|(url, adapters)| Target { url, adapters })
+        .map(|(url, (adapters, places))| Target {
+            url,
+            adapters,
+            places,
+        })
         .collect();
     (targets, hosts)
 }
@@ -120,21 +133,29 @@ pub fn targets(texts: &[&str]) -> (Vec<Target>, Vec<String>) {
 /// The services of the built-in adapters. The Polish adapter declares its addresses in code and
 /// joins when they move into manifests (issue #273).
 pub fn builtin_targets() -> (Vec<Target>, Vec<String>) {
-    targets(freemapper_adapters_de::states::manifest_texts())
+    targets(&freemapper_adapters_de::states::manifest_texts())
 }
 
-/// Every `https://` string in `value`; a template with `{…}` is no address to ask, nor is a
-/// `link_prefix`, which only starts the links of the notes and is never fetched.
-fn collect_urls(value: &toml::Value, urls: &mut Vec<String>) {
+/// Every `https://` string in `value` with the place it stands at (`alkis.url`,
+/// `permits.wfs.url`, array indices left out); a template with `{…}` is no address to ask, nor is
+/// a `link_prefix`, which only starts the links of the notes and is never fetched.
+fn collect_urls(place: &str, value: &toml::Value, urls: &mut Vec<(String, String)>) {
     match value {
         toml::Value::String(s) if s.starts_with("https://") && !s.contains(['{', '}']) => {
-            urls.push(s.clone());
+            urls.push((place.to_string(), s.clone()));
         }
-        toml::Value::Array(items) => items.iter().for_each(|v| collect_urls(v, urls)),
+        toml::Value::Array(items) => items.iter().for_each(|v| collect_urls(place, v, urls)),
         toml::Value::Table(table) => table
             .iter()
             .filter(|(key, _)| key.as_str() != "link_prefix")
-            .for_each(|(_, v)| collect_urls(v, urls)),
+            .for_each(|(key, v)| {
+                let here = if place.is_empty() {
+                    key.clone()
+                } else {
+                    format!("{place}.{key}")
+                };
+                collect_urls(&here, v, urls);
+            }),
         _ => {}
     }
 }
@@ -151,15 +172,22 @@ pub fn probe(fetcher: &dyn Fetcher, targets: &[Target], hosts: &[String]) -> Vec
         .iter()
         .map(|target| {
             let started = clock::now();
-            let answer = match request_for(&target.url) {
-                Request::Head(url) => fetcher.last_modified(&url).map(|_| ()),
+            let request = request_for(&target.url, &target.places);
+            let folder = matches!(request, Request::Folder(_));
+            let answer = match request {
+                Request::Head(url) | Request::Folder(url) => {
+                    fetcher.last_modified(&url).map(|_| ())
+                }
                 Request::Get(url) => fetcher.get(&url).map(|_| ()),
             };
-            outcome(
-                target,
-                answer,
-                clock::now().duration_since(started).unwrap_or_default(),
-            )
+            let took = clock::now().duration_since(started).unwrap_or_default();
+            if folder && matches!(answer, Err(FetchError::NotFound(_))) {
+                // A folder of files has no listing on most servers; the server answers.
+                let mut ok = outcome(target, Ok(()), took);
+                ok.detail = Some("a folder: the server answers, it lists no files".to_string());
+                return ok;
+            }
+            outcome(target, answer, took)
         })
         .collect()
 }
@@ -169,9 +197,32 @@ pub fn probe(fetcher: &dyn Fetcher, targets: &[Target], hosts: &[String]) -> Vec
 enum Request {
     Head(String),
     Get(String),
+    /// A folder the tiles or files of a source lie in: most servers list nothing there, so a
+    /// 404 still means the server answers.
+    Folder(String),
 }
 
-fn request_for(url: &str) -> Request {
+/// The kind of service the place in the manifest names (`orthophoto.endpoints.dgm-wcs`,
+/// `preview.wms`), when it names one.
+fn service_of_place(places: &[String]) -> Option<&'static str> {
+    places.iter().find_map(|place| {
+        let place = place.to_ascii_lowercase();
+        ["wms", "wcs", "wfs"]
+            .into_iter()
+            .find(|kind| {
+                place
+                    .split(['.', '-', '_'])
+                    .any(|part| part == *kind || part.ends_with(kind))
+            })
+            .map(|kind| match kind {
+                "wms" => "WMS",
+                "wcs" => "WCS",
+                _ => "WFS",
+            })
+    })
+}
+
+fn request_for(url: &str, places: &[String]) -> Request {
     let lower = url.to_ascii_lowercase();
     // A fixed query that selects the service (`?mapfile=glb`) stays; the question follows it.
     if lower.contains('?') && lower.contains("service=") {
@@ -180,24 +231,53 @@ fn request_for(url: &str) -> Request {
     if lower.ends_with("/items") {
         return Request::Get(format!("{url}?limit=1"));
     }
-    if lower.ends_with(".pbf")
-        || lower.ends_with(".csv")
-        || lower.ends_with(".zip")
+    let path = lower.split(['?', '#']).next().unwrap_or(&lower);
+    // A file, an index or a script: a HEAD tells whether it is there.
+    if [
+        ".pbf", ".csv", ".zip", ".json", ".geojson", ".meta4", ".php", ".xml",
+    ]
+    .iter()
+    .any(|ext| path.ends_with(ext))
         || lower.contains("/exports/")
     {
         return Request::Head(url.to_string());
     }
-    let service = if lower.contains("wms") {
-        "WMS"
-    } else if lower.contains("wcs") {
-        "WCS"
-    } else {
-        "WFS"
-    };
+    // The last part of the path names the service better than the whole address does
+    // (`…/LHKielWmsWfs/MapServer/WFSServer` is a WFS).
+    let last = path.rsplit('/').next().unwrap_or(path);
+    let service = ["wms", "wcs", "wfs"]
+        .into_iter()
+        .find(|kind| last.contains(kind))
+        .map(str::to_ascii_uppercase)
+        .or_else(|| service_of_place(places).map(str::to_string))
+        .or_else(|| {
+            ["wms", "wcs"]
+                .into_iter()
+                .find(|kind| lower.contains(kind))
+                .map(str::to_ascii_uppercase)
+        });
+    if let Some(service) = service {
+        let joint = if lower.contains('?') { '&' } else { '?' };
+        return Request::Get(format!(
+            "{url}{joint}service={service}&request=GetCapabilities"
+        ));
+    }
+    if lower.contains("stac") {
+        return Request::Get(url.to_string());
+    }
+    if is_folder_place(places) {
+        return Request::Folder(format!("{}/", url.trim_end_matches('/')));
+    }
     let joint = if lower.contains('?') { '&' } else { '?' };
-    Request::Get(format!(
-        "{url}{joint}service={service}&request=GetCapabilities"
-    ))
+    Request::Get(format!("{url}{joint}service=WFS&request=GetCapabilities"))
+}
+
+/// Whether the manifest states the address as the folder of a source's files: a point cloud's
+/// `url`, or an endpoint of a raster source that is no service (its file server).
+fn is_folder_place(places: &[String]) -> bool {
+    places
+        .iter()
+        .any(|place| place == "point_cloud.url" || place.starts_with("orthophoto.endpoints."))
 }
 
 fn outcome(target: &Target, answer: Result<(), FetchError>, took: Duration) -> Outcome {
@@ -368,6 +448,7 @@ endpoints = ["https://b.example.org/t", "https://a.example.org/items"]
         let target = Target {
             url: "https://a.example.org/x".into(),
             adapters: vec!["demo".into()],
+            places: Vec::new(),
         };
         let slow = outcome(&target, Ok(()), SLOW + Duration::from_secs(1));
         assert_eq!(slow.status, Status::Slow);
@@ -400,42 +481,145 @@ endpoints = ["https://b.example.org/t", "https://a.example.org/items"]
     fn each_kind_of_address_is_asked_the_way_it_answers() {
         let get = |u: &str| Request::Get(u.to_string());
         assert_eq!(
-            request_for("https://h.de/dienste/alkis_wfs_nas"),
+            request_for("https://h.de/dienste/alkis_wfs_nas", &[]),
             get("https://h.de/dienste/alkis_wfs_nas?service=WFS&request=GetCapabilities")
         );
         assert_eq!(
-            request_for("https://h.de/wms_dop"),
+            request_for("https://h.de/wms_dop", &[]),
             get("https://h.de/wms_dop?service=WMS&request=GetCapabilities")
         );
         assert_eq!(
-            request_for("https://h.de/ows_WCS_ST_DOM1"),
+            request_for("https://h.de/ows_WCS_ST_DOM1", &[]),
             get("https://h.de/ows_WCS_ST_DOM1?service=WCS&request=GetCapabilities")
         );
         assert_eq!(
-            request_for("https://h.de/v1/collections/a/items"),
+            request_for("https://h.de/v1/collections/a/items", &[]),
             get("https://h.de/v1/collections/a/items?limit=1")
         );
         assert_eq!(
-            request_for("https://h.de/x?a=1"),
+            request_for("https://h.de/x?a=1", &[]),
             get("https://h.de/x?a=1&service=WFS&request=GetCapabilities")
         );
         assert_eq!(
-            request_for("https://h.de/x?service=WFS&request=GetCapabilities"),
+            request_for("https://h.de/x?service=WFS&request=GetCapabilities", &[]),
             get("https://h.de/x?service=WFS&request=GetCapabilities")
         );
         let head = |u: &str| Request::Head(u.to_string());
         assert_eq!(
-            request_for("https://h.de/b/c-latest.osm.pbf"),
+            request_for("https://h.de/b/c-latest.osm.pbf", &[]),
             head("https://h.de/b/c-latest.osm.pbf")
         );
         assert_eq!(
-            request_for("https://h.de/d/exports/geojson"),
+            request_for("https://h.de/d/exports/geojson", &[]),
             head("https://h.de/d/exports/geojson")
         );
         assert_eq!(
-            request_for("https://h.de/baum.csv"),
+            request_for("https://h.de/baum.csv", &[]),
             head("https://h.de/baum.csv")
         );
+    }
+
+    #[test]
+    fn the_place_and_the_end_of_the_address_name_the_service() {
+        let place = |p: &str| vec![p.to_string()];
+        let get = |u: &str| Request::Get(u.to_string());
+        // The end of the path names a WFS although `Wms` stands earlier.
+        assert_eq!(
+            request_for("https://h.de/LHKielWmsWfs/MapServer/WFSServer", &[]),
+            get(
+                "https://h.de/LHKielWmsWfs/MapServer/WFSServer?service=WFS&request=GetCapabilities"
+            )
+        );
+        // An address that says nothing is what the manifest calls it.
+        assert_eq!(
+            request_for("https://h.de/dienste/adv_dop", &place("preview.wms")),
+            get("https://h.de/dienste/adv_dop?service=WMS&request=GetCapabilities")
+        );
+        assert_eq!(
+            request_for(
+                "https://h.de/dienste/x",
+                &place("orthophoto.endpoints.dgm-wcs")
+            ),
+            get("https://h.de/dienste/x?service=WCS&request=GetCapabilities")
+        );
+        // Files, indexes and scripts get a HEAD.
+        for url in [
+            "https://h.de/i/index.json",
+            "https://h.de/i/denkmal.geojson",
+            "https://h.de/i/a.meta4",
+            "https://h.de/i/overview.php",
+        ] {
+            assert_eq!(
+                request_for(url, &[]),
+                Request::Head(url.to_string()),
+                "{url}"
+            );
+        }
+        // A STAC catalogue is asked as it is, a folder of files with its closing slash.
+        assert_eq!(
+            request_for(
+                "https://dgm.stac.h.de",
+                &place("orthophoto.endpoints.dgm-stac")
+            ),
+            get("https://dgm.stac.h.de")
+        );
+        assert_eq!(
+            request_for("https://h.de/las", &place("point_cloud.url")),
+            Request::Folder("https://h.de/las/".to_string())
+        );
+        assert_eq!(
+            request_for("https://h.de/data/", &place("orthophoto.endpoints.data")),
+            Request::Folder("https://h.de/data/".to_string())
+        );
+        // A tree cadastre's endpoint is no folder: it stays a service.
+        assert_eq!(
+            request_for("https://h.de/guest", &place("extra.trees.endpoints")),
+            get("https://h.de/guest?service=WFS&request=GetCapabilities")
+        );
+    }
+
+    #[test]
+    fn a_folder_without_a_listing_is_not_an_outage() {
+        let manifest = r#"
+[adapter]
+id = "demo"
+[net]
+hosts = ["a.example.org"]
+[point_cloud]
+kind = "laz-tiles"
+url = "https://a.example.org/las"
+"#;
+        let (targets, hosts) = targets(&[manifest]);
+        let folder = targets
+            .iter()
+            .find(|t| t.url == "https://a.example.org/las")
+            .unwrap();
+        assert_eq!(folder.places, ["point_cloud.url"]);
+        let missing = BTreeMap::from([(
+            "https://a.example.org/las/".to_string(),
+            FetchError::NotFound("x".into()),
+        )]);
+        let outcomes = probe(&Scripted(RefCell::new(missing)), &targets, &hosts);
+        let answer = outcomes
+            .iter()
+            .find(|o| o.url == "https://a.example.org/las")
+            .unwrap();
+        assert_eq!(answer.status, Status::Ok);
+        assert!(answer.detail.as_deref().unwrap().contains("folder"));
+        // A server that is down is an outage also for a folder.
+        let down = BTreeMap::from([(
+            "https://a.example.org/las/".to_string(),
+            FetchError::Http {
+                url: "https://a.example.org/las/".into(),
+                message: "http status: 503".into(),
+            },
+        )]);
+        let outcomes = probe(&Scripted(RefCell::new(down)), &targets, &hosts);
+        let answer = outcomes
+            .iter()
+            .find(|o| o.url == "https://a.example.org/las")
+            .unwrap();
+        assert_eq!(answer.status, Status::Error);
     }
 
     #[test]
@@ -465,7 +649,13 @@ endpoints = ["https://b.example.org/t", "https://a.example.org/items"]
         )
         .unwrap();
         let mut urls = Vec::new();
-        collect_urls(&table, &mut urls);
-        assert_eq!(urls, ["https://wfs.example.org/service"]);
+        collect_urls("", &table, &mut urls);
+        assert_eq!(
+            urls,
+            [(
+                "permits.wfs.url".to_string(),
+                "https://wfs.example.org/service".to_string()
+            )]
+        );
     }
 }
