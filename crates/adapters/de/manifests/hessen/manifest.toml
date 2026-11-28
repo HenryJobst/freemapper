@@ -43,6 +43,10 @@ url = "https://www.gds-srv.hessen.de/cgi-bin/lika-services/ogc-free-images.ows"
 layer = "he_dop20_rgb"
 max_px = 3000
 
+# The Downloadcenter's REST API: the product trees and the file listings of DGM1 and DOM1 (issue #273).
+[orthophoto.endpoints]
+rest = "https://gds.hessen.de/INTERSHOP/rest/WFS/HLBG-Geodaten-Site/-/downloadcenter"
+
 [terrain]
 backend = "hvbg"
 

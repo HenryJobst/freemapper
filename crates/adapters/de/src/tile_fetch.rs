@@ -232,7 +232,14 @@ fn currency_table(
         TileProvider::Lgb => {
             lgb_currency_table(addresses, fetcher, cache, product, tiles, mode, progress)
         }
-        TileProvider::GeoSn => geosn_currency_table(fetcher, cache, product, tiles, mode, progress),
+        TileProvider::GeoSn => geosn_currency_table(
+            (fetcher, &addresses.geosn.index),
+            cache,
+            product,
+            tiles,
+            mode,
+            progress,
+        ),
     }
 }
 
@@ -271,7 +278,7 @@ fn lgb_currency_table(
 /// The GeoSN index rows of `tiles`. The index is queried per area, so the cached copy collects
 /// the rows of every query (`{"33414-5654": ["2024-11-30", "https://…"], …}`).
 fn geosn_currency_table(
-    fetcher: &dyn Fetcher,
+    (fetcher, index): (&dyn Fetcher, &str),
     cache: &CacheDir,
     product: Product,
     tiles: &[TileId],
@@ -284,7 +291,7 @@ fn geosn_currency_table(
         .and_then(|bytes| serde_json::from_slice(&bytes).ok())
         .unwrap_or_default();
     if mode == FetchMode::Online {
-        let url = crate::sources::geosn::index_url(product, tiles);
+        let url = crate::sources::geosn::index_url(index, product, tiles);
         progress(note!(
             "progress-tile-index-download",
             product = format!("{product}")
@@ -742,6 +749,7 @@ mod tests {
         Addresses {
             data: "https://tiles.example.org/data".to_string(),
             currency: "https://tiles.example.org/lists".to_string(),
+            geosn: crate::geosn::Addresses::builtin(),
         }
     }
 

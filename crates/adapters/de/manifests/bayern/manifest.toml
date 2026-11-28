@@ -87,6 +87,10 @@ url = "https://geoservices.bayern.de/od/wms/dop/v1/dop20"
 layer = "by_dop20c"
 max_px = 6000
 
+# The file server of the tiles of DGM1 and DOM20 (issue #273).
+[orthophoto.endpoints]
+files = "https://download1.bayernwolke.de/a"
+
 [terrain]
 backend = "ldbv"
 

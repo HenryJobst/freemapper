@@ -32,7 +32,9 @@ use crate::note::{Arg, note};
 use crate::raster::GridSpec;
 use crate::sources::lgb::Product;
 use crate::sources::wms::{self, WmsService};
-use crate::tile_fetch::{TilePaths as _, TileProducts, fetch_tiles, fetch_tiles_each, tile_inputs};
+use crate::tile_fetch::{
+    TilePaths as _, TileProducts, fetch_tiles_at, fetch_tiles_each_at, tile_inputs,
+};
 use crate::tiles::TileId;
 
 /// The orthophoto WMS (DOP20 RGB, released flights): where the manifest of Saxony says it is
@@ -53,8 +55,45 @@ pub const WMS: WmsService = WmsService {
 const WMS_INFO_LAYER: &str = "sn_dop_020_info";
 pub use crate::sources::wms::ORTHOPHOTO_PIXEL_M;
 
-/// The ArcGIS tile index with one layer per product (`Kachel`, `Download`, `Stand`).
+/// The ArcGIS tile index with one layer per product (`Kachel`, `Download`, `Stand`), as the
+/// manifest of Saxony declares it (`index` of its `endpoints`); the tests are held to it.
+#[cfg(any(test, feature = "testing"))]
 pub const INDEX_URL: &str = "https://geodienste.sachsen.de/ags-relay/ArcGISServer/guest/arcgis/rest/services/geosn/rest_geosn_downloadlinks/MapServer";
+
+/// The addresses GeoSN serves its height models from, besides the orthophoto WMS.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Addresses {
+    /// The ArcGIS tile index (`index` of the manifest of Saxony).
+    pub index: String,
+    /// The share of the DGM1 tiles, the fallback for a row of the index without a link.
+    pub dgm1: String,
+    /// The share of the DOM1 tiles, likewise.
+    pub dom1: String,
+}
+
+impl Addresses {
+    /// The addresses `config` states.
+    pub fn of(config: &freemapper_adapter_api::rasters::RasterConfig) -> Result<Self, String> {
+        Ok(Self {
+            index: config.require("geosn", "index")?,
+            dgm1: config.require("geosn", "dgm1")?,
+            dom1: config.require("geosn", "dom1")?,
+        })
+    }
+
+    /// The addresses the manifest of Saxony declares.
+    pub fn builtin() -> Self {
+        static BUILTIN: std::sync::OnceLock<Addresses> = std::sync::OnceLock::new();
+        BUILTIN
+            .get_or_init(|| {
+                Self::of(&crate::states::builtin_raster_config(
+                    crate::states::State::Saxony,
+                ))
+                .expect("the built-in manifest of Saxony names the addresses of GeoSN")
+            })
+            .clone()
+    }
+}
 
 /// One row of the tile index.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -67,7 +106,7 @@ pub struct IndexRow {
 }
 
 /// Query of the index layer of `product` for the rows of `tiles` (2 km tiles).
-pub fn index_url(product: Product, tiles: &[TileId]) -> String {
+pub fn index_url(index: &str, product: Product, tiles: &[TileId]) -> String {
     let layer = match product {
         Product::SaxonyDsm => 4,
         _ => 6,
@@ -83,7 +122,7 @@ pub fn index_url(product: Product, tiles: &[TileId]) -> String {
     let max_e = fold(f64::max, |b| b.max_e, f64::NEG_INFINITY) - 1.0;
     let max_n = fold(f64::max, |b| b.max_n, f64::NEG_INFINITY) - 1.0;
     format!(
-        "{INDEX_URL}/{layer}/query?f=json&geometry={min_e},{min_n},{max_e},{max_n}\
+        "{index}/{layer}/query?f=json&geometry={min_e},{min_n},{max_e},{max_n}\
          &geometryType=esriGeometryEnvelope&inSR=25833&spatialRel=esriSpatialRelIntersects\
          &outFields=Kachel,Download,Stand&returnGeometry=false"
     )
@@ -182,13 +221,17 @@ pub struct GeosnBackend {
     info: ProviderInfo,
     /// The orthophoto WMS, as the manifest says it.
     wms: WmsService,
+    /// The tile index and the shares of the models, as the manifest says them.
+    addresses: crate::lgb::Addresses,
 }
 
 impl GeosnBackend {
-    /// The backend that asks `wms` for the orthophoto.
-    pub fn with_wms(wms: WmsService) -> Self {
+    /// The backend that asks `wms` for the orthophoto and the index and shares at `addresses`
+    /// for the models.
+    pub fn with_addresses(wms: WmsService, addresses: Addresses) -> Self {
         Self {
             wms,
+            addresses: crate::lgb::Addresses::builtin().with_geosn(addresses),
             info: ProviderInfo {
                 id: AdapterId::built_in(TileProvider::GeoSn.id()),
                 cache_dir: Some(TileProvider::GeoSn.id().to_string()),
@@ -205,7 +248,7 @@ impl GeosnBackend {
 impl GeosnBackend {
     /// The backend with the WMS the manifest of Saxony declares.
     pub fn new() -> Self {
-        Self::with_wms(WMS)
+        Self::with_addresses(WMS, Addresses::builtin())
     }
 }
 
@@ -227,7 +270,7 @@ impl RasterBackend for GeosnBackend {
         project: &mut dyn RasterProject,
         bbox: &BoundingBox,
     ) -> Result<(), AdapterError> {
-        fetch_rasters(env, project, bbox, &self.wms)
+        fetch_rasters(env, project, bbox, (&self.wms, &self.addresses))
     }
 
     fn derive_inputs(
@@ -253,7 +296,7 @@ fn fetch_rasters(
     env: &mut AdapterEnv<'_>,
     project: &mut dyn RasterProject,
     bbox: &BoundingBox,
-    wms: &WmsService,
+    (wms, addresses): (&WmsService, &crate::lgb::Addresses),
 ) -> Result<(), AdapterError> {
     let (fetcher, mode, skip_surface) = (env.fetcher, env.mode, env.skip_surface);
     let cache = env.cache;
@@ -266,7 +309,8 @@ fn fetch_rasters(
     );
     let previous = std::mem::take(project.records().tiles);
     let mut records = Vec::new();
-    for fetched in fetch_tiles(
+    for fetched in fetch_tiles_at(
+        addresses,
         fetcher,
         cache,
         Product::SaxonyDtm,
@@ -297,7 +341,8 @@ fn fetch_rasters(
         say_kept_surface_tiles(&kept, env.progress);
         Ok(Vec::new())
     } else {
-        fetch_tiles_each(
+        fetch_tiles_each_at(
+            addresses,
             fetcher,
             cache,
             Product::SaxonyDsm,
@@ -389,7 +434,7 @@ mod tests {
     #[test]
     fn index_url_is_an_envelope_query() {
         assert_eq!(
-            index_url(Product::SaxonyDtm, &[KREUZGYMNASIUM, EAST]),
+            index_url(INDEX_URL, Product::SaxonyDtm, &[KREUZGYMNASIUM, EAST]),
             format!(
                 "{INDEX_URL}/6/query?f=json&geometry=414001,5654001,417999,5655999\
                  &geometryType=esriGeometryEnvelope&inSR=25833&spatialRel=esriSpatialRelIntersects\
@@ -397,7 +442,8 @@ mod tests {
             )
         );
         assert!(
-            index_url(Product::SaxonyDsm, &[EAST]).starts_with(&format!("{INDEX_URL}/4/query?"))
+            index_url(INDEX_URL, Product::SaxonyDsm, &[EAST])
+                .starts_with(&format!("{INDEX_URL}/4/query?"))
         );
     }
 
@@ -573,5 +619,32 @@ mod tests {
             Some("2025-04-03")
         );
         assert_eq!(parse_flight_date("no information"), None);
+    }
+
+    #[test]
+    fn the_index_and_the_shares_are_where_the_config_says() {
+        assert!(
+            index_url("https://x.example/i", Product::SaxonyDtm, &[EAST])
+                .starts_with("https://x.example/i/6/query?")
+        );
+        let addresses = crate::lgb::Addresses::builtin().with_geosn(Addresses {
+            index: "https://x.example/i".to_string(),
+            dgm1: "https://x.example/g".to_string(),
+            dom1: "https://x.example/o".to_string(),
+        });
+        assert_eq!(
+            addresses.currency_url_of(Product::SaxonyDsm),
+            "https://x.example/i"
+        );
+        assert!(
+            addresses
+                .tile_url_of(Product::SaxonyDtm, KREUZGYMNASIUM)
+                .starts_with("https://x.example/g/")
+        );
+        assert!(
+            addresses
+                .tile_url_of(Product::SaxonyDsm, KREUZGYMNASIUM)
+                .starts_with("https://x.example/o/")
+        );
     }
 }

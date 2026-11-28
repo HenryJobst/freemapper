@@ -1593,13 +1593,16 @@ pub(crate) mod test_support {
             // Only the DGM1 description links the metadata list (the DOM1 one does too, but
             // both models take it from DGM1).
             let link = model == hvbg::Model::Dgm1;
-            fetcher.insert(&hvbg::tree_url(model), he::tree_answer(&[DISTRICT], link));
+            fetcher.insert(
+                &hvbg::tree_url(hvbg::REST_URL, model),
+                he::tree_answer(&[DISTRICT], link),
+            );
             let uri = format!(
                 "/downloadcenter/20261108/{}/{DISTRICT}/Frankfurt_am_Main-{code}.zip",
                 model.product()
             );
             fetcher.insert(
-                &hvbg::listing_url(model.product(), DISTRICT, 1),
+                &hvbg::listing_url(hvbg::REST_URL, model.product(), DISTRICT, 1),
                 he::listing_answer(&[(&format!("Frankfurt_am_Main-{code}"), &uri)]),
             );
             let members: Vec<(String, Vec<u8>, bool)> = tiles
@@ -1617,7 +1620,7 @@ pub(crate) mod test_support {
                 .map(|(name, bytes, deflate)| (name.as_str(), bytes.clone(), *deflate))
                 .collect();
             fetcher.insert(
-                &hvbg::file_url(&uri).expect("a server path"),
+                &hvbg::file_url(hvbg::REST_URL, &uri).expect("a server path"),
                 freemapper_sources::zip_range::test_support::archive(&members),
             );
         }
@@ -1703,7 +1706,13 @@ pub(crate) mod test_support {
         bbox: &crate::crs::BoundingBox,
         lift: f32,
     ) {
-        use freemapper_adapters_de::lvermgeo_sh::{ATOM_DATA, PORTAL, Product, overview_prefix};
+        use freemapper_adapters_de::lvermgeo_sh::{
+            ATOM_DATA, Addresses, PORTAL, Product, overview_prefix,
+        };
+        let addresses = Addresses {
+            portal: PORTAL.to_string(),
+            atom: ATOM_DATA.to_string(),
+        };
         let tiles = crate::tiles::tiles_covering(bbox);
         let feature = |tile: &TileId, product: Product| {
             let (e, n) = (tile.east_km, tile.north_km);
@@ -1729,7 +1738,10 @@ pub(crate) mod test_support {
                 "success": true,
                 "result": {"type": "FeatureCollection", "features": features},
             });
-            fetcher.insert_prefix(&overview_prefix(product), answer.to_string().into_bytes());
+            fetcher.insert_prefix(
+                &overview_prefix(&addresses, product),
+                answer.to_string().into_bytes(),
+            );
         }
         for tile in &tiles {
             let (e, n) = (tile.east_km, tile.north_km);

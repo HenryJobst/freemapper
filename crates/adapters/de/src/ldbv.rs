@@ -106,11 +106,11 @@ impl Model {
         format!("{}_{}", tile.east_km, tile.north_km)
     }
 
-    /// Where the agency publishes the tile.
-    pub fn tile_url(self, tile: TileId) -> String {
+    /// Where the agency publishes the tile, below the file server `files`.
+    pub fn tile_url(self, files: &str, tile: TileId) -> String {
         match self {
-            Model::Dgm1 => format!("{FILES}/dgm/dgm1/{}.tif", self.stem(tile)),
-            Model::Dom20 => format!("{FILES}/dom20/DOM/32{}_20_DOM.tif", self.stem(tile)),
+            Model::Dgm1 => format!("{files}/dgm/dgm1/{}.tif", self.stem(tile)),
+            Model::Dom20 => format!("{files}/dom20/DOM/32{}_20_DOM.tif", self.stem(tile)),
         }
     }
 
@@ -203,6 +203,7 @@ pub(crate) fn blocks_of(
 #[allow(clippy::too_many_arguments)]
 fn grow_dom20(
     fetcher: &dyn Fetcher,
+    files: &str,
     mode: FetchMode,
     dir: &Path,
     tile: TileId,
@@ -210,7 +211,7 @@ fn grow_dom20(
     copy: &Path,
     progress: &mut dyn FnMut(Note),
 ) -> Result<bool, FetchError> {
-    let url = Model::Dom20.tile_url(tile);
+    let url = Model::Dom20.tile_url(files, tile);
     let Some(read) = blocks_read(copy) else {
         return Ok(true);
     };
@@ -411,6 +412,7 @@ fn tile_of(stem: &str) -> Option<TileId> {
 #[allow(clippy::too_many_arguments)]
 pub fn fetch_model(
     fetcher: &dyn Fetcher,
+    files: &str,
     cache: &CacheDir,
     mode: FetchMode,
     model: Model,
@@ -425,7 +427,7 @@ pub fn fetch_model(
     let mut older = Vec::new();
     let mut checks = Checks::default();
     for tile in tiles_covering(bbox) {
-        let (stem, url) = (model.stem(tile), model.tile_url(tile));
+        let (stem, url) = (model.stem(tile), model.tile_url(files, tile));
         let file = Published {
             dir: &dir,
             stem: &stem,
@@ -460,18 +462,18 @@ pub fn fetch_model(
             if missing_note(&dir, &model.stem(*tile)).exists() {
                 continue;
             }
-            grow_dom20(fetcher, mode, &dir, *tile, bbox, &copy, progress)?;
+            grow_dom20(fetcher, files, mode, &dir, *tile, bbox, &copy, progress)?;
         }
     }
-    let list_url = format!("{FILES}/");
+    let list_url = format!("{files}/");
     let tile_url = |name: &str| {
-        tile_of(stem_of(name)).map_or_else(|| list_url.clone(), |tile| model.tile_url(tile))
+        tile_of(stem_of(name)).map_or_else(|| list_url.clone(), |tile| model.tile_url(files, tile))
     };
     let reduce = |bytes: &[u8], tile: TileId| reduced(&dir, bytes, tile);
     let store = TileStore {
         label: model.label(),
         list_url: &list_url,
-        source: FILES,
+        source: files,
         url: &tile_url,
         cache_path: &|name| dir.join(format!("{name}.{TILE_EXT}")),
         marker_path: &|name| missing_note(&dir, stem_of(name)),
@@ -519,13 +521,17 @@ pub struct LdbvBackend {
     info: ProviderInfo,
     /// The orthophoto WMS, as the manifest says it.
     wms: WmsService,
+    /// The file server of the tiles of DGM1 and DOM20, as the manifest says it.
+    files: String,
 }
 
 impl LdbvBackend {
-    /// The backend that asks `wms` for the orthophoto.
-    pub fn with_wms(wms: WmsService) -> Self {
+    /// The backend that asks `wms` for the orthophoto and the file server at `files` for the
+    /// tiles of the models.
+    pub fn with_files(wms: WmsService, files: String) -> Self {
         Self {
             wms,
+            files,
             info: ProviderInfo {
                 id: AdapterId::built_in(PROVIDER),
                 cache_dir: Some(CACHE_DIR.to_string()),
@@ -540,7 +546,7 @@ impl LdbvBackend {
 impl LdbvBackend {
     /// The backend with the WMS the manifest of the state declares.
     pub fn new() -> Self {
-        Self::with_wms(WMS)
+        Self::with_files(WMS, FILES.to_string())
     }
 }
 
@@ -562,7 +568,7 @@ impl RasterBackend for LdbvBackend {
         project: &mut dyn RasterProject,
         bbox: &BoundingBox,
     ) -> Result<(), AdapterError> {
-        fetch_rasters(env, project, bbox, &self.wms)
+        fetch_rasters(env, project, bbox, (&self.wms, &self.files))
     }
 }
 
@@ -572,7 +578,7 @@ fn fetch_rasters(
     env: &mut AdapterEnv<'_>,
     project: &mut dyn RasterProject,
     bbox: &BoundingBox,
-    wms: &WmsService,
+    (wms, files): (&WmsService, &str),
 ) -> Result<(), AdapterError> {
     let (fetcher, mode) = (env.fetcher, env.mode);
     let cache = env.cache;
@@ -595,7 +601,7 @@ fn fetch_rasters(
         (Model::Dgm1.label(), Model::Dom20.label()),
         &mut |surface, out, progress| {
             let model = if surface { Model::Dom20 } else { Model::Dgm1 };
-            fetch_model(fetcher, cache, mode, model, bbox, dir, out, progress)
+            fetch_model(fetcher, files, cache, mode, model, bbox, dir, out, progress)
         },
         &mut |_, found, _, progress| {
             for warning in &found.warnings {
@@ -611,7 +617,7 @@ fn fetch_rasters(
 pub mod test_support {
     use chrono::NaiveDate;
 
-    use super::{Model, WMS};
+    use super::{FILES, Model, WMS};
 
     /// What every GetFeatureInfo request of the orthophoto WMS starts with. (Here, not at the
     /// top: the check of the note texts reads a source file up to its first test marker.)
@@ -697,7 +703,7 @@ pub mod test_support {
         bytes: Vec<u8>,
         changed: NaiveDate,
     ) {
-        let url = model.tile_url(tile);
+        let url = model.tile_url(FILES, tile);
         fetcher.insert(&url, bytes);
         fetcher.set_modified(&url, changed);
     }
@@ -767,8 +773,18 @@ mod tests {
     ) -> Result<(HeightModel, Vec<f32>), String> {
         let cache = Cache::new(dir.join("cache"));
         let out = dir.join("out.tif");
-        let found = fetch_model(fetcher, &cache, mode, model, bbox, dir, &out, &mut |_| {})
-            .map_err(|e| e.to_string())?;
+        let found = fetch_model(
+            fetcher,
+            FILES,
+            &cache,
+            mode,
+            model,
+            bbox,
+            dir,
+            &out,
+            &mut |_| {},
+        )
+        .map_err(|e| e.to_string())?;
         Ok((found, read_out(&out)))
     }
 
@@ -792,11 +808,11 @@ mod tests {
     #[test]
     fn tile_addresses_follow_the_agency() {
         assert_eq!(
-            Model::Dgm1.tile_url(WEST),
+            Model::Dgm1.tile_url(FILES, WEST),
             "https://download1.bayernwolke.de/a/dgm/dgm1/691_5334.tif"
         );
         assert_eq!(
-            Model::Dom20.tile_url(WEST),
+            Model::Dom20.tile_url(FILES, WEST),
             "https://download1.bayernwolke.de/a/dom20/DOM/32691_5334_20_DOM.tif"
         );
         assert_eq!(Model::Dgm1.stem(WEST), "691_5334");
@@ -1011,7 +1027,7 @@ mod tests {
         /// The bytes of the blocks asked for: the ranges before the IFD of the tile WEST, which
         /// lies at the end of the file.
         fn block_bytes(&self) -> u64 {
-            let file = self.inner.get(&Model::Dom20.tile_url(WEST)).unwrap();
+            let file = self.inner.get(&Model::Dom20.tile_url(FILES, WEST)).unwrap();
             let ifd = u64::from(u32::from_le_bytes([file[4], file[5], file[6], file[7]]));
             self.asked
                 .borrow()
@@ -1050,6 +1066,7 @@ mod tests {
         let out = dir.join("out.tif");
         let found = fetch_model(
             fetcher,
+            FILES,
             &cache,
             mode,
             Model::Dom20,
@@ -1361,5 +1378,18 @@ mod tests {
         assert_eq!(info.cache_dir.as_deref(), Some("ldbv"));
         assert_eq!(info.terrain_source, "ldbv-dgm1");
         assert_eq!(info.kind, RasterKind::PerArea);
+    }
+
+    #[test]
+    fn the_tiles_lie_on_the_file_server_the_config_says() {
+        let files = "https://x.example/f";
+        assert_eq!(
+            Model::Dgm1.tile_url(files, WEST),
+            "https://x.example/f/dgm/dgm1/691_5334.tif"
+        );
+        assert_eq!(
+            Model::Dom20.tile_url(files, WEST),
+            "https://x.example/f/dom20/DOM/32691_5334_20_DOM.tif"
+        );
     }
 }

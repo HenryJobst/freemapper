@@ -152,7 +152,7 @@ is optional; one left out is the one of the built-in manifest of the state, so a
 | `layer` | text | The layer of the orthophoto: 1 to 100 letters, digits and `_.:-`. |
 | `max_px` | integer | The largest side of one request in pixels, 256 to 10000. |
 
-Nine backends state more addresses in `endpoints`, a table of names and addresses (`[orthophoto.endpoints]` or an
+Thirteen backends state more addresses in `endpoints`, a table of names and addresses (`[orthophoto.endpoints]` or an
 inline table), each a https address on a host of `[net] hosts`, without a query (issue #273). A name the backend does
 not ask is `manifest.unknown-key`; a name left out is the one of the built-in manifest. A manifest that uses `endpoints`, or the keys `url`, `layer` and `max_px` of a backend, needs freemapper 0.29.0 or later (`min_freemapper`). The code keeps what it does
 with the files: the tile lists, the coverages and extents of the services, and the names of the layers and years.
@@ -169,6 +169,10 @@ with the files: the tile lists, the coverages and extents of the services, and t
 | `lgl-bw` (Baden-Württemberg) | `flights`, `files` | the WFS of the flight tiles of the orthophoto and the file server (archives of DGM1 and nDOM1) |
 | `lvgl` (Saarland) | `share` | the share with the DGM1 and DOM1 archives |
 | `lvermgeo-rp` (Rhineland-Palatinate) | `tile-list`, `data` | the WFS with the tile list of the laser scan and the file server (DGM1, DOM1 and their Metalinks) |
+| `hvbg` (Hesse) | `rest` | the REST API of the Downloadcenter (the product trees and file listings of DGM1 and DOM1); the files it names by path lie on the same host |
+| `lvermgeo-sh` (Schleswig-Holstein) | `portal`, `atom` | the Downloadportal (tile lookup and downloads of DGM1 and bDOM) and the INSPIRE ATOM directory of the DGM1 tiles |
+| `geosn` (Saxony) | `index`, `dgm1`, `dom1` | the ArcGIS tile index of DGM1 and DOM1 and the shares a tile is fetched from when its row in the index has no link |
+| `ldbv` (Bavaria) | `files` | the file server of the DGM1 and DOM20 tiles |
 
 The cache folder of Hamburg's archives follows the file name of the address, so an archive at a new address gets its
 own folder; the download estimate still looks in the one of the built-in address.

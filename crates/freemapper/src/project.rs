@@ -4113,7 +4113,7 @@ mod tests {
             fetcher
                 .failing
                 .borrow_mut()
-                .push(hvbg::tree_url(Model::Dom1));
+                .push(hvbg::tree_url(hvbg::REST_URL, Model::Dom1));
             let (project, messages) = fetch(dir.path(), &fetcher, &cache);
             let unavailable = format!("warning: {} unavailable", Model::Dom1.label());
             let warning = messages
@@ -4374,6 +4374,10 @@ mod tests {
         let (dir, _cache_dir, cache) = norderstedt_school(&fetcher);
         fetcher.insert_prefix(
             &freemapper_adapters_de::lvermgeo_sh::overview_prefix(
+                &freemapper_adapters_de::lvermgeo_sh::Addresses {
+                    portal: freemapper_adapters_de::lvermgeo_sh::PORTAL.to_string(),
+                    atom: freemapper_adapters_de::lvermgeo_sh::ATOM_DATA.to_string(),
+                },
                 freemapper_adapters_de::lvermgeo_sh::Product::Bdom,
             ),
             b"<html>maintenance</html>".to_vec(),
@@ -4426,7 +4430,13 @@ mod tests {
                     }
                 }
                 fetcher.insert_prefix(
-                    &overview_prefix(Product::Bdom),
+                    &overview_prefix(
+                        &freemapper_adapters_de::lvermgeo_sh::Addresses {
+                            portal: freemapper_adapters_de::lvermgeo_sh::PORTAL.to_string(),
+                            atom: freemapper_adapters_de::lvermgeo_sh::ATOM_DATA.to_string(),
+                        },
+                        Product::Bdom,
+                    ),
                     b"<html>maintenance</html>".to_vec(),
                 );
                 &fetcher

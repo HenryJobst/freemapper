@@ -44,6 +44,12 @@ url = "https://dienste.gdi-sh.de/WMS_SH_DOP20col_OpenGBD"
 layer = "sh_dop20_rgb"
 max_px = 4000
 
+# The Downloadportal (tile lookup, downloads of the models) and the INSPIRE ATOM directory of the DGM1
+# tiles (issue #273).
+[orthophoto.endpoints]
+portal = "https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload"
+atom = "https://service.gdi-sh.de/INSPIRE_Atom/EL/data"
+
 [terrain]
 backend = "lvermgeo-sh"
 

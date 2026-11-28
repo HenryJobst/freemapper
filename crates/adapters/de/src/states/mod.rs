@@ -987,6 +987,29 @@ mod tests {
                 ("data", crate::lvermgeo_rp::DATA),
             ])
         );
+        assert_eq!(
+            endpoints(State::Hessen),
+            named(&[("rest", crate::hvbg::REST_URL)])
+        );
+        assert_eq!(
+            endpoints(State::SchleswigHolstein),
+            named(&[
+                ("portal", crate::lvermgeo_sh::PORTAL),
+                ("atom", crate::lvermgeo_sh::ATOM_DATA),
+            ])
+        );
+        assert_eq!(
+            endpoints(State::Saxony),
+            named(&[
+                ("index", crate::geosn::INDEX_URL),
+                ("dgm1", crate::lgb::GEOSN_DGM1_SHARE),
+                ("dom1", crate::lgb::GEOSN_DOM1_SHARE),
+            ])
+        );
+        assert_eq!(
+            endpoints(State::Bayern),
+            named(&[("files", crate::ldbv::FILES)])
+        );
         // The folders of LGB, which the constants of `lgb.rs` held; Berlin asks the same.
         for state in [State::Brandenburg, State::Berlin] {
             assert_eq!(

@@ -30,6 +30,7 @@ mod tests {
             let out = dir.path().join(format!("{}.tif", model.code()));
             let fetched = fetch_model(
                 &fetcher,
+                REST_URL,
                 &cache,
                 FetchMode::Online,
                 model,
@@ -47,6 +48,7 @@ mod tests {
         assert_eq!(reads(METADATA_URL), 1);
         fetch_model(
             &fetcher,
+            REST_URL,
             &cache,
             FetchMode::Offline,
             Model::Dom1,
