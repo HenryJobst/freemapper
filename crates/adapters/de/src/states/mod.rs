@@ -8,7 +8,7 @@
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use freemapper_adapter_api::adapter::RegionAdapter;
 use freemapper_adapter_api::alkis::AlkisSource;
@@ -356,18 +356,45 @@ const BY_EXTRACT_BOUNDARIES: [(&str, &str); 7] = [
     ),
 ];
 
-/// The texts of all manifests, for what reads them without a state (the reachability probe).
-pub fn manifest_texts() -> &'static [&'static str] {
-    &MANIFESTS
+/// The manifests as corrections of addresses changed them (issue #273, stage 4), by state id; set
+/// once, before anything reads a manifest.
+static CORRECTED: OnceLock<BTreeMap<String, &'static str>> = OnceLock::new();
+
+/// Puts the corrected manifests `texts` (by state id) in the place of the built-in ones, for the
+/// rest of the process. A text must be the built-in manifest with addresses changed and must
+/// parse; the caller checked both. Returns `false` when corrections were set before: the first
+/// ones stay, so that every reader of the process sees the same manifests.
+pub fn set_corrected_manifests(texts: BTreeMap<String, String>) -> bool {
+    let leaked = texts
+        .into_iter()
+        .map(|(id, text)| (id, &*Box::leak(text.into_boxed_str())))
+        .collect();
+    CORRECTED.set(leaked).is_ok()
 }
 
-/// The text of the manifest of `state`.
-pub fn manifest_text(state: State) -> &'static str {
+/// The text of the manifest of `state` as the program shipped it, whatever corrections say.
+pub fn shipped_manifest_text(state: State) -> &'static str {
     let index = State::ALL
         .iter()
         .position(|other| *other == state)
         .expect("every state is listed");
     MANIFESTS[index]
+}
+
+/// The texts of all manifests in force, in the order of [`State::ALL`], for what reads them
+/// without a state (the reachability probe).
+pub fn manifest_texts() -> Vec<&'static str> {
+    State::ALL.into_iter().map(manifest_text).collect()
+}
+
+/// The text of the manifest of `state` that is in force: the corrected one when a list of
+/// corrections changed it, else the one the program shipped.
+pub fn manifest_text(state: State) -> &'static str {
+    CORRECTED
+        .get()
+        .and_then(|corrected| corrected.get(state.id()))
+        .copied()
+        .unwrap_or_else(|| shipped_manifest_text(state))
 }
 
 /// The files the manifest of a state names, embedded in the program.
@@ -1252,6 +1279,7 @@ mod tests {
         assert_eq!(texts.len(), State::ALL.len());
         for (text, state) in texts.iter().zip(State::ALL) {
             assert_eq!(*text, manifest_text(state));
+            assert_eq!(*text, shipped_manifest_text(state));
             assert!(text.len() > 100, "{state:?}");
         }
     }

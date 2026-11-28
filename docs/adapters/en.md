@@ -294,6 +294,11 @@ Services move, and flight years change. What an adapter needs over time:
   `--add-host` adds the host of the new address to `[net] hosts`, `freemapper sources diff <id>` shows what differs
   from the built-in manifest and `freemapper sources schema` lists the keys that hold an address. A host that the
   manifest does not declare is never added unnoticed.
+- Without you doing anything: a signed list of corrections (`freemapper sources update`, stored in the settings
+  folder, `sources corrections` shows it) changes addresses of the built-in manifests when a service moved and no
+  release is out yet. A correction names the adapter, the path of the address, the address it must still hold
+  (`from`) and the new one (`to`); the whole manifest must pass its check afterwards, with the host rules. Your own
+  adapter folder replaces the built-in manifest and is never touched by the list.
 - A new key of the format needs a newer freemapper. Set `min_freemapper` to the version that introduced the
   key, so that an older program says "needs a newer freemapper" and not "unknown key".
 

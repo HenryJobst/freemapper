@@ -4,6 +4,7 @@
 
 mod adapter_check;
 mod adapters;
+mod corrections;
 mod errors;
 mod estimate;
 mod find;
@@ -386,6 +387,23 @@ enum SourcesCommand {
     },
     /// Print the keys of a manifest that hold an address, with --json as a JSON Schema.
     Schema {
+        /// Print the result as JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Get the signed list of corrections of addresses from GitHub and store it, so that a
+    /// service that moved works again without a new release. Only on request: nothing else
+    /// asks GitHub for it unless you turn the daily check on with --mode on.
+    Update {
+        /// Turn the daily check for the list on or off (default: off) and do nothing else.
+        #[arg(long, value_enum, conflicts_with = "remove")]
+        mode: Option<OnOff>,
+        /// Delete the stored list; from the next start the addresses of the program count.
+        #[arg(long)]
+        remove: bool,
+    },
+    /// Show the stored list of corrections and what each one does to this program.
+    Corrections {
         /// Print the result as JSON.
         #[arg(long)]
         json: bool,
@@ -912,6 +930,13 @@ impl From<UpdateMode> for freemapper_update::Mode {
     }
 }
 
+/// A setting that is on or off.
+#[derive(Clone, Copy, ValueEnum)]
+enum OnOff {
+    On,
+    Off,
+}
+
 #[derive(Clone, Copy, ValueEnum)]
 enum Kind {
     Schoolyard,
@@ -1064,13 +1089,33 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
     // The adapters of this run, before anything asks the registry. The list of the adapters
     // assembles its own, and an update asks none.
     let mut adapter_lines = Vec::new();
+    // The signed list of corrections of addresses (issue #273, stage 4) comes before anything
+    // reads a manifest, the list of the adapters and `sources` included. A command that uses the
+    // network anyway may fetch a newer list first, once a day, when the person turned that on.
+    // `update_check` is `None` for `update` and the MCP server: they never fetch it.
+    if let Some((_, offline)) = cli.command.update_check()
+        && let Some(dir) = corrections::dir()
+        && let Some(line) = corrections::refresh_daily(corrections::Daily {
+            dir,
+            app: update::freemapper_app(),
+            source: std::sync::Arc::new(update::update_source()),
+            offline,
+            ci: std::env::var_os("CI").is_some(),
+            on: corrections::settings_file().is_some_and(|file| corrections::daily_on_in(&file)),
+            release: update::release_build(),
+            now: chrono::Utc::now().timestamp(),
+        })
+    {
+        eprintln!("{line}");
+    }
+    adapter_lines.extend(corrections::activate());
     if !matches!(
         cli.command,
         Commands::Adapters { .. } | Commands::Sources { .. } | Commands::Update { .. }
     ) {
         // The MCP server and the area page read the person's settings and never write them.
         let may_write = !matches!(cli.command, Commands::Mcp { .. } | Commands::Select { .. });
-        adapter_lines = adapters::install(cli.command.project_adapters(), may_write);
+        adapter_lines.extend(adapters::install(cli.command.project_adapters(), may_write));
     }
     match cli.command {
         Commands::Init {
@@ -1432,6 +1477,10 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
                 return sources::check(&adapter, bbox.filter(|_| live), json, || cache.cache());
             }
             SourcesCommand::Schema { json } => sources::schema(json)?,
+            SourcesCommand::Update { mode, remove } => {
+                corrections::update(mode.map(|mode| matches!(mode, OnOff::On)), remove)?
+            }
+            SourcesCommand::Corrections { json } => corrections::show(json)?,
         },
         Commands::Adapters {
             command: AdaptersCommand::Export { adapter, dir },

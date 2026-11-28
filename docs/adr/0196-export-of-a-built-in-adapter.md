@@ -64,3 +64,34 @@ of that id, and `sources schema` prints the keys that hold an address, as a JSON
 
 Not in this stage: `sources reset` (deleting the folder does it, and the manual says so) and the signed list of
 corrections (stage 4).
+
+## Addendum: the signed list of corrections (issue #273, stage 4)
+
+A moved address no longer needs a release. `freemapper-sources.json` is a list of corrections (`format` 1,
+`issued` as a day, at most 200 corrections of at most 64 KiB), each naming a built-in adapter, the path of an
+address as `sources list` shows it, the address the manifest must still hold (`from`), the new one (`to`) and
+optionally `add_host` and a note. It lies with its minisign signature as assets of the rolling pre-release `sources`
+of the repository, which is never "latest", so the update check of a release is not touched. The workflow
+`sources-corrections.yml` signs it with the release key in the environment `release` and publishes it; it is
+started by hand and waits for the approval of that environment, as a release does. The secrets reach it only as
+environment variables of one step.
+
+`freemapper sources update` fetches the pair through the same fetch layer as `freemapper update` (same hosts and
+redirect rule), checks the signature against the keys in the program and stores both files in `<config>/sources/`;
+a list older than the stored one is refused, so a replayed old list cannot undo a newer one. At every start, before
+anything reads a manifest, the stored pair is verified again (a changed file counts for nothing) and applied to the
+manifests the program shipped: only where the manifest still holds `from`, and the changed manifest must parse and
+pass the full check with the host rules; a correction that fails it is refused alone with a warning, one that
+meets `to` already is a no-op. The corrected texts replace the built-in ones for the rest of the process
+(`states::set_corrected_manifests`), so `adapters list`, `sources`, the engine and `adapters probe` see the same
+addresses. A folder adapter of the person replaces the built-in one as before and the list never touches it
+(ADR 0188). Without a valid list the program behaves as it did.
+
+The network is asked on request only: `sources update`, or once a day by a command that uses the network anyway
+when the person turned that on (`sources update --mode on`, stored in `settings.toml`), for three seconds at most,
+never with `--offline`, never in CI, never for the MCP server. A failed fetch is recorded and tried again the next
+day without a message. A program built from source does not fetch the list. `sources update --remove` deletes the
+stored list and `sources corrections` shows what each correction does.
+
+`adapters probe` (issue #286, stage 4) reads the manifests in force and names the place of each address, so that
+point-cloud folders, the services of the raster sources, index files and scripts are asked the way each answers.

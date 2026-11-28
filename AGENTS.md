@@ -123,6 +123,8 @@ freemapper run <dir> --pdf
 | `sources diff <adapter>` | Shows the addresses the person's folder changes against the built-in manifest. |
 | `sources check <adapter> [--live --bbox …] [--json]` | `adapters check` on the person's folder of that adapter; same exit codes. |
 | `sources schema [--json]` | The keys of a manifest that hold an address; with `--json` a JSON Schema. |
+| `sources update [--mode on\|off] [--remove]` | Gets the signed list of corrections of addresses from GitHub (pre-release `sources`), checks its signature with the key of `update` and stores it; from the next start it corrects built-in manifests where a service moved. Only on request: `--mode on` turns on a daily check (default off), `--remove` deletes the stored list. A program built from source does not fetch it. Ask the person first. |
+| `sources corrections [--json]` | Shows the stored list and what each correction does to this program: `applied`, `already-current`, `stale`, `unknown-adapter`, `unknown-path` or `refused` with the reason. Reads only. |
 | `adapters check <dir>` | Checks the folder of one adapter without asking a server: whether it would load, with every finding. Exit code 0: passes, 1: findings, 2: could not run. `--live --bbox` also asks its services; only when the person asks for it. Details below the table. |
 
 Output switches for `run` and `export`: `--ocad`, `--pdf`, `--pdf-candidates` (the check print), `--training`,
