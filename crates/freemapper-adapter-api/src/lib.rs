@@ -10,6 +10,7 @@
 
 pub mod adapter;
 pub mod alkis;
+pub mod auth;
 pub mod cache;
 pub mod clock;
 pub mod credit;

@@ -26,7 +26,7 @@ pub fn wfs_service(wfs: &Wfs) -> WfsService {
 /// The OGC API a manifest declares, with its fallback; `None` for a WFS.
 pub fn ogc_api(alkis: &Alkis) -> Option<OgcApiAlkis> {
     match alkis {
-        Alkis::Wfs(_) => None,
+        Alkis::Wfs(_) | Alkis::StacGpkg { .. } => None,
         Alkis::OgcApi {
             buildings,
             land_use,
@@ -46,13 +46,16 @@ pub fn ogc_api(alkis: &Alkis) -> Option<OgcApiAlkis> {
     }
 }
 
-/// The ALKIS source of `[alkis]`: buildings and land use in the LGB schema.
-pub fn alkis_source(alkis: &Alkis) -> Box<dyn AlkisSource> {
+/// The ALKIS source of `[alkis]`: buildings and land use in the LGB schema. `None` for a kind
+/// whose files only the code of an adapter crate reads (`stac-gpkg`): that adapter supplies the
+/// source itself.
+pub fn alkis_source(alkis: &Alkis) -> Option<Box<dyn AlkisSource>> {
     match (alkis, ogc_api(alkis)) {
-        (_, Some(api)) => Box::new(api),
-        (Alkis::Wfs(wfs), None) => Box::new(WfsAlkis {
+        (_, Some(api)) => Some(Box::new(api)),
+        (Alkis::Wfs(wfs), None) => Some(Box::new(WfsAlkis {
             service: wfs_service(wfs),
-        }),
+        })),
+        (Alkis::StacGpkg { .. }, None) => None,
         (Alkis::OgcApi { .. }, None) => unreachable!("an OGC API table gives an OGC API source"),
     }
 }

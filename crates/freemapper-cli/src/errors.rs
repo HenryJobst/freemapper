@@ -204,6 +204,21 @@ impl Localize for ProjectError {
                 text(lang, "error-project-orthophoto-not-fetched", &[])
             }
             ProjectError::TerrainNotFetched => text(lang, "error-project-terrain-not-fetched", &[]),
+            ProjectError::CredentialsMissing {
+                name,
+                user_env,
+                password_env,
+                products,
+            } => text(
+                lang,
+                "error-project-credentials-missing",
+                &[
+                    ("name", v(name)),
+                    ("user_env", v(user_env)),
+                    ("password_env", v(password_env)),
+                    ("products", v(products.join(", "))),
+                ],
+            ),
             ProjectError::CandidatesOutdated => {
                 text(lang, "error-project-candidates-outdated", &[])
             }
@@ -901,6 +916,12 @@ mod tests {
             ProjectError::BuildingsNotFetched,
             ProjectError::OrthophotoNotFetched,
             ProjectError::TerrainNotFetched,
+            ProjectError::CredentialsMissing {
+                name: "Sweden".into(),
+                user_env: "FREEMAPPER_LM_USER".into(),
+                password_env: "FREEMAPPER_LM_PASSWORD".into(),
+                products: vec!["Product A".into(), "Product B".into()],
+            },
             ProjectError::CandidatesOutdated,
             ProjectError::StoredCandidates {
                 path: PathBuf::from("data/candidates.json"),

@@ -491,3 +491,75 @@ fn credit_text_substitutes_year_once() {
         )]
     );
 }
+
+/// Hamburg's manifest with `[terrain]` only: a backend that states its endpoints there.
+fn terrain_only() -> freemapper_manifest::Manifest {
+    let text = repo("crates/freemapper-manifest/tests/valid/hamburg.toml");
+    let cut = text.find("[orthophoto]").unwrap();
+    let preview = text.find("[preview]").unwrap();
+    let text = format!(
+        "{}[terrain]\nbackend = \"lgv\"\nendpoints = {{ dgm1 = \"https://geodienste.hamburg.de/dgm1\" }}\n\n{}",
+        &text[..cut],
+        &text[preview..]
+    );
+    parse(&text, Path::new("hamburg")).unwrap_or_else(|findings| panic!("{findings:?}"))
+}
+
+#[test]
+fn a_terrain_alone_gives_the_adapter_the_backend_with_its_endpoints() {
+    use freemapper_adapter_api::rasters::RasterConfig;
+    use std::sync::{Arc, Mutex};
+    let seen: Arc<Mutex<Option<RasterConfig>>> = Arc::default();
+    let mut registry = freemapper_adapter_api::registry::Registry::new();
+    let info = freemapper_adapter_api::rasters::ProviderInfo {
+        id: "lgv".parse().unwrap(),
+        cache_dir: None,
+        terrain_source: "lgv-dgm1".to_string(),
+        kind: freemapper_adapter_api::rasters::RasterKind::PerArea,
+    };
+    let record = seen.clone();
+    registry
+        .add_raster_factory(
+            "lgv",
+            Arc::new(move |config: &RasterConfig| {
+                *record.lock().unwrap() = Some(config.clone());
+                Ok(Arc::new(Named(info.clone()))
+                    as Arc<dyn freemapper_adapter_api::rasters::RasterBackend>)
+            }),
+        )
+        .unwrap();
+    let adapter =
+        ManifestAdapter::new(terrain_only(), &hamburg_files(), Parse::Now, &registry).unwrap();
+    assert!(adapter.rasters().is_some());
+    let config = seen.lock().unwrap().clone().expect("the factory was asked");
+    assert_eq!(
+        config.endpoint("dgm1"),
+        Some("https://geodienste.hamburg.de/dgm1")
+    );
+}
+
+#[test]
+fn the_auth_table_gives_the_adapter_its_auth_spec() {
+    let text = format!(
+        "{}\n[auth]\nhost = \"geodienste.hamburg.de\"\nuser_env = \"FREEMAPPER_HH_USER\"\n\
+         password_env = \"FREEMAPPER_HH_PASSWORD\"\nproducts = [\"Product A\"]\n",
+        repo("crates/freemapper-manifest/tests/valid/hamburg.toml")
+    );
+    let manifest = parse(&text, Path::new("hamburg")).unwrap();
+    let adapter =
+        ManifestAdapter::new(manifest, &hamburg_files(), Parse::Now, &backends()).unwrap();
+    let spec = adapter.auth().expect("the spec");
+    assert_eq!(spec.name, "Hamburg");
+    assert_eq!(spec.host, "geodienste.hamburg.de");
+    assert_eq!(spec.user_env, "FREEMAPPER_HH_USER");
+    assert_eq!(spec.password_env, "FREEMAPPER_HH_PASSWORD");
+    assert_eq!(spec.products, ["Product A"]);
+}
+
+#[test]
+fn a_manifest_without_the_table_has_no_auth_spec() {
+    let manifest = manifest("hamburg");
+    let adapter =
+        ManifestAdapter::new(manifest, &hamburg_files(), Parse::Now, &backends()).unwrap();
+    assert!(adapter.auth().is_none());
+}

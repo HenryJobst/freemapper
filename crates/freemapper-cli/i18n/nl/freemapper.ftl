@@ -499,6 +499,7 @@ error-project-tiles-outdated = het kaartgebied heeft tegels { $tiles } nodig die
 error-project-buildings-not-fetched = geen ALKIS-gebouwen opgeslagen voor dit kaartgebied; voer eerst `freemapper fetch` online uit
 error-project-orthophoto-not-fetched = geen orthofoto opgeslagen voor dit kaartgebied; voer eerst `freemapper fetch` online uit
 error-project-terrain-not-fetched = geen terreinmodel opgeslagen voor dit kaartgebied; voer eerst `freemapper fetch` online uit
+error-project-credentials-missing = de gegevens van { $name } vereisen een login: stel de omgevingsvariabelen { $user_env } (de gebruikersnaam) en { $password_env } (het wachtwoord) in; het account moet besteld hebben: { $products }
 error-project-candidates-outdated = de opgeslagen OSM-kandidaten dekken het kaartgebied niet; voer `freemapper fetch` uit
 error-project-stored = { $path }: { $message }; voer `freemapper fetch` opnieuw uit
 error-project-area-too-large = kaartgebied plus buffer is { $width } × { $height } m, meer dan { $limit } m per zijde; verklein het kaartgebied of buffer_m in freemapper.toml

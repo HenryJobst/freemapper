@@ -499,6 +499,7 @@ error-project-tiles-outdated = kartområdet behöver rutorna { $tiles } som inte
 error-project-buildings-not-fetched = inga ALKIS-byggnader sparade för det här kartområdet; kör först `freemapper fetch` online
 error-project-orthophoto-not-fetched = inget ortofoto sparat för det här kartområdet; kör först `freemapper fetch` online
 error-project-terrain-not-fetched = ingen terrängmodell sparad för det här kartområdet; kör först `freemapper fetch` online
+error-project-credentials-missing = uppgifterna för { $name } kräver inloggning: ange miljövariablerna { $user_env } (användarnamnet) och { $password_env } (lösenordet); kontot måste ha beställt: { $products }
 error-project-candidates-outdated = de sparade OSM-kandidaterna täcker inte kartområdet; kör `freemapper fetch`
 error-project-stored = { $path }: { $message }; kör `freemapper fetch` igen
 error-project-area-too-large = kartområdet plus buffert är { $width } × { $height } m, mer än { $limit } m per sida; minska kartområdet eller buffer_m i freemapper.toml

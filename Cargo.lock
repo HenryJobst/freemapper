@@ -741,6 +741,7 @@ dependencies = [
 name = "freemapper"
 version = "0.28.0"
 dependencies = [
+ "base64",
  "chrono",
  "contour",
  "dirs",
@@ -749,6 +750,7 @@ dependencies = [
  "freemapper-adapters-cz",
  "freemapper-adapters-de",
  "freemapper-adapters-pl",
+ "freemapper-adapters-se",
  "freemapper-contract",
  "freemapper-fs",
  "freemapper-georef",
@@ -855,6 +857,25 @@ dependencies = [
  "quick-xml",
  "serde_json",
  "tempfile",
+ "zip",
+]
+
+[[package]]
+name = "freemapper-adapters-se"
+version = "0.28.0"
+dependencies = [
+ "chrono",
+ "freemapper-adapter-api",
+ "freemapper-georef",
+ "freemapper-manifest",
+ "freemapper-sources",
+ "geo",
+ "geo-types",
+ "las",
+ "serde_json",
+ "tempfile",
+ "tiff",
+ "toml",
  "zip",
 ]
 

@@ -6,6 +6,8 @@ note-warning = advarsel: { $text }
 
 warning-other-zone = kartområdet ligger i UTM-sone { $zone } (EPSG:{ $epsg }); freemapper henter alt på nytt i den sonen
 warning-other-state = kartområdet ligger nå i en annen delstats data; freemapper henter alt på nytt
+warning-no-orthophoto = denne regionen har ikke ortofoto; kartet har ingen ortofotomal
+warning-terrain-area-uncovered = { $model } har ingen rute for { $percent } % av kartområdet; terrenget mangler der, så det finnes ingen høydekurver, skyggerelieff eller helning
 warning-beyond-coverage = en del av kartområdet ligger utenfor de støttede delstatene. Den ligger i utlandet, på havet eller i en delstat freemapper ennå ikke støtter, for eksempel Thüringen. Delstatene har ingen data der, så ortofotoet kan være hvitt og ALKIS gir ingen bygninger eller arealbruk
 # A warning whose text is an error.
 warning-error = { $error }

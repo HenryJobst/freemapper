@@ -499,6 +499,7 @@ error-project-tiles-outdated = kaardiala vajab ruute { $tiles }, mida ei laaditu
 error-project-buildings-not-fetched = sellele kaardialale pole ALKIS-i hooneid salvestatud; esmalt tuleb käivitada `freemapper fetch` võrguühendusega
 error-project-orthophoto-not-fetched = sellele kaardialale pole ortofotot salvestatud; esmalt tuleb käivitada `freemapper fetch` võrguühendusega
 error-project-terrain-not-fetched = sellele kaardialale pole maastikumudelit salvestatud; esmalt tuleb käivitada `freemapper fetch` võrguühendusega
+error-project-credentials-missing = { $name } andmed vajavad sisselogimist: määrake keskkonnamuutujad { $user_env } (kasutajanimi) ja { $password_env } (parool); kontol peavad olema tellitud: { $products }
 error-project-candidates-outdated = salvestatud OSM-i kandidaadid ei kata kaardiala; tuleb käivitada `freemapper fetch`
 error-project-stored = { $path }: { $message }; tuleb käivitada `freemapper fetch` uuesti
 error-project-area-too-large = kaardiala pluss puhver on { $width } × { $height } m, rohkem kui { $limit } m külje kohta; kaardiala või buffer_m failis freemapper.toml tuleb vähendada

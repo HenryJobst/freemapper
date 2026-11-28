@@ -6,6 +6,8 @@ note-warning = brīdinājums: { $text }
 
 warning-other-zone = kartes apgabals atrodas UTM zonā { $zone } (EPSG:{ $epsg }); freemapper visu lejupielādē no jauna šajā zonā
 warning-other-state = kartes apgabals tagad atrodas citas federālās zemes datos; freemapper visu lejupielādē no jauna
+warning-no-orthophoto = šim reģionam nav ortofoto; kartei nav ortofoto sagataves
+warning-terrain-area-uncovered = { $model } nav flīžu { $percent } % kartes apgabala; tur trūkst reljefa, tāpēc nav augstuma līniju, ēnojuma vai nogāzes
 warning-beyond-coverage = daļa kartes apgabala atrodas ārpus atbalstītajām federālajām zemēm. Tā atrodas ārzemēs, jūrā vai federālajā zemē, ko freemapper vēl neatbalsta, piemēram, Tīringenē. Tur zemēm nav datu, tāpēc ortofoto var būt balts un ALKIS nedod ēkas vai zemes izmantošanu
 # A warning whose text is an error.
 warning-error = { $error }

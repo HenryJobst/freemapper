@@ -123,6 +123,8 @@ pub enum OrthophotoInput {
     Tiles(Vec<FetchedTile>),
     /// The image a WMS or WCS delivered for the area, stored in the project folder.
     Image,
+    /// The region has no orthophoto (Sweden): `derive` writes the other templates and warns.
+    Absent,
 }
 
 /// Where a height model comes from.

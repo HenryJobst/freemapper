@@ -4,7 +4,7 @@
 //! a large file is read only where an area needs it.
 
 use crate::fetch::{ByteRange, FetchError, Fetcher, get_range_with_retries};
-use crate::float_tiff::decode_lzw_block;
+use crate::float_tiff::decode_block;
 use crate::raster::GridSpec;
 
 /// Most entries an IFD may have; a DOM20 tile has 20.
@@ -32,6 +32,7 @@ pub struct TiledTiff {
     metadata: Option<String>,
     offsets: Vec<u64>,
     counts: Vec<u64>,
+    compression: u16,
     predictor: u16,
     little: bool,
 }
@@ -94,7 +95,7 @@ fn type_size(kind: u16) -> u64 {
 /// The layout of the tiled TIFF at `url`, read by range: its header, the count of its first IFD,
 /// its entries, then the arrays it needs (block offsets and sizes, pixel scale, tiepoint, GDAL
 /// metadata), in one range if they lie within 1 MB of each other. Anything but a classic tiled
-/// TIFF of one Float32 sample with LZW is an error that names what the file has.
+/// TIFF of one Float32 sample with LZW or Deflate is an error that names what the file has.
 ///
 /// The outer error is a failed request; the inner one says what the file has instead, so the
 /// caller can read the file another way.
@@ -203,8 +204,10 @@ fn layout(fetcher: &dyn Fetcher, url: &str) -> Result<TiledTiff, LayoutError> {
         )));
     }
     let compression = single(259, Some(1))?;
-    if compression != 5 {
-        return Err(wrong(format!("compression {compression}, not LZW")));
+    if !matches!(compression, 5 | 8 | 32946) {
+        return Err(wrong(format!(
+            "compression {compression}, not LZW or Deflate"
+        )));
     }
     if single(284, Some(1))? != 1 {
         return Err(wrong("planes stored apart".into()));
@@ -342,6 +345,7 @@ fn layout(fetcher: &dyn Fetcher, url: &str) -> Result<TiledTiff, LayoutError> {
         metadata,
         offsets,
         counts,
+        compression: compression as u16,
         predictor: predictor as u16,
         little,
     })
@@ -408,8 +412,9 @@ pub fn read_blocks(
         for i in run {
             let from = (layout.offsets[i] - start) as usize;
             let chunk = &bytes[from..from + layout.counts[i] as usize];
-            let values = decode_lzw_block(
+            let values = decode_block(
                 chunk,
+                layout.compression,
                 layout.block_width,
                 layout.block_height,
                 layout.predictor,
@@ -525,6 +530,31 @@ mod tests {
             blocks.iter().map(|(i, _)| *i).collect::<Vec<_>>(),
             [0, 1, 5]
         );
+        for (i, block) in &blocks {
+            let (bx, by) = (*i as u32 % 3, *i as u32 / 3);
+            for y in 0..16 {
+                for x in 0..16 {
+                    let (px, py) = (bx * 16 + x, by * 16 + y);
+                    if px < grid.width && py < grid.height {
+                        assert_eq!(
+                            block[(y * 16 + x) as usize],
+                            values[(py * grid.width + px) as usize]
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn deflate_blocks_with_the_float_predictor_are_read() {
+        let (grid, values) = (grid(), values(&grid()));
+        let server = MapFetcher::default();
+        let bytes = crate::testing::tiled_float_tiff_with(&grid, &values, 16, 3, None, 8);
+        server.insert(URL, bytes);
+        let layout = read_layout(&server, URL).unwrap().unwrap();
+        let blocks = read_blocks(&server, URL, &layout, &[0, 4]).unwrap();
+        assert_eq!(blocks.len(), 2);
         for (i, block) in &blocks {
             let (bx, by) = (*i as u32 % 3, *i as u32 / 3);
             for y in 0..16 {

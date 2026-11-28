@@ -148,7 +148,7 @@ const BUILDING_KINDS: [&str; 3] = [
     "Sonstiges Bauwerk oder sonstige Einrichtung",
 ];
 /// The LGB spellings of `nutzart` (the AdV class names).
-pub(crate) const LAND_USE_CLASSES: [&str; 26] = [
+pub const LAND_USE_CLASSES: [&str; 26] = [
     "Wohnbaufläche",
     "Industrie- und Gewerbefläche",
     "Halde",

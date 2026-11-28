@@ -41,6 +41,7 @@ fn every_kind_is_read_with_its_addresses() {
     for (kind, index) in [
         ("laz-tiles", false),
         ("zip-archives", false),
+        ("stac-copc", false),
         ("index-json", true),
         ("meta4", true),
         ("currency-csv", true),
@@ -67,7 +68,7 @@ fn every_kind_is_read_with_its_addresses() {
 }
 
 #[test]
-fn the_kinds_are_the_five_the_manifest_names() {
+fn the_kinds_are_the_six_the_manifest_names() {
     let names: Vec<&str> = PointCloudKind::ALL.map(PointCloudKind::name).to_vec();
     assert_eq!(
         names,
@@ -76,7 +77,8 @@ fn the_kinds_are_the_five_the_manifest_names() {
             "index-json",
             "meta4",
             "currency-csv",
-            "zip-archives"
+            "zip-archives",
+            "stac-copc"
         ]
     );
 }

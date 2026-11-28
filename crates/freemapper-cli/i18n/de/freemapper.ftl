@@ -499,6 +499,7 @@ error-project-tiles-outdated = Das Kartengebiet braucht die Kacheln { $tiles }, 
 error-project-buildings-not-fetched = Für dieses Kartengebiet sind keine ALKIS-Gebäude gespeichert; rufen Sie zuerst `freemapper fetch` mit Netzverbindung auf
 error-project-orthophoto-not-fetched = Für dieses Kartengebiet ist kein Orthophoto gespeichert; rufen Sie zuerst `freemapper fetch` mit Netzverbindung auf
 error-project-terrain-not-fetched = Für dieses Kartengebiet ist kein Geländemodell gespeichert; rufen Sie zuerst `freemapper fetch` mit Netzverbindung auf
+error-project-credentials-missing = Die Daten von { $name } brauchen eine Anmeldung: Setzen Sie die Umgebungsvariablen { $user_env } (der Benutzername) und { $password_env } (das Passwort); das Konto muss bestellt haben: { $products }
 error-project-candidates-outdated = Die gespeicherten OSM-Kandidaten decken das Kartengebiet nicht ab; rufen Sie `freemapper fetch` auf
 error-project-stored = { $path }: { $message }; rufen Sie `freemapper fetch` noch einmal auf
 error-project-area-too-large = Das Kartengebiet mit Puffer misst { $width } × { $height } m, mehr als { $limit } m je Seite; verkleinern Sie das Kartengebiet oder buffer_m in freemapper.toml

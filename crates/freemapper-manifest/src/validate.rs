@@ -25,14 +25,14 @@ use toml::Spanned;
 
 use crate::error::ManifestError;
 use crate::model::{
-    Adapter, Alkis, Attribution, Boundary, BoundaryCrs, DateFormat, DateSource, Estimate,
+    Adapter, Alkis, Attribution, Auth, Boundary, BoundaryCrs, DateFormat, DateSource, Estimate,
     HeightModel, Licence, Manifest, Names, Nas, Normalise, Orthophoto, OsmExtract, PointCloud,
     PointCloudKind, Preview, TreeFields, Trees, Version, Wfs,
 };
 use crate::schema::{
-    Params, Raw, RawAdapter, RawAlkis, RawAttribution, RawBoundary, RawCode, RawDate, RawEstimate,
-    RawExtract, RawNas, RawPermitLayer, RawPermitWfs, RawPointCloud, RawPreview, RawRaster,
-    RawTrees, RawWording, Text,
+    Params, Raw, RawAdapter, RawAlkis, RawAttribution, RawAuth, RawBoundary, RawCode, RawDate,
+    RawEstimate, RawExtract, RawNas, RawPermitLayer, RawPermitWfs, RawPointCloud, RawPreview,
+    RawRaster, RawTrees, RawWording, Text,
 };
 use crate::{FORMAT, MANIFEST_FILE, MAX_MANIFEST_BYTES, MAX_URLS};
 
@@ -160,7 +160,7 @@ pub const TAKES_ADDRESSES: [&str; 10] = [
 
 /// The raster backends whose `[orthophoto]` states more addresses (`endpoints`), with the names
 /// each asks for (issue #273). The code of the backend keeps what it does with them.
-pub const TAKES_ENDPOINTS: [(&str, &[&str]); 6] = [
+pub const TAKES_ENDPOINTS: [(&str, &[&str]); 7] = [
     ("lgv", &["metadata", "dgm1", "bdom"]),
     ("geobasis-nrw", &["hm"]),
     (
@@ -170,6 +170,7 @@ pub const TAKES_ENDPOINTS: [(&str, &[&str]); 6] = [
     ("laiv-mv", &["overview", "dop-wcs", "dgm-wcs", "dom-wcs"]),
     ("geobremen", &["wms", "files"]),
     ("lgb", &["data", "currency"]),
+    ("lantmateriet", &["stac-hojd", "stac-vektor"]),
 ];
 
 /// The names of the addresses the raster backend `backend` asks; none for a backend not in
@@ -715,13 +716,18 @@ impl Check<'_> {
         };
         let terrain = match &raw.terrain {
             Some(table) => self
-                .height_model(table, "terrain", english.as_deref())
+                .height_model(
+                    table,
+                    "terrain",
+                    english.as_deref(),
+                    raw.orthophoto.is_none(),
+                )
                 .map(Some),
             None => Some(None),
         };
         let surface = match &raw.surface {
             Some(table) => self
-                .height_model(table, "surface", english.as_deref())
+                .height_model(table, "surface", english.as_deref(), false)
                 .map(Some),
             None => Some(None),
         };
@@ -740,6 +746,10 @@ impl Check<'_> {
         );
         let preview = match &raw.preview {
             Some(preview) => self.preview(preview).map(Some),
+            None => Some(None),
+        };
+        let auth = match &raw.auth {
+            Some(auth) => self.auth(auth).map(Some),
             None => Some(None),
         };
         let estimate = self.estimate(&raw.estimate);
@@ -769,6 +779,7 @@ impl Check<'_> {
             trees: trees?,
             permits: permits?,
             preview: preview?,
+            auth: auth?,
             estimate: estimate?,
         })
     }
@@ -785,17 +796,33 @@ impl Check<'_> {
         if orthophoto.is_none() && terrain.is_none() && surface.is_none() {
             return;
         }
+        // A terrain model alone (a region without an orthophoto): the surface model, if any,
+        // is of the same backend.
+        if let (None, Some(terrain)) = (orthophoto, terrain) {
+            let backend = |model: &HeightModel| match model {
+                HeightModel::Backend { name, .. } => Some(name.clone()),
+                HeightModel::Wcs { .. } => None,
+            };
+            if surface.is_some_and(|surface| backend(surface) != backend(terrain)) {
+                self.fail_whole(
+                    "manifest.rasters",
+                    "terrain",
+                    "the raster tables are all services, or they all name the same backend",
+                );
+            }
+            return;
+        }
         let (Some(orthophoto), Some(terrain)) = (orthophoto, terrain) else {
             self.fail_whole(
                 "manifest.rasters",
-                if orthophoto.is_none() { "orthophoto" } else { "terrain" },
-                "an adapter with rasters has `[orthophoto]` and `[terrain]`; `[surface]` may follow",
+                if terrain.is_none() { "terrain" } else { "orthophoto" },
+                "an adapter with rasters has `[terrain]`, with or without `[orthophoto]`; `[surface]` may follow",
             );
             return;
         };
         // The backend each table names; `None` for a service.
         let of_model = |model: &HeightModel| match model {
-            HeightModel::Backend { name } => Some(name.clone()),
+            HeightModel::Backend { name, .. } => Some(name.clone()),
             HeightModel::Wcs { .. } => None,
         };
         let first = match orthophoto {
@@ -1245,6 +1272,8 @@ impl Check<'_> {
                         "alkis.fallback",
                         kind,
                     ),
+                    self.absent(raw.stac.as_ref(), "alkis.stac", kind),
+                    self.absent(raw.collection.as_ref(), "alkis.collection", kind),
                 ]
                 .iter()
                 .all(Option::is_some);
@@ -1279,6 +1308,8 @@ impl Check<'_> {
                     self.absent(raw.land_use_type.as_ref(), "alkis.land_use_type", kind),
                     self.absent(raw.square_bez.as_ref(), "alkis.square_bez", kind),
                     self.absent(raw.sorted.as_ref(), "alkis.sorted", kind),
+                    self.absent(raw.stac.as_ref(), "alkis.stac", kind),
+                    self.absent(raw.collection.as_ref(), "alkis.collection", kind),
                 ]
                 .iter()
                 .all(Option::is_some);
@@ -1341,12 +1372,57 @@ impl Check<'_> {
                     fallback: fallback?,
                 })
             }
+            "stac-gpkg" => {
+                let kind = "kind `stac-gpkg`";
+                let fine = [
+                    self.absent(raw.name.as_ref(), "alkis.name", kind),
+                    self.absent(raw.url.as_ref(), "alkis.url", kind),
+                    self.absent(raw.buildings_type.as_ref(), "alkis.buildings_type", kind),
+                    self.absent(raw.land_use_type.as_ref(), "alkis.land_use_type", kind),
+                    self.absent(raw.square_bez.as_ref(), "alkis.square_bez", kind),
+                    self.absent(raw.sorted.as_ref(), "alkis.sorted", kind),
+                    self.absent(raw.buildings.as_ref(), "alkis.buildings", kind),
+                    self.absent(raw.land_use.as_ref(), "alkis.land_use", kind),
+                    self.absent(raw.normalise.as_ref(), "alkis.normalise", kind),
+                    self.absent(raw.crs.as_ref(), "alkis.crs", kind),
+                    self.absent(
+                        raw.fallback.as_ref().map(|fallback| &fallback.url),
+                        "alkis.fallback",
+                        kind,
+                    ),
+                ]
+                .iter()
+                .all(Option::is_some);
+                let stac = self
+                    .required(raw.stac.as_ref(), &at, "alkis.stac", kind)
+                    .and_then(|url| self.url(url, "alkis.stac"));
+                let collection = self
+                    .required(raw.collection.as_ref(), &at, "alkis.collection", kind)
+                    .and_then(|name| {
+                        self.matching(
+                            name,
+                            "alkis.collection",
+                            "manifest.value",
+                            |text| {
+                                (1..=64).contains(&text.len())
+                                    && text
+                                        .bytes()
+                                        .all(|b| b.is_ascii_alphanumeric() || b"_-".contains(&b))
+                            },
+                            "the name of a collection: letters, digits, `_` and `-`",
+                        )
+                    });
+                fine.then_some(Alkis::StacGpkg {
+                    stac: stac?,
+                    collection: collection?,
+                })
+            }
             _ => {
                 self.fail(
                     "manifest.kind",
                     &at,
                     "alkis.kind",
-                    "ALKIS comes from a `wfs` or from `ogc-api-features`",
+                    "ALKIS comes from a `wfs`, from `ogc-api-features` or from `stac-gpkg`",
                 );
                 None
             }
@@ -1601,6 +1677,7 @@ impl Check<'_> {
         raw: &RawRaster,
         table: &str,
         english: Option<&str>,
+        own_endpoints: bool,
     ) -> Option<HeightModel> {
         let kind = match self.kind_of(
             raw.kind.as_ref(),
@@ -1611,27 +1688,37 @@ impl Check<'_> {
         )? {
             Ok(kind) => kind,
             Err(name) => {
-                let fine = self.absent_of_raster(
-                    raw,
-                    table,
-                    "a backend",
-                    &[
-                        "label",
-                        "url",
-                        "layer",
-                        "coverage",
-                        "crs",
-                        "params",
-                        "endpoints",
-                        "max_px",
-                        "multipart",
-                        "envelope",
-                        "max_m",
-                        "date",
-                        "source_label",
-                    ],
-                );
-                return fine.then_some(HeightModel::Backend { name });
+                // A terrain model without an orthophoto states the endpoints of its backend.
+                let names = if own_endpoints && table == "terrain" {
+                    endpoint_names(&name)
+                } else {
+                    &[]
+                };
+                let mut absent = vec![
+                    "label",
+                    "url",
+                    "layer",
+                    "coverage",
+                    "crs",
+                    "params",
+                    "max_px",
+                    "multipart",
+                    "envelope",
+                    "max_m",
+                    "date",
+                    "source_label",
+                ];
+                if names.is_empty() {
+                    absent.push("endpoints");
+                }
+                let fine = self.absent_of_raster(raw, table, "a backend", &absent);
+                let mut config = RasterConfig::default();
+                if !names.is_empty() {
+                    config.endpoints = self
+                        .endpoints(raw.endpoints.as_ref(), table, names)
+                        .unwrap_or_default();
+                }
+                return fine.then_some(HeightModel::Backend { name, config });
             }
         };
         let at = kind.span();
@@ -3516,6 +3603,68 @@ impl Check<'_> {
             kind: kind?,
             url: url?,
             index_url: index_url?,
+        })
+    }
+
+    /// `[auth]`: a declared host and two variables named `FREEMAPPER_…`, so that no manifest
+    /// reads another variable of the person's environment.
+    fn auth(&mut self, raw: &RawAuth) -> Option<Auth> {
+        let host = raw.host.get_ref().to_ascii_lowercase();
+        let declared = self
+            .hosts
+            .as_ref()
+            .is_none_or(|hosts| hosts.contains(&host));
+        let host = if declared {
+            Some(host)
+        } else {
+            self.fail(
+                "manifest.auth-host",
+                &raw.host.span(),
+                "auth.host",
+                format!("the host {host} is not in `[net] hosts`"),
+            );
+            None
+        };
+        let variable = |text: &str| {
+            text.strip_prefix("FREEMAPPER_").is_some_and(|rest| {
+                (1..=40).contains(&rest.len())
+                    && rest
+                        .bytes()
+                        .all(|b| b.is_ascii_uppercase() || b.is_ascii_digit() || b == b'_')
+            })
+        };
+        let expected = "a variable name: `FREEMAPPER_` and 1 to 40 capitals, digits or `_`";
+        let user_env = self.matching(
+            &raw.user_env,
+            "auth.user_env",
+            "manifest.value",
+            variable,
+            expected,
+        );
+        let password_env = self.matching(
+            &raw.password_env,
+            "auth.password_env",
+            "manifest.value",
+            variable,
+            expected,
+        );
+        let mut products = Vec::new();
+        let mut fine = true;
+        if !(1..=6).contains(&raw.products.len()) {
+            self.fail_whole("manifest.value", "auth.products", "name 1 to 6 products");
+            fine = false;
+        }
+        for product in raw.products.iter().take(6) {
+            match self.text(product, "auth.products", "manifest.value", 80) {
+                Some(product) => products.push(product),
+                None => fine = false,
+            }
+        }
+        Some(Auth {
+            host: host?,
+            user_env: user_env?,
+            password_env: password_env?,
+            products: fine.then_some(products)?,
         })
     }
 

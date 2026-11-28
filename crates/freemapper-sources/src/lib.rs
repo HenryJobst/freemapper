@@ -14,6 +14,7 @@ pub mod citygml;
 pub mod dates;
 pub mod float_tiff;
 pub mod geojson_wfs;
+pub mod gpkg;
 pub mod height_model;
 pub mod layer_file;
 pub mod metalink;
@@ -26,6 +27,7 @@ pub mod raster;
 pub mod raster_fetch;
 pub mod replay;
 pub mod shapefile;
+pub mod stac;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
 pub mod tiff_range;

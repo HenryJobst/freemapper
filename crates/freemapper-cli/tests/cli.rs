@@ -2532,14 +2532,15 @@ fn adapters_list_shows_built_in_user_and_project_adapters() {
     let (out, err) = list(&["--json"]);
     let json: serde_json::Value = serde_json::from_str(&out).unwrap();
     let adapters = json["adapters"].as_array().unwrap();
-    assert_eq!(adapters.len(), 18, "{out}");
+    assert_eq!(adapters.len(), 19, "{out}");
     assert_eq!(adapters[0]["id"], "brandenburg");
     assert_eq!(adapters[0]["source"], "built-in");
     assert_eq!(adapters[15]["id"], "polska");
     assert_eq!(adapters[16]["id"], "cesko");
-    assert_eq!(adapters[17]["id"], "mine");
-    assert_eq!(adapters[17]["source"], "user");
-    assert_eq!(adapters[17]["revision"], 2);
+    assert_eq!(adapters[17]["id"], "sweden");
+    assert_eq!(adapters[18]["id"], "mine");
+    assert_eq!(adapters[18]["source"], "user");
+    assert_eq!(adapters[18]["revision"], 2);
     assert_eq!(json["warnings"][0]["skipped"], true);
     assert_eq!(
         json["warnings"][0]["findings"][0]["code"],
@@ -2549,22 +2550,22 @@ fn adapters_list_shows_built_in_user_and_project_adapters() {
     // The project's adapters only when asked for.
     let (out, _) = list(&["--json", "--project", project.path().to_str().unwrap()]);
     let json: serde_json::Value = serde_json::from_str(&out).unwrap();
-    assert_eq!(json["adapters"][18]["id"], "theirs");
-    assert_eq!(json["adapters"][18]["source"], "project");
+    assert_eq!(json["adapters"][19]["id"], "theirs");
+    assert_eq!(json["adapters"][19]["source"], "project");
     // As text, with the warning on stderr.
     let (out, err) = list(&[]);
     let lines: Vec<&str> = out.lines().collect();
-    assert_eq!(lines.len(), 19, "{out}");
+    assert_eq!(lines.len(), 20, "{out}");
     assert!(
         lines[0].starts_with("brandenburg  Brandenburg  built in  revision 2  "),
         "{out}"
     );
     assert_eq!(
-        lines[17],
+        lines[18],
         "mine  Sample  from your folder  revision 2  checked never  hosts: geo.example.org  shares ground with: Brandenburg"
     );
     assert!(
-        lines[18].starts_with("Your adapters are read from "),
+        lines[19].starts_with("Your adapters are read from "),
         "{out}"
     );
     assert!(err.starts_with("warning: the adapter in "), "{err}");
@@ -2715,7 +2716,7 @@ fn adapters_export_writes_a_folder_that_replaces_the_built_in_adapter() {
         .unwrap();
     let json: serde_json::Value =
         serde_json::from_str(&String::from_utf8(output.stdout).unwrap()).unwrap();
-    assert_eq!(json["adapters"].as_array().unwrap().len(), 17, "{json}");
+    assert_eq!(json["adapters"].as_array().unwrap().len(), 18, "{json}");
     for id in STATES {
         let adapter = json["adapters"]
             .as_array()
