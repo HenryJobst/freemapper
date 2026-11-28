@@ -3189,3 +3189,75 @@ fn sources_lists_reads_and_corrects_addresses() {
     let (code, _, _) = run(&["sources", "check", "bayern"]);
     assert_eq!(code, Some(2));
 }
+
+/// `sources corrections` and `sources update --mode` work in the settings folder the person has:
+/// no list is no error, a list that does not verify is named, and the setting is stored.
+#[test]
+fn the_list_of_corrections_is_read_from_the_settings_folder() {
+    let config = tempfile::tempdir().unwrap();
+    let run = |args: &[&str]| {
+        let output = freemapper()
+            .env("FREEMAPPER_CONFIG_DIR", config.path())
+            .args(args)
+            .output()
+            .unwrap();
+        (
+            output.status.code(),
+            String::from_utf8(output.stdout).unwrap(),
+            String::from_utf8(output.stderr).unwrap(),
+        )
+    };
+    // Nothing stored: said so, exit code 0.
+    let (code, out, err) = run(&["sources", "corrections"]);
+    assert_eq!(code, Some(0), "{out}{err}");
+    assert!(out.contains("No list of corrections is stored"), "{out}");
+    let (code, out, _) = run(&["sources", "corrections", "--json"]);
+    assert_eq!(code, Some(0));
+    let json: serde_json::Value = serde_json::from_str(&out).unwrap();
+    assert!(json["issued"].is_null() && json["corrections"].as_array().unwrap().is_empty());
+    // The daily check is off until the person turns it on; the setting is kept.
+    let (code, out, err) = run(&["sources", "update", "--mode", "on"]);
+    assert_eq!(code, Some(0), "{out}{err}");
+    assert!(out.contains("is on"), "{out}");
+    let settings = std::fs::read_to_string(config.path().join("settings.toml")).unwrap();
+    assert!(settings.contains("corrections = \"on\""), "{settings}");
+    let (code, out, _) = run(&["sources", "update", "--mode", "off"]);
+    assert_eq!(code, Some(0));
+    assert!(out.contains("is off"), "{out}");
+    let settings = std::fs::read_to_string(config.path().join("settings.toml")).unwrap();
+    assert!(settings.contains("corrections = \"off\""), "{settings}");
+    // A list whose signature is not the program's: not used, named, exit code 1.
+    let folder = config.path().join("sources");
+    std::fs::create_dir_all(&folder).unwrap();
+    std::fs::write(
+        folder.join("freemapper-sources.json"),
+        r#"{"format":1,"issued":"2026-11-27","corrections":[]}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        folder.join("freemapper-sources.json.minisig"),
+        "not a signature",
+    )
+    .unwrap();
+    let (code, out, err) = run(&["sources", "corrections"]);
+    assert_eq!(code, Some(1), "{out}{err}");
+    assert!(
+        err.contains("the stored list of corrections is left out"),
+        "{err}"
+    );
+    // Any other command goes on with the addresses of the program and says so.
+    let (code, out, err) = run(&["sources", "list", "hamburg"]);
+    assert_eq!(code, Some(0), "{out}{err}");
+    assert!(
+        err.contains("the stored list of corrections is left out"),
+        "{err}"
+    );
+    // `--remove` deletes it.
+    let (code, out, _) = run(&["sources", "update", "--remove"]);
+    assert_eq!(code, Some(0));
+    assert!(out.contains("Removed the stored list"), "{out}");
+    assert!(!folder.join("freemapper-sources.json").exists());
+    let (code, out, _) = run(&["sources", "update", "--remove"]);
+    assert_eq!(code, Some(0));
+    assert!(out.contains("No list of corrections is stored"), "{out}");
+}

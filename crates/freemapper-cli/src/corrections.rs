@@ -345,7 +345,7 @@ pub fn refresh_daily(daily: Daily) -> Option<String> {
     };
     let record = CheckRecord {
         at: daily.now,
-        by: daily.app.current.clone(),
+        by: daily.app.current,
         result: match &result {
             Ok(_) => RecordResult::Current,
             Err(reason) => RecordResult::Failed {
@@ -532,6 +532,58 @@ fn show_in(dir: &Path, keys: &[&str], json: bool) -> anyhow::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_paths_are_those_of_the_settings_folder() {
+        assert_eq!(dir(), settings_dir().map(|dir| dir.join("sources")));
+        assert_eq!(
+            settings_file(),
+            settings_dir().map(|dir| dir.join("settings.toml"))
+        );
+    }
+
+    #[test]
+    fn every_outcome_has_its_own_word() {
+        let words = [
+            (Outcome::Applied { host_added: None }, "applied"),
+            (Outcome::AlreadyCurrent, "already-current"),
+            (Outcome::Stale, "stale"),
+            (Outcome::UnknownAdapter, "unknown-adapter"),
+            (Outcome::UnknownPath, "unknown-path"),
+            (Outcome::Refused("why".into()), "refused"),
+        ];
+        for (outcome, word) in words {
+            assert_eq!(code_of(&outcome), word);
+        }
+    }
+
+    #[test]
+    fn a_missing_settings_file_is_made_and_one_that_cannot_be_read_is_kept() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("settings.toml");
+        set_daily(&file, true).unwrap();
+        assert!(daily_on_in(&file));
+        set_daily(&file, false).unwrap();
+        assert!(!daily_on_in(&file));
+        // Text that is no UTF-8 cannot be read: an error that is not "not found", and the file
+        // stays as it is.
+        let bad = dir.path().join("bad.toml");
+        std::fs::write(&bad, [0xff, 0xfe, 0x00]).unwrap();
+        assert!(set_daily(&bad, true).is_err());
+        assert_eq!(std::fs::read(&bad).unwrap(), [0xff, 0xfe, 0x00]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_list_that_cannot_be_opened_is_an_error_not_no_list() {
+        let dir = tempfile::tempdir().unwrap();
+        // A file where the folder should be: opening `<file>/freemapper-sources.json` fails
+        // with something other than "not found".
+        let blocker = dir.path().join("sources");
+        std::fs::write(&blocker, "x").unwrap();
+        assert!(read_limited(&blocker.join(FILE), 10).is_err());
+        assert_eq!(read_limited(&dir.path().join("none"), 10), Ok(None));
+    }
     use std::collections::HashMap;
     use std::sync::Mutex;
 

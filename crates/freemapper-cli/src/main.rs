@@ -1087,10 +1087,10 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
     // The signed list of corrections of addresses (issue #273, stage 4) comes before anything
     // reads a manifest, the list of the adapters and `sources` included. A command that uses the
     // network anyway may fetch a newer list first, once a day, when the person turned that on.
-    if !matches!(cli.command, Commands::Update { .. } | Commands::Mcp { .. }) {
-        if let Some((_, offline)) = cli.command.update_check() {
-            corrections::refresh_daily_for_command(offline);
-        }
+    if !matches!(cli.command, Commands::Update { .. } | Commands::Mcp { .. })
+        && let Some((_, offline)) = cli.command.update_check()
+    {
+        corrections::refresh_daily_for_command(offline);
     }
     adapter_lines.extend(corrections::activate());
     if !matches!(

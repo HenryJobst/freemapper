@@ -251,3 +251,15 @@ fn corrections_of_one_manifest_apply_one_after_the_other() {
     );
     assert!(applied.texts["sample"].contains("alkis/wfs3"));
 }
+
+/// A list of exactly the largest size is read; one byte more is refused.
+#[test]
+fn the_size_limit_is_exact() {
+    let head = br#"{"format":1,"issued":"2026-11-27","corrections":[]}"#;
+    let mut at_limit = head.to_vec();
+    at_limit.resize(MAX_BYTES, b' ');
+    assert!(parse_list(&at_limit).is_ok());
+    let mut over = head.to_vec();
+    over.resize(MAX_BYTES + 1, b' ');
+    assert_eq!(parse_list(&over), Err(ListError::TooLarge));
+}
