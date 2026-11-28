@@ -1898,10 +1898,10 @@ Hamburger Ecke bei Harburg ab, und die Höhenmodelle des LVermGeo RP reichen bei
 Schweden ist eine Vorschau für Waldkarten und für Karten, die kein Luftbild brauchen: Geländemodell (Höhenlinien,
 Schummerung, Neigung, Relief), Laserpunktwolken für die Vegetation und die Bodenbedeckung kommen von der Lantmäteriet
 (Geländemodell und Bodenbedeckung unter CC BY 4.0; der Katalog gibt den Laserdaten die Lizenz „other“, deren Bedingungen bei
-Geotorget stehen; Quellenangabe "© Lantmäteriet"); die Wege kommen aus OpenStreetMap. Es gibt **kein Luftbild** (die
-Karte hat keine Luftbild-Vorlage, und `derive` sagt es), **keine Gebäude** (das Register Byggnad gehört nicht zu dieser
-Stufe, und Gebäude aus OpenStreetMap werden nicht gezeichnet) und keine Genehmigungshinweise. Darum eignet sich diese
-Stufe für Waldkarten.
+Geotorget stehen; Quellenangabe "© Lantmäteriet"); die Wege und die Gebäude kommen aus OpenStreetMap (ADR 0206; das Register Byggnad
+gehört nicht zu dieser Stufe). Es gibt **kein Luftbild** (die Karte hat keine Luftbild-Vorlage, und `derive` sagt es)
+und keine Genehmigungshinweise. Die Gebäude sind so vollständig wie OpenStreetMap: gut in Städten, dünner auf dem Land.
+Die Bodenbedeckung liefert auch Sumpf aus der Feuchtgebiets-Ebene von Marktäcke.
 
 Die Downloads der Lantmäteriet brauchen ein privates Konto bei Geotorget (`geotorget.lantmateriet.se`), das drei
 kostenlose Produkte bestellt hat: **Markhöjdmodell Nedladdning**, **Laserdata Skog** und **Marktäcke**. freemapper liest
@@ -1915,7 +1915,7 @@ freemapper run <dir>
 
 Ohne sie bricht ein Abruf in Schweden ab, bevor er das Netz fragt, und nennt beide Variablen und die drei Produkte. Das
 Geländemodell wird per Bereichsabruf aus den 10-km-Kacheln gelesen, eine Karte kostet also wenige MB; eine Kachel der
-Laserpunktwolke hat rund 80 MB (2,5 km Kantenlänge) und bleibt im Zwischenspeicher. Die Lantmäteriet veröffentlicht ihre
+Laserpunktwolke hat 80 bis 125 MB (2,5 km Kantenlänge) und bleibt im Zwischenspeicher. Die Lantmäteriet veröffentlicht ihre
 Download-Grenzen nicht. Lehnt sie einen Download mit HTTP 429 ab, endet der Lauf mit einem Hinweis auf die Grenze des
 Kontos; starte ihn später neu, Heruntergeladenes bleibt im Zwischenspeicher. Ein Konto ohne Bestellung bekommt einen
 Fehler, der das Produkt nennt. Fehlt dem Katalog eine Geländekachel für einen Teil des Gebiets, nennt eine Warnung den

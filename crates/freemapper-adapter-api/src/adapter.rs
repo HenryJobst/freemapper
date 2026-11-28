@@ -96,6 +96,14 @@ pub trait RegionAdapter: Send + Sync {
         None
     }
 
+    /// Whether the buildings of the region come from OpenStreetMap: it has no register of them
+    /// (or the adapter does not read it yet). A fetch then keeps the `building` ways and
+    /// relations of the OSM extract and stores them as the buildings of the project, and asks
+    /// no ALKIS service for buildings. `false`, as for most.
+    fn buildings_from_osm(&self) -> bool {
+        false
+    }
+
     /// The raster templates the adapter fetches with code of its own; empty for most.
     fn templates(&self) -> &[Box<dyn RasterTemplate>] {
         &[]

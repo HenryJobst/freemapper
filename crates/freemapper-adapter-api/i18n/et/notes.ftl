@@ -99,6 +99,7 @@ warning-osm-extract-missing-kept = OSM-i väljavõtet pole vahemälus; kasutatak
 progress-osm-extract-read = OSM-i väljavõtte { $region } lugemine (kuupäev { $date })
 progress-osm-candidates = { $count } OSM-i kandidaatobjekti
 
+progress-osm-buildings = Hooneid OpenStreetMapist: { $count }
 ## Permit notes
 
 progress-permits-fetch = loamärkmete jaoks laaditakse alla { $source } andmed

@@ -99,11 +99,18 @@ opt-level = 3
 
 # The geometry checks of the boundaries (geo's validation, generic code that is built in the crate
 # that calls it) take minutes per test at opt-level 0; the two crates that call them stay fast.
+# Debug assertions and overflow checks are off there as well: with them on, `every_manifest_names_its_state`
+# took 152 s of CPU and 19.7 GB of memory at opt-level 3, without them 6.7 s and 21 MB (measured on
+# 2026-11-28). Only the boundary checks of these two crates are affected, and the release build is not.
 [profile.dev.package.freemapper-manifest]
 opt-level = 3
+debug-assertions = false
+overflow-checks = false
 
 [profile.dev.package.freemapper-adapter-api]
 opt-level = 3
+debug-assertions = false
+overflow-checks = false
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

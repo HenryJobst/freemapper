@@ -105,6 +105,7 @@ warning-osm-extract-missing-kept = brak wyciągu OSM w pamięci podręcznej; zac
 progress-osm-extract-read = odczyt wyciągu OSM { $region } z { $date }
 progress-osm-candidates = kandydaci OSM: { $count }
 
+progress-osm-buildings = Budynki z OpenStreetMap: { $count }
 ## Permit notes
 
 progress-permits-fetch = pobieranie danych { $source } dla wskazówek dotyczących zgód

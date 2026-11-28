@@ -355,6 +355,11 @@ mod tests {
         }
     }
 
+    #[test]
+    fn an_adapter_takes_its_buildings_from_its_register_unless_it_says_otherwise() {
+        assert!(!plain("anywhere").buildings_from_osm());
+    }
+
     fn plain(id: &'static str) -> Arc<dyn RegionAdapter> {
         Arc::new(Plain(
             RegionInfo {
