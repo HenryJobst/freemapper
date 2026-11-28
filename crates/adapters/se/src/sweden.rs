@@ -66,7 +66,7 @@ pub struct SwedenAdapter {
 impl SwedenAdapter {
     /// The adapter with the hosts in `extra` allowed besides those of the manifest: what a person
     /// allowed after a service moved (ADR 0110). `backends` holds the raster backend of the
-    /// manifest ([`register_backends`]).
+    /// manifest (`register_backends`).
     pub fn with_hosts(backends: &Registry, extra: &[String]) -> Self {
         let broken = |findings: Vec<freemapper_manifest::ManifestError>| -> ! {
             let lines: Vec<String> = findings.iter().map(ToString::to_string).collect();

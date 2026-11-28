@@ -871,7 +871,6 @@ dependencies = [
  "freemapper-sources",
  "geo",
  "geo-types",
- "geojson",
  "las",
  "serde_json",
  "tempfile",
